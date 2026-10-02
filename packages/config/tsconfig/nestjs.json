@@ -1,10 +1,10 @@
 {
   "$schema": "https://json.schemastore.org/tsconfig",
-  "description": "NestJS compiles to CommonJS with decorator metadata. Workspace packages are consumed via their built CJS output.",
+  "description": "NestJS 12 is ESM-only: native ESM output with legacy decorators + metadata. Relative imports need .js extensions.",
   "extends": "./base.json",
   "compilerOptions": {
-    "module": "CommonJS",
-    "moduleResolution": "Node10",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
     "emitDecoratorMetadata": true,
     "experimentalDecorators": true,
     "isolatedModules": false,

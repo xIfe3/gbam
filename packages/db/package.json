@@ -29,7 +29,8 @@
     "lint": "eslint .",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "tsx src/seed.ts"
   },
   "dependencies": {
     "@gbam/shared": "workspace:*",
@@ -42,6 +43,7 @@
     "dotenv": "^18.0.5",
     "drizzle-kit": "^0.31.11",
     "tsup": "^8.5.1",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   }
 }
