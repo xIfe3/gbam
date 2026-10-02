@@ -1,0 +1,81 @@
+# Production-shaped stack. Shows the deploy order your host must follow:
+#   migrate runs once and exits → only then api + worker start.
+#
+#   cp .env.production.example .env.production   # fill in real keys
+#   docker compose -f docker/docker-compose.prod.yml --env-file .env.production up --build
+#
+# On a real host (Railway, Fly, Render, a VPS…) replicate the same three roles from the
+# one gbam-api image, and use managed Postgres/Redis instead of the two below.
+name: gbam-prod
+
+x-api: &api
+  image: gbam-api
+  build: { context: .., dockerfile: apps/api/Dockerfile }
+  environment: &api-env
+    NODE_ENV: ${NODE_ENV:-production}
+    DATABASE_URL: postgres://gbam:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/gbam
+    REDIS_URL: redis://redis:6379
+    WEB_URL: ${WEB_URL:?set WEB_URL}
+    PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
+    WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
+    WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v23.0}
+
+services:
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_USER: gbam
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: gbam
+    volumes: [pgdata-prod:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gbam"]
+      interval: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    command: ["redis-server", "--appendonly", "yes"] # persist queued jobs across restarts
+    volumes: [redisdata-prod:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      retries: 10
+
+  migrate:
+    <<: *api
+    command: ["node", "node_modules/@gbam/db/dist/migrate.js"]
+    restart: "no"
+    depends_on:
+      postgres: { condition: service_healthy }
+
+  api:
+    <<: *api
+    ports: ["4000:4000"]
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  worker:
+    <<: *api
+    command: ["node", "--enable-source-maps", "dist/worker.js"]
+    restart: unless-stopped
+    depends_on:
+      migrate: { condition: service_completed_successfully }
+      redis: { condition: service_healthy }
+
+  web:
+    image: gbam-web
+    build: { context: .., dockerfile: apps/web/Dockerfile }
+    environment:
+      API_URL: http://api:4000
+      DEV_SELLER_ID: ${DEV_SELLER_ID:-}
+    ports: ["3000:3000"]
+    restart: unless-stopped
+    depends_on: [api]
+
+volumes:
+  pgdata-prod:
+  redisdata-prod:

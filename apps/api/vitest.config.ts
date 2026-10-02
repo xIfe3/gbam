@@ -6,6 +6,8 @@ import { defineConfig } from "vitest/config";
 export default defineConfig({
   plugins: [swc.vite({ module: { type: "es6" } })],
   test: {
+    // Redis db 1, not db 0: a running `pnpm dev` worker must never consume test jobs.
+    env: { REDIS_URL: "redis://localhost:6379/1" },
     // Integration tests share one Postgres; keep them sequential.
     fileParallelism: false,
     testTimeout: 15_000,

@@ -12,10 +12,12 @@
     "start:worker": "node --enable-source-maps --env-file-if-exists=../../.env dist/worker.js",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
-    "test": "vitest run"
+    "test": "vitest run",
+    "simulate:payment": "node --env-file-if-exists=../../.env dist/scripts/simulate-payment.js"
   },
   "dependencies": {
     "@gbam/db": "workspace:*",
+    "@gbam/integrations": "workspace:*",
     "@gbam/shared": "workspace:*",
     "@nestjs/bullmq": "^12.0.0",
     "@nestjs/common": "^12.1.2",

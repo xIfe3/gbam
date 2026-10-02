@@ -124,6 +124,8 @@ export const payments = pgTable(
     /** Paystack transaction reference. Unique so a replayed webhook is a no-op. */
     reference: text("reference").notNull().unique(),
     amountKobo: kobo("amount_kobo"),
+    /** Paystack checkout link we sent the customer. */
+    authorizationUrl: text("authorization_url"),
     status: paymentStatusEnum("status").notNull().default("pending"),
     raw: jsonb("raw"),
     createdAt: createdAt(),

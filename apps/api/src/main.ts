@@ -6,7 +6,8 @@ import { DomainErrorsFilter } from "./common/domain-errors.filter.js";
 import { ENV, type Env } from "./env.js";
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
+  // rawBody: webhook signatures are computed over the exact bytes Paystack sent.
+  const app = await NestFactory.create(AppModule, { rawBody: true });
   app.enableShutdownHooks();
   app.useGlobalFilters(new DomainErrorsFilter());
   // No CORS: browsers never call the API directly. apps/web calls it server-side.

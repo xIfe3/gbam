@@ -1,0 +1,28 @@
+# Next.js standalone server. Build from the repo root:
+#   docker build -f apps/web/Dockerfile -t gbam-web .
+
+FROM node:22-alpine AS base
+RUN npm install -g pnpm@10.32.1 turbo@2.11.6
+WORKDIR /app
+
+FROM base AS prepare
+COPY . .
+RUN turbo prune @gbam/web --docker
+
+FROM base AS builder
+COPY --from=prepare /app/out/json/ .
+RUN pnpm install --frozen-lockfile
+COPY --from=prepare /app/out/full/ .
+ENV NEXT_TELEMETRY_DISABLED=1
+RUN turbo run build --filter=@gbam/web...
+
+# output: "standalone" traces exactly the files `next start` needs into .next/standalone.
+FROM node:22-alpine AS runner
+ENV NODE_ENV=production NEXT_TELEMETRY_DISABLED=1 PORT=3000 HOSTNAME=0.0.0.0
+WORKDIR /app
+RUN addgroup --system --gid 1001 gbam && adduser --system --uid 1001 --ingroup gbam gbam
+COPY --from=builder --chown=gbam:gbam /app/apps/web/.next/standalone ./
+COPY --from=builder --chown=gbam:gbam /app/apps/web/.next/static ./apps/web/.next/static
+USER gbam
+EXPOSE 3000
+CMD ["node", "apps/web/server.js"]

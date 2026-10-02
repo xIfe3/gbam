@@ -1,3 +1,5 @@
+// "use client" = this component runs in the BROWSER (it needs clicks and state).
+// Files without it run only on the server.
 "use client";
 
 import { formatNaira } from "@gbam/shared";
@@ -7,18 +9,51 @@ import { placeOrder, type PlaceOrderState } from "./actions";
 
 type Props = { slug: string; products: Storefront["products"] };
 
+/** Basket (+/− per product) and the checkout form. */
 export function Checkout({ slug, products }: Props) {
+  // useState: a value React remembers between re-renders. Here: productId → quantity.
+  // Calling setQuantities(...) updates it and re-draws the component.
   const [quantities, setQuantities] = useState<Record<string, number>>({});
+
+  // useActionState wires the form to the `placeOrder` server action:
+  // - state:      what placeOrder last returned (idle / error / success)
+  // - formAction: pass to <form action={...}>
+  // - pending:    true while the server is working
+  // `.bind(null, slug)` pre-fills placeOrder's first argument with this store's slug.
   const [state, formAction, pending] = useActionState<PlaceOrderState, FormData>(
     placeOrder.bind(null, slug),
     { status: "idle" },
   );
 
-  // Display only. The API recomputes the total from DB prices.
-  const total = products.reduce((sum, p) => sum + p.priceKobo * (quantities[p.id] ?? 0), 0);
-  const itemCount = Object.values(quantities).reduce((a, b) => a + b, 0);
-  const setQty = (id: string, qty: number) =>
-    setQuantities((q) => ({ ...q, [id]: Math.max(0, Math.min(99, qty)) }));
+  // Basket total and item count, for display only. The API recomputes the real total
+  // from database prices, so changing these in the browser can't change what's charged.
+  let total = 0;
+  let itemCount = 0;
+  for (const product of products) {
+    const quantity = quantityOf(product.id);
+    total = total + product.priceKobo * quantity;
+    itemCount = itemCount + quantity;
+  }
+
+  function quantityOf(productId: string): number {
+    const quantity = quantities[productId];
+    if (quantity === undefined) {
+      return 0;
+    }
+    return quantity;
+  }
+
+  function setQuantity(productId: string, quantity: number) {
+    // Keep it between 0 and 99.
+    let safeQuantity = quantity;
+    if (safeQuantity < 0) safeQuantity = 0;
+    if (safeQuantity > 99) safeQuantity = 99;
+
+    // Copy the old object and change one entry. (React needs a NEW object to notice.)
+    const updated = { ...quantities };
+    updated[productId] = safeQuantity;
+    setQuantities(updated);
+  }
 
   if (state.status === "success") {
     return (
@@ -33,15 +68,37 @@ export function Checkout({ slug, products }: Props) {
     );
   }
 
-  const fieldError = (name: string) =>
-    state.status === "error" ? state.fieldErrors?.[name]?.[0] : undefined;
-  const previous = state.status === "error" ? state.values : undefined;
+  // After a failed submit: the error for one field, and what the customer had typed
+  // (React clears the form after a server action, so we put their input back).
+  function fieldError(fieldName: string): string | undefined {
+    if (state.status !== "error" || !state.fieldErrors) {
+      return undefined;
+    }
+    const errors = state.fieldErrors[fieldName];
+    if (!errors) {
+      return undefined;
+    }
+    return errors[0];
+  }
+
+  let previous: { name: string; phone: string; note: string } | undefined = undefined;
+  if (state.status === "error") {
+    previous = state.values;
+  }
+
+  let submitLabel = `Place order · ${formatNaira(total)}`;
+  if (itemCount === 0) {
+    submitLabel = "Add items to order";
+  }
+  if (pending) {
+    submitLabel = "Placing order…";
+  }
 
   return (
     <form action={formAction} className="space-y-6">
       <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
         {products.map((p) => {
-          const qty = quantities[p.id] ?? 0;
+          const qty = quantityOf(p.id);
           return (
             <li key={p.id} className="flex items-center gap-4 p-4">
               <div className="min-w-0 flex-1">
@@ -53,7 +110,7 @@ export function Checkout({ slug, products }: Props) {
                 <button
                   type="button"
                   aria-label={`Remove one ${p.name}`}
-                  onClick={() => setQty(p.id, qty - 1)}
+                  onClick={() => setQuantity(p.id, qty - 1)}
                   disabled={qty === 0}
                   className="size-9 rounded-full border border-zinc-300 text-lg disabled:opacity-30"
                 >
@@ -65,7 +122,7 @@ export function Checkout({ slug, products }: Props) {
                 <button
                   type="button"
                   aria-label={`Add one ${p.name}`}
-                  onClick={() => setQty(p.id, qty + 1)}
+                  onClick={() => setQuantity(p.id, qty + 1)}
                   className="size-9 rounded-full border border-zinc-300 text-lg"
                 >
                   +
@@ -120,11 +177,7 @@ export function Checkout({ slug, products }: Props) {
         disabled={pending || itemCount === 0}
         className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
       >
-        {pending
-          ? "Placing order…"
-          : itemCount === 0
-            ? "Add items to order"
-            : `Place order · ${formatNaira(total)}`}
+        {submitLabel}
       </button>
     </form>
   );

@@ -18,7 +18,8 @@
     "db:generate": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:generate",
     "db:migrate": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:migrate",
     "db:studio": "pnpm --filter @gbam/db db:studio",
-    "db:seed": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:seed"
+    "db:seed": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:seed",
+    "simulate:payment": "pnpm --filter @gbam/api simulate:payment"
   },
   "devDependencies": {
     "@gbam/config": "workspace:*",

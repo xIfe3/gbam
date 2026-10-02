@@ -24,6 +24,9 @@
     "test": {
       "dependsOn": ["^build"],
       "outputs": []
+    },
+    "@gbam/web#typecheck": {
+      "dependsOn": ["^build", "@gbam/web#build"]
     }
   }
 }

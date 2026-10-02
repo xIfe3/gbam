@@ -94,15 +94,16 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="mb-2 font-semibold">History</h2>
         <ol className="space-y-1 text-sm">
-          {order.events.map((e) => (
-            <li key={e.id} className="flex justify-between gap-4">
+          {order.events.map((event) => (
+            <li key={event.id} className="flex justify-between gap-4">
               <span>
-                {e.fromStatus ? `${STATUS_LABEL[e.fromStatus]} → ` : ""}
-                <strong>{STATUS_LABEL[e.toStatus]}</strong>
-                <span className="text-zinc-400"> · {e.actor}</span>
+                {/* The very first event has no "from" (the order was just created). */}
+                {event.fromStatus && <>{STATUS_LABEL[event.fromStatus]} → </>}
+                <strong>{STATUS_LABEL[event.toStatus]}</strong>
+                <span className="text-zinc-400"> · {event.actor}</span>
               </span>
-              <time className="text-zinc-500" dateTime={e.createdAt}>
-                {new Date(e.createdAt).toLocaleTimeString("en-NG", { timeStyle: "short" })}
+              <time className="text-zinc-500" dateTime={event.createdAt}>
+                {new Date(event.createdAt).toLocaleTimeString("en-NG", { timeStyle: "short" })}
               </time>
             </li>
           ))}

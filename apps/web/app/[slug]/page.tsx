@@ -23,10 +23,29 @@ export async function generateMetadata(props: PageProps<"/[slug]">): Promise<Met
 /** Public storefront at gbam.app/{slug}. */
 export default async function StorefrontPage(props: PageProps<"/[slug]">) {
   const { slug } = await props.params;
+  const searchParams = await props.searchParams;
   const { store, products } = await loadStore(slug);
+
+  // ?paid=GB-XXXX is added by Paystack when it sends the customer back here.
+  // It only shows a thank-you banner; the Paystack webhook is what actually marks the
+  // order paid, so faking this URL achieves nothing.
+  let paidCode: string | null = null;
+  const paid = searchParams.paid;
+  if (typeof paid === "string" && /^GB-[2-9A-Z]{4}$/.test(paid)) {
+    paidCode = paid;
+  }
 
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
+      {paidCode && (
+        <p
+          role="status"
+          className="mb-6 rounded-xl border border-emerald-200 bg-brand-50 p-4 text-emerald-900"
+        >
+          Thanks! We&apos;re confirming your payment for <strong>{paidCode}</strong>. You&apos;ll
+          get a WhatsApp message once it&apos;s confirmed.
+        </p>
+      )}
       <header className="mb-6">
         <h1 className="text-2xl font-bold">{store.businessName}</h1>
         <p className="text-sm text-zinc-500">Order below. You&apos;ll get updates on WhatsApp.</p>

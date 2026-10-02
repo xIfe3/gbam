@@ -1,11 +1,14 @@
 import { Module } from "@nestjs/common";
 import { InfraModule } from "./infra/infra.module.js";
+import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { NotificationsProcessor } from "./notifications/notifications.processor.js";
+import { PaymentsModule } from "./payments/payments.module.js";
+import { PaymentsProcessor } from "./payments/payments.processor.js";
 
 /** Worker process. Same modules as HTTP, plus the BullMQ processors. */
 @Module({
-  imports: [InfraModule, NotificationsModule],
-  providers: [NotificationsProcessor],
+  imports: [InfraModule, IntegrationsModule, NotificationsModule, PaymentsModule],
+  providers: [NotificationsProcessor, PaymentsProcessor],
 })
 export class WorkerModule {}
