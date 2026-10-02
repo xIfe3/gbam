@@ -1,0 +1,4 @@
+{
+  "extends": "@gbam/config/tsconfig/library.json",
+  "include": ["src", "tsup.config.ts", "drizzle.config.ts"]
+}

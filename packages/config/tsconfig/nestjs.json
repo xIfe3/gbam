@@ -1,0 +1,15 @@
+{
+  "$schema": "https://json.schemastore.org/tsconfig",
+  "description": "NestJS compiles to CommonJS with decorator metadata. Workspace packages are consumed via their built CJS output.",
+  "extends": "./base.json",
+  "compilerOptions": {
+    "module": "CommonJS",
+    "moduleResolution": "Node10",
+    "emitDecoratorMetadata": true,
+    "experimentalDecorators": true,
+    "isolatedModules": false,
+    "declaration": false,
+    "declarationMap": false,
+    "incremental": true
+  }
+}
