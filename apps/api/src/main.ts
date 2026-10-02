@@ -9,7 +9,7 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
   app.enableShutdownHooks();
   app.useGlobalFilters(new DomainErrorsFilter());
-  app.enableCors(); // TODO: restrict to the web app's origin before launch.
+  // No CORS: browsers never call the API directly. apps/web calls it server-side.
 
   const env = app.get<Env>(ENV);
   await app.listen(env.PORT);

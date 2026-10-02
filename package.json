@@ -22,7 +22,7 @@
   },
   "devDependencies": {
     "@gbam/config": "workspace:*",
-    "eslint": "^10.11.0",
+    "eslint": "^9.39.5",
     "prettier": "^3.6.2",
     "turbo": "^2.5.8",
     "typescript": "^5.9.3"
