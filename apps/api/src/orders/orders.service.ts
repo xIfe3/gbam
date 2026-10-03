@@ -3,6 +3,7 @@ import {
   orderEvents,
   orderItems,
   payments,
+  whatsappMessages,
   orders,
   products,
   sellers,
@@ -119,6 +120,7 @@ export class OrdersService {
           },
           orderBy: [desc(payments.createdAt)],
         },
+        whatsappMessages: { orderBy: [asc(whatsappMessages.createdAt)] },
       },
     });
 

@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { InjectWhatsApp, type WhatsAppClient } from "../integrations/integrations.module.js";
 import { PaymentsService } from "../payments/payments.service.js";
+import { WhatsAppMessagesService } from "../whatsapp/whatsapp-messages.service.js";
 import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue.js";
 
 // WhatsApp (Meta) error codes where trying again can never work.
@@ -32,6 +33,7 @@ export class NotificationsProcessor extends WorkerHost {
     @InjectDb() private readonly db: Db,
     @InjectWhatsApp() private readonly whatsapp: WhatsAppClient,
     private readonly payments: PaymentsService,
+    private readonly messages: WhatsAppMessagesService,
   ) {
     super(); // required because we extend WorkerHost
   }
@@ -97,17 +99,50 @@ export class NotificationsProcessor extends WorkerHost {
         template,
         params,
       });
+      // Record it so the WhatsApp webhook can later mark it delivered / read / failed.
+      await this.recordSafely(() =>
+        this.messages.recordAccepted({
+          orderId,
+          wamid: sent.messageId,
+          template,
+          toPhone: order.customer.phone,
+        }),
+      );
       return { messageId: sent.messageId, template };
     } catch (error) {
       if (error instanceof WhatsAppError && error.code !== undefined) {
-        const isPermanent = PERMANENT_WHATSAPP_ERRORS.includes(error.code);
+        const errorCode = error.code;
+        const errorMessage = error.message;
+        const isPermanent = PERMANENT_WHATSAPP_ERRORS.includes(errorCode);
         if (isPermanent) {
+          // Show the seller why it failed (dashboard order page).
+          await this.recordSafely(() =>
+            this.messages.recordRejected({
+              orderId,
+              template,
+              toPhone: order.customer.phone,
+              errorCode,
+              errorMessage,
+            }),
+          );
           // UnrecoverableError tells BullMQ "don't retry": it would fail the same way again.
           throw new UnrecoverableError(`${template} to ${order.customer.phone}: ${error.message}`);
         }
       }
       // Probably temporary (network, Meta outage). Rethrow so BullMQ retries later.
       throw error;
+    }
+  }
+
+  /**
+   * Saving the record must never make the job fail: a retry would SEND THE MESSAGE AGAIN
+   * and the customer would get it twice. So if saving fails we only log it.
+   */
+  private async recordSafely(save: () => Promise<void>) {
+    try {
+      await save();
+    } catch (error) {
+      this.logger.error("Couldn't record WhatsApp message status", error);
     }
   }
 }

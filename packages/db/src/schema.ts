@@ -18,6 +18,14 @@ import {
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
 export const orderActorEnum = pgEnum("order_actor", ["seller", "system"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
+/** accepted = Meta took our request; the rest come from the WhatsApp webhook. */
+export const whatsappStatusEnum = pgEnum("whatsapp_status", [
+  "accepted",
+  "sent",
+  "delivered",
+  "read",
+  "failed",
+]);
 
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
@@ -141,6 +149,25 @@ export const payments = pgTable(
   (t) => [index("payments_order_idx").on(t.orderId)],
 );
 
+/** Every WhatsApp message we try to send, and what happened to it. */
+export const whatsappMessages = pgTable(
+  "whatsapp_messages",
+  {
+    id: id(),
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "cascade" }),
+    /** Meta's id for the message ("wamid..."). null if Meta rejected the send outright. */
+    wamid: text("wamid").unique(),
+    template: text("template").notNull(),
+    toPhone: text("to_phone").notNull(),
+    status: whatsappStatusEnum("status").notNull(),
+    errorCode: integer("error_code"),
+    errorMessage: text("error_message"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("whatsapp_messages_order_idx").on(t.orderId)],
+);
+
 /** Append-only audit trail of every status change. */
 export const orderEvents = pgTable(
   "order_events",
@@ -178,6 +205,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   items: many(orderItems),
   payments: many(payments),
   events: many(orderEvents),
+  whatsappMessages: many(whatsappMessages),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
@@ -187,6 +215,10 @@ export const orderItemsRelations = relations(orderItems, ({ one }) => ({
 
 export const paymentsRelations = relations(payments, ({ one }) => ({
   order: one(orders, { fields: [payments.orderId], references: [orders.id] }),
+}));
+
+export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) => ({
+  order: one(orders, { fields: [whatsappMessages.orderId], references: [orders.id] }),
 }));
 
 export const orderEventsRelations = relations(orderEvents, ({ one }) => ({

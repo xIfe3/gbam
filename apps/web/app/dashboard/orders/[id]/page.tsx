@@ -7,6 +7,7 @@ import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "../../status-badge";
 import { MoneyBreakdown } from "./money-breakdown";
 import { StatusActions } from "./status-actions";
+import { WhatsAppMessages } from "./whatsapp-messages";
 
 async function loadOrder(id: string) {
   try {
@@ -93,6 +94,8 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
       </section>
 
       <MoneyBreakdown payments={order.payments} />
+
+      <WhatsAppMessages messages={order.whatsappMessages} />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="mb-2 font-semibold">History</h2>

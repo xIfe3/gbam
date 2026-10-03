@@ -123,6 +123,15 @@ export type OrderDetail = Order & {
     paystackFeeKobo: number | null;
     createdAt: string;
   }[];
+  /** Oldest first. Updated by the WhatsApp webhook. */
+  whatsappMessages: {
+    id: string;
+    template: string;
+    status: "accepted" | "sent" | "delivered" | "read" | "failed";
+    errorCode: number | null;
+    errorMessage: string | null;
+    createdAt: string;
+  }[];
 };
 
 // ---- One function per API endpoint ----

@@ -27,6 +27,10 @@ const envSchema = z
     PAYSTACK_SECRET_KEY: optional,
     WHATSAPP_ACCESS_TOKEN: optional,
     WHATSAPP_PHONE_NUMBER_ID: optional,
+    /** Meta app → App settings → Basic → App secret. Used to check webhook signatures. */
+    WHATSAPP_APP_SECRET: optional,
+    /** Any random string you choose; paste the same value into Meta's webhook form. */
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: optional,
     WHATSAPP_API_VERSION: z
       .string()
       .regex(/^v\d+\.\d+$/)
@@ -39,6 +43,8 @@ const envSchema = z
       "PAYSTACK_SECRET_KEY",
       "WHATSAPP_ACCESS_TOKEN",
       "WHATSAPP_PHONE_NUMBER_ID",
+      "WHATSAPP_APP_SECRET",
+      "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
     ] as const) {
       if (!env[key])
         ctx.addIssue({ code: "custom", path: [key], message: "Required in production" });

@@ -81,6 +81,29 @@ Rules live in `packages/shared/src/fees.ts`. Edit `PLATFORM_FEE` there to change
 The source of truth is `WHATSAPP_TEMPLATES` in
 `packages/integrations/src/whatsapp.ts`. If you change a body there, change it in Meta too.
 
+## WhatsApp webhook (delivery status: sent / delivered / read / failed)
+
+Meta calls `POST /webhooks/whatsapp` to report what happened to each message; the
+dashboard's order page shows it under **WhatsApp messages**.
+
+1. In `.env`:
+   - `WHATSAPP_APP_SECRET`: Meta app → **App settings → Basic → App secret** (Show).
+   - `WHATSAPP_WEBHOOK_VERIFY_TOKEN`: any random string (one is already generated).
+2. Give your laptop a public address: `ngrok http 4000`. Your free ngrok domain is fixed:
+   `https://reverse-agreeing-unpainted.ngrok-free.dev`.
+3. Meta app → Use cases → Connect on WhatsApp → **Step 2. Production setup → Configure
+   Webhooks**:
+   - Callback URL: `https://reverse-agreeing-unpainted.ngrok-free.dev/webhooks/whatsapp`
+   - Verify token: the value of `WHATSAPP_WEBHOOK_VERIFY_TOKEN`
+   - **Verify and save**, then subscribe to the **messages** webhook field.
+4. Watch requests arrive at `http://127.0.0.1:4040` (ngrok's inspector).
+
+While the Meta app is **unpublished**, only the dashboard's **Test** events are delivered;
+real delivery statuses start once the app is published.
+
+While ngrok runs, your dev API is reachable from the internet. Stop it (Ctrl+C) when
+you're done testing.
+
 ## Production
 
 `NODE_ENV=production` refuses to start without `PAYSTACK_SECRET_KEY`,

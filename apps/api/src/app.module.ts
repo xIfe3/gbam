@@ -5,6 +5,7 @@ import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { OrdersModule } from "./orders/orders.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
+import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { ProductsModule } from "./products/products.module.js";
 
 /** HTTP process. Enqueues jobs but never processes them. */
@@ -16,6 +17,7 @@ import { ProductsModule } from "./products/products.module.js";
     OrdersModule,
     PaymentsModule,
     ProductsModule,
+    WhatsAppModule,
   ],
   controllers: [HealthController],
 })
