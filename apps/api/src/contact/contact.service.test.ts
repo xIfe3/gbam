@@ -86,6 +86,7 @@ describe("ContactService (integration)", () => {
       .from(contactMessages)
       .where(eq(contactMessages.email, emailAddress));
     expect(rows).toHaveLength(5); // the blocked one was not stored
+    expect(sent).toHaveLength(5); // ...and no email was queued for it
   });
 
   it("does not limit a different IP", async () => {

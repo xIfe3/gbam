@@ -2,6 +2,7 @@
 import "server-only";
 import type { OrderStatus } from "@gbam/shared";
 import { headers } from "next/headers";
+import { unstable_rethrow } from "next/navigation";
 
 /**
  * The web app's ONLY way of talking to the API. It runs on the Next.js server, never in
@@ -60,8 +61,11 @@ async function visitorIp(): Promise<string | undefined> {
     if (real && real.trim() !== "") {
       return real.trim();
     }
-  } catch {
-    // headers() throws outside a request (e.g. at build time); then there is no visitor.
+  } catch (error) {
+    // headers() is a Dynamic API: during prerendering it throws an internal Next.js signal
+    // that must reach Next (it marks the page as dynamic). Re-throw those; anything left is
+    // the plain "called outside a request" error, where there simply is no visitor.
+    unstable_rethrow(error);
   }
   return undefined;
 }

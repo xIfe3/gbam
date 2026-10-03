@@ -99,7 +99,7 @@ export function ContactForm() {
             <p
               id="contact-message-error"
               role="alert"
-              className="text-coral-deep text-sm font-medium"
+              className="text-ink text-sm font-medium"
             >
               {messageError}
             </p>
@@ -108,7 +108,7 @@ export function ContactForm() {
       </fieldset>
 
       {state.status === "error" && (
-        <p role="alert" className="bg-coral-wash text-coral-deep rounded-xl px-4 py-3 text-sm">
+        <p role="alert" className="bg-coral-wash text-ink border-coral-deep rounded-xl border-l-4 px-4 py-3 text-sm">
           {state.message}
         </p>
       )}

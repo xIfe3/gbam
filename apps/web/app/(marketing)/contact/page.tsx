@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { connection } from "next/server";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
@@ -20,13 +21,15 @@ function whatsappHref(): string | undefined {
   return `https://wa.me/${digits}`;
 }
 
-export default function ContactPage() {
+export default async function ContactPage() {
+  // Opts out of build-time prerendering, otherwise the env var would be frozen at build.
+  await connection();
   const whatsapp = whatsappHref();
 
   return (
     <div className="mx-auto grid max-w-5xl gap-10 px-4 py-12 md:grid-cols-2">
       <div>
-        <p className="text-coral-deep mb-3 text-xs font-bold tracking-widest uppercase">Contact</p>
+        <p className="text-ink-muted mb-3 text-xs font-bold tracking-widest uppercase">Contact</p>
         <h1 className="font-display text-ink text-4xl leading-none font-black sm:text-5xl">
           Talk to us
         </h1>
