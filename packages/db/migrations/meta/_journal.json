@@ -29,6 +29,13 @@
       "when": 1791025948786,
       "tag": "0003_elite_silverclaw",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791048952056,
+      "tag": "0004_giant_tyrannus",
+      "breakpoints": true
     }
   ]
 }

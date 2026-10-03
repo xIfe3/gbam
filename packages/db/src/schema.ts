@@ -27,6 +27,17 @@ export const whatsappStatusEnum = pgEnum("whatsapp_status", [
   "failed",
 ]);
 
+export const userRoleEnum = pgEnum("user_role", ["seller", "admin"]);
+export const emailCodePurposeEnum = pgEnum("email_code_purpose", ["verify_email", "reset_password"]);
+export const contactStatusEnum = pgEnum("contact_status", ["new", "handled"]);
+export const contentTypeEnum = pgEnum("content_type", [
+  "help_article",
+  "faq",
+  "blog_post",
+  "changelog",
+  "legal",
+]);
+
 const id = () => uuid("id").primaryKey().defaultRandom();
 const createdAt = () => timestamp("created_at", { withTimezone: true }).notNull().defaultNow();
 const updatedAt = () =>
@@ -36,6 +47,89 @@ const updatedAt = () =>
     .$onUpdate(() => new Date());
 /** Integer kobo. bigint so large orders don't overflow int4 (~₦21M). */
 const kobo = (name: string) => bigint(name, { mode: "number" }).notNull();
+
+/** A person who can log in. Emails are stored lowercase. */
+export const users = pgTable("users", {
+  id: id(),
+  email: text("email").notNull().unique(),
+  passwordHash: text("password_hash").notNull(),
+  emailVerifiedAt: timestamp("email_verified_at", { withTimezone: true }),
+  role: userRoleEnum("role").notNull().default("seller"),
+  failedLoginCount: integer("failed_login_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** A login session. Only a hash of the session token is stored. */
+export const sessions = pgTable(
+  "sessions",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    userAgent: text("user_agent"),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("sessions_user_idx").on(t.userId)],
+);
+
+/** One-time codes emailed to a user (verify email, reset password). Only a hash is stored. */
+export const emailCodes = pgTable(
+  "email_codes",
+  {
+    id: id(),
+    userId: uuid("user_id")
+      .notNull()
+      .references(() => users.id, { onDelete: "cascade" }),
+    purpose: emailCodePurposeEnum("purpose").notNull(),
+    codeHash: text("code_hash").notNull(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    attempts: integer("attempts").notNull().default(0),
+    consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("email_codes_user_idx").on(t.userId)],
+);
+
+/** Messages sent from the public contact form. */
+export const contactMessages = pgTable("contact_messages", {
+  id: id(),
+  name: text("name").notNull(),
+  email: text("email").notNull(),
+  phone: text("phone"),
+  message: text("message").notNull(),
+  status: contactStatusEnum("status").notNull().default("new"),
+  createdAt: createdAt(),
+});
+
+/** Help articles, FAQs, blog posts, changelog and legal pages, loaded from Markdown files. */
+export const contentEntries = pgTable(
+  "content_entries",
+  {
+    id: id(),
+    type: contentTypeEnum("type").notNull(),
+    slug: text("slug").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    /** Markdown. */
+    body: text("body").notNull().default(""),
+    /** Extra structured fields (e.g. legal sections). */
+    data: jsonb("data"),
+    category: text("category"),
+    sortOrder: integer("sort_order").notNull().default(0),
+    /** null = draft, not shown publicly. */
+    publishedAt: timestamp("published_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("content_entries_type_slug_uq").on(t.type, t.slug)],
+);
 
 /** A seller is the tenant. Every other row hangs off seller_id. */
 export const sellers = pgTable("sellers", {
@@ -47,6 +141,14 @@ export const sellers = pgTable("sellers", {
   paystackSubaccountCode: text("paystack_subaccount_code"),
   /** "Founding seller" offer: no gbam fee until this date. null = normal fees. */
   feeWaivedUntil: timestamp("fee_waived_until", { withTimezone: true }),
+  /** The user who owns this shop. Nullable until every seller has an owner. */
+  ownerUserId: uuid("owner_user_id")
+    .unique()
+    .references(() => users.id),
+  /** Payout bank details. Only the last 4 digits of the account number are kept. */
+  bankName: text("bank_name"),
+  accountLast4: text("account_last4"),
+  bankAccountName: text("bank_account_name"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -184,7 +286,22 @@ export const orderEvents = pgTable(
   (t) => [index("order_events_order_idx").on(t.orderId)],
 );
 
-export const sellersRelations = relations(sellers, ({ many }) => ({
+export const usersRelations = relations(users, ({ one, many }) => ({
+  sessions: many(sessions),
+  emailCodes: many(emailCodes),
+  seller: one(sellers, { fields: [users.id], references: [sellers.ownerUserId] }),
+}));
+
+export const sessionsRelations = relations(sessions, ({ one }) => ({
+  user: one(users, { fields: [sessions.userId], references: [users.id] }),
+}));
+
+export const emailCodesRelations = relations(emailCodes, ({ one }) => ({
+  user: one(users, { fields: [emailCodes.userId], references: [users.id] }),
+}));
+
+export const sellersRelations = relations(sellers, ({ one, many }) => ({
+  owner: one(users, { fields: [sellers.ownerUserId], references: [users.id] }),
   customers: many(customers),
   products: many(products),
   orders: many(orders),

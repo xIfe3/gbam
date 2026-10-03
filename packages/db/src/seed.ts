@@ -4,7 +4,10 @@
  */
 import { config } from "dotenv";
 import { eq } from "drizzle-orm";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import { createDb } from "./client";
+import { loadContentFiles, upsertContent } from "./content-loader";
 import { products, sellers } from "./schema";
 
 config({ path: "../../.env" });
@@ -34,6 +37,11 @@ if (existing === 0) {
   ]);
 }
 
+// Markdown content (help, FAQ, blog, changelog, legal) lives in packages/db/content.
+const contentDir = path.join(path.dirname(fileURLToPath(import.meta.url)), "../content");
+const contentCount = await upsertContent(db, await loadContentFiles(contentDir));
+
 console.log(`Seeded seller "${seller!.slug}" → id ${seller!.id}`);
+console.log(`Seeded ${contentCount} content entries`);
 console.log(`Use header  x-seller-id: ${seller!.id}`);
 await close();
