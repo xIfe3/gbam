@@ -16,7 +16,7 @@ export default function PricingPage() {
       <PageHeader
         eyebrow="Pricing"
         title={`${platformFeePercent}% per paid order, capped at ${platformFeeCap}`}
-        lead="No monthly fee and no setup fee. You only pay when an order is paid."
+        lead={`You only pay when you get paid: ${platformFeePercent}% of each paid order, never more than ${platformFeeCap}.`}
         photo={{ description: "seller smiling at a paid order notification" }}
         cta={{ href: "/signup", label: "Start selling free" }}
       />

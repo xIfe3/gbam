@@ -21,6 +21,12 @@ describe("ContentService (integration)", () => {
   let db: Db;
   const publishedSlug = `pub-${randomUUID().slice(0, 8)}`;
   const draftSlug = `draft-${randomUUID().slice(0, 8)}`;
+  const futureSlug = `future-${randomUUID().slice(0, 8)}`;
+  // Ordering rows: a = sortOrder 1 (older), b = sortOrder 2 (older), c = sortOrder 2 (newer).
+  const orderA = `ord-a-${randomUUID().slice(0, 8)}`;
+  const orderB = `ord-b-${randomUUID().slice(0, 8)}`;
+  const orderC = `ord-c-${randomUUID().slice(0, 8)}`;
+  const allSlugs = [publishedSlug, draftSlug, futureSlug, orderA, orderB, orderC];
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({ imports: [InfraModule, ContentModule] }).compile();
@@ -35,11 +41,39 @@ describe("ContentService (integration)", () => {
         publishedAt: new Date("2026-01-01"),
       },
       { type: "help_article", slug: draftSlug, title: "Draft", body: "Secret", publishedAt: null },
+      {
+        type: "help_article",
+        slug: futureSlug,
+        title: "Future",
+        body: "Soon",
+        publishedAt: new Date(Date.now() + 24 * 60 * 60 * 1000),
+      },
+      {
+        type: "help_article",
+        slug: orderA,
+        title: "A",
+        sortOrder: 1,
+        publishedAt: new Date("2025-01-01"),
+      },
+      {
+        type: "help_article",
+        slug: orderB,
+        title: "B",
+        sortOrder: 2,
+        publishedAt: new Date("2025-01-02"),
+      },
+      {
+        type: "help_article",
+        slug: orderC,
+        title: "C",
+        sortOrder: 2,
+        publishedAt: new Date("2025-06-01"),
+      },
     ]);
   });
 
   afterAll(async () => {
-    await db.delete(contentEntries).where(inArray(contentEntries.slug, [publishedSlug, draftSlug]));
+    await db.delete(contentEntries).where(inArray(contentEntries.slug, allSlugs));
     await moduleRef.close();
   });
 
@@ -48,6 +82,23 @@ describe("ContentService (integration)", () => {
     const slugs = list.map((entry) => entry.slug);
     expect(slugs).toContain(publishedSlug);
     expect(slugs).not.toContain(draftSlug);
+  });
+
+  it("excludes an entry whose publishedAt is in the future", async () => {
+    const list = await service.list("help_article");
+    expect(list.map((entry) => entry.slug)).not.toContain(futureSlug);
+    await expect(service.get("help_article", futureSlug)).rejects.toBeInstanceOf(NotFoundException);
+  });
+
+  it("orders by sortOrder ascending, then publishedAt newest first", async () => {
+    const list = await service.list("help_article");
+    const mine = [];
+    for (const entry of list) {
+      if ([orderA, orderB, orderC].includes(entry.slug)) {
+        mine.push(entry.slug);
+      }
+    }
+    expect(mine).toEqual([orderA, orderC, orderB]);
   });
 
   it("returns a published entry with its body", async () => {
