@@ -29,11 +29,15 @@ function isContentType(value: string): value is ContentType {
 
 /**
  * Reads `<rootDir>/<content type>/<slug>.md` files. Frontmatter keys title, summary,
- * category, sortOrder and published fill columns; all other keys land in `data`.
+ * category, sortOrder, published and date fill columns; all other keys land in `data`.
+ * `published: true` requires a valid `date` (it becomes published_at), so re-seeding
+ * never changes it. Wrong types throw an error naming the file and the field.
  */
 export async function loadContentFiles(rootDir: string): Promise<ContentFile[]> {
   const result: ContentFile[] = [];
   const folders = await readdir(rootDir, { withFileTypes: true });
+  // Sorted so the load order is the same on every machine.
+  folders.sort((a, b) => a.name.localeCompare(b.name));
 
   for (const folder of folders) {
     if (!folder.isDirectory()) continue;
@@ -43,6 +47,7 @@ export async function loadContentFiles(rootDir: string): Promise<ContentFile[]> 
 
     const folderPath = path.join(rootDir, folder.name);
     const names = await readdir(folderPath);
+    names.sort();
     for (const name of names) {
       if (!name.endsWith(".md")) continue;
       const filePath = path.join(folderPath, name);
@@ -53,16 +58,44 @@ export async function loadContentFiles(rootDir: string): Promise<ContentFile[]> 
         throw new Error(`Content file ${filePath} is missing a "title" in its frontmatter`);
       }
 
+      // Each optional field must have the right type. We throw instead of guessing, so a
+      // typo in a Markdown file is caught here and names the file.
+      const bad = (field: string, expected: string) =>
+        new Error(`Content file ${filePath}: "${field}" must be ${expected}`);
+
+      if (meta.published !== undefined && typeof meta.published !== "boolean") {
+        throw bad("published", "true or false");
+      }
+      if (meta.summary !== undefined && typeof meta.summary !== "string") {
+        throw bad("summary", "text");
+      }
+      if (meta.category !== undefined && typeof meta.category !== "string") {
+        throw bad("category", "text");
+      }
+      if (meta.sortOrder !== undefined && !Number.isInteger(meta.sortOrder)) {
+        throw bad("sortOrder", "a whole number");
+      }
+
+      // YAML turns an unquoted 2026-01-15 into a Date already; quoted dates stay strings.
+      let date: Date | null = null;
+      if (meta.date instanceof Date) {
+        date = meta.date;
+      } else if (typeof meta.date === "string") {
+        date = new Date(meta.date);
+      } else if (meta.date !== undefined) {
+        throw bad("date", "a valid date");
+      }
+      if (date !== null && Number.isNaN(date.getTime())) {
+        throw bad("date", "a valid date");
+      }
+
+      // A fixed date keeps re-seeding idempotent, so published files must have one.
       let publishedAt: Date | null = null;
       if (meta.published === true) {
-        // YAML turns an unquoted 2026-01-15 into a Date already.
-        if (meta.date instanceof Date) {
-          publishedAt = meta.date;
-        } else if (typeof meta.date === "string") {
-          publishedAt = new Date(meta.date);
-        } else {
-          publishedAt = new Date();
+        if (date === null) {
+          throw bad("date", "set (a valid date) when published is true");
         }
+        publishedAt = date;
       }
 
       const extra: Record<string, unknown> = {};
@@ -74,11 +107,11 @@ export async function loadContentFiles(rootDir: string): Promise<ContentFile[]> 
       }
 
       let summary: string | null = null;
-      if (typeof meta.summary === "string") summary = meta.summary;
+      if (meta.summary !== undefined) summary = meta.summary;
       let category: string | null = null;
-      if (typeof meta.category === "string") category = meta.category;
+      if (meta.category !== undefined) category = meta.category;
       let sortOrder = 0;
-      if (typeof meta.sortOrder === "number") sortOrder = meta.sortOrder;
+      if (meta.sortOrder !== undefined) sortOrder = meta.sortOrder;
 
       result.push({
         type: folder.name,

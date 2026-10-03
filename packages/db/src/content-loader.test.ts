@@ -24,7 +24,7 @@ describe("loadContentFiles", () => {
     await writeFixture(
       "help_article",
       "getting-started.md",
-      "---\ntitle: Getting started\nsummary: First steps\ncategory: Basics\nsortOrder: 2\npublished: true\n---\n\nHello there.\n",
+      "---\ntitle: Getting started\nsummary: First steps\ncategory: Basics\nsortOrder: 2\npublished: true\ndate: 2026-02-01\n---\n\nHello there.\n",
     );
     const files = await loadContentFiles(root);
     expect(files).toHaveLength(1);
@@ -77,5 +77,30 @@ describe("loadContentFiles", () => {
   it("throws naming the file when title is missing", async () => {
     await writeFixture("faq", "no-title.md", "---\nsummary: hi\n---\nBody\n");
     await expect(loadContentFiles(root)).rejects.toThrow(/no-title\.md/);
+  });
+
+  it("throws naming the file when published has no date", async () => {
+    await writeFixture("faq", "nodate.md", "---\ntitle: T\npublished: true\n---\nBody\n");
+    await expect(loadContentFiles(root)).rejects.toThrow(/nodate\.md.*date/);
+  });
+
+  it("throws for an invalid date", async () => {
+    await writeFixture("faq", "baddate.md", "---\ntitle: T\npublished: true\ndate: soon\n---\n");
+    await expect(loadContentFiles(root)).rejects.toThrow(/baddate\.md.*date/);
+  });
+
+  it("throws when published is a string", async () => {
+    await writeFixture("faq", "str.md", '---\ntitle: T\npublished: "true"\n---\n');
+    await expect(loadContentFiles(root)).rejects.toThrow(/str\.md.*published/);
+  });
+
+  it("throws when sortOrder is not an integer", async () => {
+    await writeFixture("faq", "sort.md", "---\ntitle: T\nsortOrder: 1.5\n---\n");
+    await expect(loadContentFiles(root)).rejects.toThrow(/sort\.md.*sortOrder/);
+  });
+
+  it("throws when summary is not a string", async () => {
+    await writeFixture("faq", "sum.md", "---\ntitle: T\nsummary: 5\n---\n");
+    await expect(loadContentFiles(root)).rejects.toThrow(/sum\.md.*summary/);
   });
 });

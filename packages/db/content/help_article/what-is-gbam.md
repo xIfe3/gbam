@@ -4,6 +4,7 @@ summary: A short introduction to how Gbam helps you sell on WhatsApp.
 category: Getting started
 sortOrder: 1
 published: true
+date: 2026-10-03
 ---
 
 Gbam helps you sell on WhatsApp. Your customers pick items from your shop link, pay
