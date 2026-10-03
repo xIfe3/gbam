@@ -1,5 +1,5 @@
-import { formatNaira, PLATFORM_FEE } from "@gbam/shared";
 import Link from "next/link";
+import { platformFeeCap, platformFeePercent } from "@/lib/fees";
 
 const FAQS = [
   {
@@ -8,11 +8,12 @@ const FAQS = [
   },
   {
     question: "How do I get paid?",
-    answer: "Payments are made with Paystack and paid out to the bank account you add during setup.",
+    answer:
+      "Payments are made with Paystack and paid out to the bank account you add during setup.",
   },
   {
     question: "What does Gbam cost?",
-    answer: `${PLATFORM_FEE.percentBasisPoints / 100}% per paid order, never more than ${formatNaira(PLATFORM_FEE.capKobo)}. It is free for founding sellers.`,
+    answer: `${platformFeePercent}% per paid order, never more than ${platformFeeCap}. It is free for founding sellers.`,
   },
   {
     question: "Will my customers hear from me on WhatsApp?",

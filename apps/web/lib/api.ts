@@ -134,6 +134,22 @@ export type OrderDetail = Order & {
   }[];
 };
 
+export type ContentType = "help_article" | "faq" | "blog_post" | "changelog" | "legal";
+
+export type ContentSummary = {
+  slug: string;
+  title: string;
+  summary: string | null;
+  category: string | null;
+  sortOrder: number;
+  publishedAt: string;
+};
+
+export type ContentEntryDto = ContentSummary & {
+  body: string;
+  data: unknown;
+};
+
 // ---- One function per API endpoint ----
 // encodeURIComponent makes a value safe to put in a URL (escapes spaces, slashes, etc.).
 
@@ -168,5 +184,21 @@ async function updateOrderStatus(id: string, status: OrderStatus) {
   });
 }
 
+async function listContent(type: ContentType) {
+  return request<ContentSummary[]>(`/content/${type}`);
+}
+
+async function getContent(type: ContentType, slug: string) {
+  return request<ContentEntryDto>(`/content/${type}/${encodeURIComponent(slug)}`);
+}
+
 /** Usage: `await api.getOrder(id)` */
-export const api = { storefront, placeOrder, listOrders, getOrder, updateOrderStatus };
+export const api = {
+  storefront,
+  placeOrder,
+  listOrders,
+  getOrder,
+  updateOrderStatus,
+  listContent,
+  getContent,
+};

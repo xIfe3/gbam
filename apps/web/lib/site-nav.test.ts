@@ -7,13 +7,6 @@ import { FOOTER_GROUPS, HEADER_LINKS, LEGAL_DOCS } from "./site-nav";
 // Routes whose page.tsx is not built yet. Later tasks remove entries as they build each page
 // (the test below fails if a built page is left in this list).
 const PENDING_ROUTES: string[] = [
-  "/features",
-  "/how-it-works",
-  "/pricing",
-  "/use-cases",
-  "/about",
-  "/mission",
-  "/security",
   "/contact",
   "/help",
   "/faq",
@@ -95,12 +88,7 @@ const internalHrefs = [...new Set(allHrefs.filter((h) => h.startsWith("/")))];
 
 describe("route resolver (fixture app dir)", () => {
   const root = mkdtempSync(path.join(os.tmpdir(), "gbam-routes-"));
-  for (const file of [
-    "(g)/x/page.tsx",
-    "legal/[doc]/page.tsx",
-    "[slug]/page.tsx",
-    "page.tsx",
-  ]) {
+  for (const file of ["(g)/x/page.tsx", "legal/[doc]/page.tsx", "[slug]/page.tsx", "page.tsx"]) {
     mkdirSync(path.dirname(path.join(root, file)), { recursive: true });
     writeFileSync(path.join(root, file), "export default function P() { return null; }");
   }

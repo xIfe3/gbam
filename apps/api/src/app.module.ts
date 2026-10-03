@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { ContentModule } from "./content/content.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { InfraModule } from "./infra/infra.module.js";
 import { IntegrationsModule } from "./integrations/integrations.module.js";
@@ -11,6 +12,7 @@ import { ProductsModule } from "./products/products.module.js";
 /** HTTP process. Enqueues jobs but never processes them. */
 @Module({
   imports: [
+    ContentModule,
     InfraModule,
     IntegrationsModule,
     NotificationsModule,
