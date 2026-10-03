@@ -2,6 +2,7 @@
 
 import { Menu, X } from "lucide-react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { HEADER_LINKS, LOGIN_LINK, SIGNUP_LINK } from "@/lib/site-nav";
 import { Button } from "./button";
@@ -12,9 +13,25 @@ const linkClasses =
 
 export function Header() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname();
+  const [openedOn, setOpenedOn] = useState(pathname);
+
+  // Close the menu when the route changes (e.g. browser back). React lets a component
+  // update its own state while rendering, as long as it is guarded like this.
+  if (openedOn !== pathname) {
+    setOpenedOn(pathname);
+    setOpen(false);
+  }
 
   return (
-    <header className="bg-blush relative">
+    <header
+      className="bg-blush relative"
+      onKeyDown={(e) => {
+        if (e.key === "Escape") {
+          setOpen(false);
+        }
+      }}
+    >
       <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
         <Link
           href="/"
@@ -43,7 +60,7 @@ export function Header() {
           onClick={() => setOpen(!open)}
           aria-expanded={open}
           aria-controls="mobile-menu"
-          aria-label={open ? "Close menu" : "Open menu"}
+          aria-label="Menu"
           className="text-ink focus-visible:outline-brand flex h-11 w-11 items-center justify-center rounded-full focus-visible:outline-2 md:hidden"
         >
           {open ? <X size={24} aria-hidden="true" /> : <Menu size={24} aria-hidden="true" />}
@@ -54,6 +71,8 @@ export function Header() {
         <nav
           id="mobile-menu"
           aria-label="Mobile"
+          // Clicks bubble up from the links, so any tap inside the menu closes it.
+          onClick={() => setOpen(false)}
           className="bg-blush border-brand-tint flex flex-col gap-1 border-t px-4 py-3 md:hidden"
         >
           {HEADER_LINKS.map((link) => (

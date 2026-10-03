@@ -1,0 +1,50 @@
+import { fireEvent, render, screen } from "@testing-library/react";
+import { describe, expect, it } from "vitest";
+import { CodeInput } from "./fields";
+
+function boxes() {
+  return screen.getAllByRole("textbox") as HTMLInputElement[];
+}
+
+function box(index: number): HTMLInputElement {
+  const found = boxes()[index];
+  if (!found) {
+    throw new Error(`no box ${index}`);
+  }
+  return found;
+}
+
+describe("CodeInput", () => {
+  it("moves focus forward when a digit is typed", () => {
+    render(<CodeInput label="Code" />);
+    fireEvent.change(box(0), { target: { value: "4" } });
+    expect(box(1)).toHaveFocus();
+  });
+
+  it("fills every box when a full code is pasted", () => {
+    render(<CodeInput label="Code" />);
+    fireEvent.paste(box(0), { clipboardData: { getData: () => "123456" } });
+    expect(boxes().map((b) => b.value)).toEqual(["1", "2", "3", "4", "5", "6"]);
+  });
+
+  it("replaces a filled digit when typing over it", () => {
+    render(<CodeInput label="Code" />);
+    fireEvent.change(box(0), { target: { value: "1" } });
+    // The browser would deliver "12" when typing into a box that already holds "1".
+    fireEvent.change(box(0), { target: { value: "12" } });
+    expect(box(0).value).toBe("2");
+  });
+
+  it("moves back on Backspace in an empty box", () => {
+    render(<CodeInput label="Code" />);
+    box(2).focus();
+    fireEvent.keyDown(box(2), { key: "Backspace" });
+    expect(box(1)).toHaveFocus();
+  });
+
+  it("links the error to each box", () => {
+    render(<CodeInput label="Code" error="Wrong code" />);
+    const alert = screen.getByRole("alert");
+    expect(box(0)).toHaveAttribute("aria-describedby", alert.id);
+  });
+});

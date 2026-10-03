@@ -6,8 +6,8 @@ const tints = {
 
 const eyebrowColors = {
   white: "text-brand",
-  brand: "text-brand-tint",
-  coral: "text-coral-deep",
+  brand: "text-white",
+  coral: "text-ink",
 };
 
 // A responsive grid of tiles: one column on phones, two from the sm breakpoint.
@@ -38,7 +38,7 @@ export function BentoTile({ eyebrow, title, tint = "white", span = 1, children }
         </p>
       )}
       <h3 className="font-display text-2xl leading-tight font-black">{title}</h3>
-      {children && <div className="mt-3 text-base leading-relaxed opacity-90">{children}</div>}
+      {children && <div className="mt-3 text-base leading-relaxed">{children}</div>}
     </section>
   );
 }

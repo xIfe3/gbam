@@ -62,11 +62,11 @@ export function TextField({ label, error, hint, ...rest }: FieldProps) {
   return (
     <FieldShell id={id} label={label} error={error} hint={hint}>
       <input
+        {...rest}
         id={id}
         className={inputClasses}
         aria-invalid={error ? true : undefined}
         aria-describedby={describedBy(id, error, hint)}
-        {...rest}
       />
     </FieldShell>
   );
@@ -84,8 +84,8 @@ export function PasswordField({ label, error, hint, ...rest }: FieldProps) {
     <FieldShell id={id} label={label} error={error} hint={hint}>
       <div className="relative">
         <input
-          id={id}
           {...rest}
+          id={id}
           type={inputType}
           className={`${inputClasses} pr-12`}
           aria-invalid={error ? true : undefined}
@@ -171,9 +171,12 @@ export function CodeInput({ label, length = 6, error, onChange, name = "code" }:
         }}
         inputMode="numeric"
         autoComplete={i === 0 ? "one-time-code" : "off"}
-        maxLength={1}
+        // Select the old digit on focus so typing replaces it. No maxLength: handleChange
+        // keeps only the last character typed, which also covers overwriting without selection.
+        onFocus={(e) => e.target.select()}
         aria-label={`${label} digit ${i + 1}`}
         aria-invalid={error ? true : undefined}
+        aria-describedby={error ? `${id}-error` : undefined}
         className="text-ink focus-visible:outline-brand aria-[invalid=true]:border-coral-deep h-12 w-11 rounded-xl border-2 border-brand-tint bg-white text-center text-xl font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
       />,
     );
@@ -187,7 +190,7 @@ export function CodeInput({ label, length = 6, error, onChange, name = "code" }:
       <div className="flex gap-2">{boxes}</div>
       <input type="hidden" name={name} value={digits.join("")} />
       {error && (
-        <p role="alert" className="text-coral-deep text-sm font-medium">
+        <p id={`${id}-error`} role="alert" className="text-coral-deep text-sm font-medium">
           {error}
         </p>
       )}

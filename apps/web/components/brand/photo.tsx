@@ -23,7 +23,7 @@ export function Photo({ description, src, alt, className = "" }: PhotoProps) {
     <div
       role="img"
       aria-label={description}
-      className={`bg-coral-wash text-ink-subtle flex items-center justify-center rounded-3xl border border-dashed border-coral-tint p-3 text-center text-xs ${className}`}
+      className={`bg-coral-wash text-ink-muted flex items-center justify-center rounded-3xl border border-dashed border-coral-tint p-3 text-center text-xs ${className}`}
     >
       <span aria-hidden="true">{description}</span>
     </div>
