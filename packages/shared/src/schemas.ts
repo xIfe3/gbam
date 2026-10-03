@@ -90,3 +90,21 @@ export const updateOrderStatusSchema = z.object({
   status: orderStatusSchema,
 });
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
+
+/** Trimmed, lowercased, valid email. Lowercasing makes "Ada@X.com" and "ada@x.com" match. */
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
+
+export const contactMessageSchema = z.object({
+  // Single line: the name goes into the subject of the email we send ourselves, so a
+  // newline could inject extra email headers.
+  name: z
+    .string()
+    .trim()
+    .min(1)
+    .max(120)
+    .regex(/^[^\r\n]*$/, "Name must be on one line"),
+  email: emailSchema,
+  phone: nigerianPhoneSchema.optional(),
+  message: z.string().trim().min(10).max(3000),
+});
+export type ContactMessageInput = z.infer<typeof contactMessageSchema>;

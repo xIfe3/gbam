@@ -1,6 +1,7 @@
 // "server-only" makes the build fail if a browser component ever imports this file.
 import "server-only";
 import type { OrderStatus } from "@gbam/shared";
+import { headers } from "next/headers";
 
 /**
  * The web app's ONLY way of talking to the API. It runs on the Next.js server, never in
@@ -39,20 +40,50 @@ type RequestOptions = {
   seller?: boolean;
 };
 
+/**
+ * The visitor's IP, from the proxy headers on the request to the Next server. The API only
+ * ever sees this server's address, so we pass the visitor's along (for rate limits).
+ * Returns undefined when neither header is present (e.g. local dev without a proxy).
+ */
+async function visitorIp(): Promise<string | undefined> {
+  try {
+    const incoming = await headers();
+    const forwarded = incoming.get("x-forwarded-for");
+    if (forwarded) {
+      // "client, proxy1, proxy2": the first entry is the original client.
+      const first = (forwarded.split(",")[0] ?? "").trim();
+      if (first !== "") {
+        return first;
+      }
+    }
+    const real = incoming.get("x-real-ip");
+    if (real && real.trim() !== "") {
+      return real.trim();
+    }
+  } catch {
+    // headers() throws outside a request (e.g. at build time); then there is no visitor.
+  }
+  return undefined;
+}
+
 /** `<T>` is the shape of the JSON we expect back, e.g. request<Order>(...). */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
-  const headers = new Headers();
+  const requestHeaders = new Headers();
   if (options.body) {
-    headers.set("content-type", "application/json");
+    requestHeaders.set("content-type", "application/json");
   }
   if (options.seller) {
-    headers.set("x-seller-id", currentSellerId());
+    requestHeaders.set("x-seller-id", currentSellerId());
+  }
+  const ip = await visitorIp();
+  if (ip) {
+    requestHeaders.set("x-client-ip", ip);
   }
 
   const res = await fetch(`${apiUrl()}${path}`, {
     method: options.method,
     body: options.body,
-    headers,
+    headers: requestHeaders,
     cache: "no-store", // always fetch fresh data, never a cached copy
   });
 
@@ -192,8 +223,16 @@ async function getContent(type: ContentType, slug: string) {
   return request<ContentEntryDto>(`/content/${type}/${encodeURIComponent(slug)}`);
 }
 
+async function sendContactMessage(body: unknown) {
+  return request<{ received: true }>("/contact", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  sendContactMessage,
   storefront,
   placeOrder,
   listOrders,
