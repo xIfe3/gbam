@@ -7,10 +7,13 @@
  */
 import { payments } from "@gbam/db";
 import {
+  FakeEmailClient,
   FakePaystackClient,
   FakeWhatsAppClient,
   HttpPaystackClient,
   HttpWhatsAppClient,
+  ResendEmailClient,
+  type EmailClient,
   type PaystackClient,
   type WhatsAppClient,
 } from "@gbam/integrations";
@@ -21,6 +24,7 @@ import { DB, type Db } from "../infra/infra.module.js";
 
 export const PAYSTACK = Symbol("PAYSTACK");
 export const WHATSAPP = Symbol("WHATSAPP");
+export const EMAIL = Symbol("EMAIL");
 
 /** Use in a constructor: `@InjectPaystack() private readonly paystack: PaystackClient` */
 export function InjectPaystack() {
@@ -32,7 +36,12 @@ export function InjectWhatsApp() {
   return Inject(WHATSAPP);
 }
 
-export type { PaystackClient, WhatsAppClient };
+/** Use in a constructor: `@InjectEmail() private readonly email: EmailClient` */
+export function InjectEmail() {
+  return Inject(EMAIL);
+}
+
+export type { EmailClient, PaystackClient, WhatsAppClient };
 
 function createPaystackClient(env: Env, db: Db): PaystackClient {
   if (env.PAYSTACK_SECRET_KEY) {
@@ -81,12 +90,28 @@ function createWhatsAppClient(env: Env): WhatsAppClient {
   return new FakeWhatsAppClient(log);
 }
 
+function createEmailClient(env: Env): EmailClient {
+  if (env.RESEND_API_KEY) {
+    return new ResendEmailClient(env.RESEND_API_KEY, env.EMAIL_FROM);
+  }
+
+  const logger = new Logger("FakeEmail");
+  logger.warn("RESEND_API_KEY not set: using fake email");
+
+  function log(message: string) {
+    logger.log(message);
+  }
+
+  return new FakeEmailClient(log);
+}
+
 @Global()
 @Module({
   providers: [
     { provide: PAYSTACK, inject: [ENV, DB], useFactory: createPaystackClient },
     { provide: WHATSAPP, inject: [ENV], useFactory: createWhatsAppClient },
+    { provide: EMAIL, inject: [ENV], useFactory: createEmailClient },
   ],
-  exports: [PAYSTACK, WHATSAPP],
+  exports: [PAYSTACK, WHATSAPP, EMAIL],
 })
 export class IntegrationsModule {}

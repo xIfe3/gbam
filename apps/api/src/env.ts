@@ -35,6 +35,10 @@ const envSchema = z
       .string()
       .regex(/^v\d+\.\d+$/)
       .default("v25.0"),
+    /** Resend API key (resend.com). Unset in dev → emails are logged, not sent. */
+    RESEND_API_KEY: optional,
+    /** The default is fine once gbam.app is verified in Resend. */
+    EMAIL_FROM: z.string().min(1).default("Gbam <no-reply@gbam.app>"),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -45,6 +49,7 @@ const envSchema = z
       "WHATSAPP_PHONE_NUMBER_ID",
       "WHATSAPP_APP_SECRET",
       "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
+      "RESEND_API_KEY",
     ] as const) {
       if (!env[key])
         ctx.addIssue({ code: "custom", path: [key], message: "Required in production" });
