@@ -3,10 +3,12 @@ import Link from "next/link";
 type PillTabsProps = {
   items: { href: string; label: string }[];
   activeHref: string;
+  // Accessible name of the nav landmark.
+  label?: string;
 };
 
 // Pill-shaped links for switching between sibling pages (e.g. the legal documents).
-export function PillTabs({ items, activeHref }: PillTabsProps) {
+export function PillTabs({ items, activeHref, label = "Sections" }: PillTabsProps) {
   const links = [];
   for (const item of items) {
     let classes = "bg-white text-ink-muted hover:bg-brand-tint";
@@ -28,7 +30,7 @@ export function PillTabs({ items, activeHref }: PillTabsProps) {
   }
 
   return (
-    <nav aria-label="Sections" className="flex flex-wrap gap-2">
+    <nav aria-label={label} className="flex flex-wrap gap-2">
       {links}
     </nav>
   );

@@ -65,7 +65,7 @@ describe("legal document page", () => {
     getContent.mockResolvedValue(entry);
     await renderDoc("privacy");
 
-    const tabs = screen.getByRole("navigation", { name: "Sections" });
+    const tabs = screen.getByRole("navigation", { name: "Legal documents" });
     expect(within(tabs).getAllByRole("link")).toHaveLength(LEGAL_DOCS.length);
     const current = within(tabs).getByRole("link", { current: "page" });
     expect(current).toHaveAttribute("href", "/legal/privacy");
@@ -83,6 +83,12 @@ describe("legal document page", () => {
     );
     expect(screen.getByText("Last updated 3 October 2026")).toBeInTheDocument();
     expect(screen.getByText("This is a draft pending legal review.")).toBeInTheDocument();
+  });
+
+  it("hides the contents list when there are no sections", async () => {
+    getContent.mockResolvedValue({ ...entry, data: { lastUpdated: "2026-10-03", sections: [] } });
+    await renderDoc("privacy");
+    expect(screen.queryByRole("navigation", { name: "On this page" })).not.toBeInTheDocument();
   });
 
   it("shows a friendly error when the API is down", async () => {

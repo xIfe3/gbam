@@ -19,9 +19,9 @@ export function LegalToc({ items }: LegalTocProps) {
   }
 
   return (
-    <nav aria-label="On this page" className="bg-white rounded-2xl p-5">
+    <nav aria-label="On this page" className="rounded-2xl bg-white p-5">
       <p className="text-ink text-sm font-bold">On this page</p>
-      <ol className="mt-2 list-decimal pl-5 text-sm">{links}</ol>
+      <ul className="mt-2 text-sm">{links}</ul>
     </nav>
   );
 }

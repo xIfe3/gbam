@@ -21,17 +21,17 @@ sections:
   - id: timing
     heading: How long it takes
     body: |
-      We complete deletion within 30 days of confirming your request. We will email you when it is done.
-    short: Done within 30 days.
+      We complete deletion within 30 days of confirming that the request came from the account owner. We will tell you when it is done (by email for sellers, and on WhatsApp for customers without an account).
+    short: Done within 30 days of confirming it is you.
   - id: what-is-deleted
     heading: What we delete
     body: |
-      For a seller, we delete your account, shop details, products and login. For a customer, we delete your name and WhatsApp number from our records, or remove the link to you from order records where we must keep the order itself. Where it applies, we also ask the processors we use to delete the data they hold for us.
+      For a seller, we delete your account, shop details, products, login and session records (IP address and device description), bank name, account holder name and last 4 digits, and any contact-form messages you sent. For a customer, we delete your name and WhatsApp number from our records, or remove the link to you from order records where we must keep the order itself. Where it applies, we also ask the processors we use to delete the data they hold for us.
     short: We delete your account and personal details.
   - id: what-may-stay
     heading: What we may keep
     body: |
-      We may keep some information where the law or Paystack requires it, for example records of payments and fees for tax and accounting, or details we need to handle a fraud case or dispute. We keep only what is needed and for as long as needed, and we tell you what we are keeping if you ask.
+      We may keep some information where the law or Paystack requires it, for example records of payments and fees (including the partial card details and payer IP address Paystack gives us) for tax and accounting, or details we need to handle a fraud case or dispute. We keep only what is needed and for as long as needed, and we tell you what we are keeping if you ask.
 
       Paystack is a separate company with its own records and retention rules. To ask Paystack about data it holds, contact Paystack directly.
     short: Payment and legal records may be kept for as long as the law needs.

@@ -19,7 +19,7 @@ sections:
     body: |
       By creating an account, ordering from a Gbam shop, or otherwise using Gbam, you agree to these terms. If you do not agree, please do not use Gbam.
 
-      You must be at least 18 years old, or have a parent or guardian who agrees on your behalf. Sellers also agree to the [Seller Agreement](/legal/seller-agreement) and the [Acceptable Use Policy](/legal/acceptable-use).
+      You must be at least 18 years old to use Gbam. Sellers also agree to the [Seller Agreement](/legal/seller-agreement) and the [Acceptable Use Policy](/legal/acceptable-use).
     short: Using Gbam means you accept these terms.
   - id: sellers-and-customers
     heading: Sellers and customers

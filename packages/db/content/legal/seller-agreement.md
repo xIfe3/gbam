@@ -25,7 +25,7 @@ sections:
   - id: fees
     heading: Fees and payouts
     body: |
-      We charge a Gbam fee on each paid order and Paystack charges its processing fee, which comes out of your share. Current fees are on the [Pricing page](/pricing). Payments are processed and paid out by Paystack, and you agree to Paystack's terms as they apply to you. We are not responsible for delays or holds on Paystack's side.
+      We charge a Gbam fee on each paid order and Paystack charges its processing fee, which comes out of your share. Current fees, including any founding-seller fee waiver, are on the [Pricing page](/pricing). Payments are processed and paid out by Paystack, and you agree to Paystack's terms as they apply to you. We are not responsible for delays or holds on Paystack's side.
     short: Gbam's fee and Paystack's fee come out of each paid order.
   - id: refunds
     heading: Refunds

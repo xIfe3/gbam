@@ -21,25 +21,31 @@ sections:
 
       - Account details: name, email address, WhatsApp number and a hashed password (we cannot read your password).
       - Shop details: shop name, products and prices.
-      - Payout details: bank name and the **last 4 digits** of your account number only. The full account number is held by Paystack, not by us.
+      - Payout details: bank name, the account holder name and the **last 4 digits** of your account number only. The full account number is held by Paystack, not by us.
+      - Login sessions: the IP address and a description of the browser or device for each signed-in session, for security and fraud prevention.
 
       **Customers who order from a shop**
 
       - Name, WhatsApp number and order details (what was ordered, and any delivery information the seller asks for).
 
-      **Everyone**
+      **Payments**
 
       - Payment status and fees for each order.
-      - WhatsApp message delivery status (sent, delivered, read, failed).
-      - Messages you send us through the contact form.
+      - From Paystack's payment record we keep the card type, the first 6 and last 4 digits of the card, the expiry month and year, the issuing bank, the payer's IP address and the customer details Paystack returns.
 
-      **We never see or store card numbers.** Card details go straight to Paystack.
-    short: Only what we need to run orders. No card numbers, and only the last 4 digits of a seller's account.
+      **Messages**
+
+      - WhatsApp message delivery status (sent, delivered, read, failed).
+      - Contact form: your name, email address, optional phone number and your message, plus your IP address so we can limit spam.
+
+      **We never see or store full card numbers or CVVs.** Card details are entered with Paystack, which shares only the partial card details above with us.
+    short: Only what we need to run orders. Never full card numbers or CVVs, but Paystack shares partial card details with us for each payment.
   - id: why
     heading: Why we use it
     body: |
       - To run your account and shop, take orders and request payments.
-      - To send order messages and updates on WhatsApp and email.
+      - To send order messages and updates to customers on WhatsApp.
+      - To send sellers email for verification codes and password resets, and to reply to contact-form messages.
       - To keep Gbam secure and prevent fraud and abuse.
       - To answer questions you send us.
       - To meet legal and accounting obligations.
@@ -63,7 +69,7 @@ sections:
   - id: retention
     heading: How long we keep it
     body: |
-      We keep account data while your account is open. When you ask us to delete your account we complete the deletion within 30 days (see [Data Deletion](/legal/data-deletion)). We may keep some records for longer where the law, tax or accounting rules, or Paystack's requirements say we must, or where we need them to handle a dispute. Contact-form messages are kept only as long as needed to answer and follow up.
+      We keep account data while your account is open. When you ask us to delete your account we complete the deletion within 30 days of confirming the request came from the account owner (see [Data Deletion](/legal/data-deletion)). We may keep some records for longer where the law, tax or accounting rules, or Paystack's requirements say we must, or where we need them to handle a dispute. Contact-form messages are kept only as long as needed to answer and follow up.
     short: We keep data while your account is open, then delete it within 30 days of your request, apart from records we must keep.
   - id: your-rights
     heading: Your rights
@@ -91,8 +97,8 @@ sections:
     body: |
       We use only one essential login cookie. See the [Cookie Policy](/legal/cookies).
 
-      Gbam is not meant for children under 18, and we do not knowingly collect their data.
+      Gbam is for people aged 18 and over only. We do not knowingly collect data from anyone under 18, and if we learn we have, we will delete it.
 
       If we change this policy we will update the date at the top of the page.
-    short: One login cookie, not for children, and we will update the date when this changes.
+    short: One login cookie, 18+ only, and we will update the date when this changes.
 ---

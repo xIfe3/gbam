@@ -18,7 +18,7 @@ sections:
       - **`gbam_session`**: keeps a seller logged in to their account. It is an essential cookie.
 
       It is set when a seller logs in and removed when they log out or it expires. It is needed for the dashboard to work.
-    short: Only `gbam_session`, which keeps sellers logged in.
+    short: Only gbam_session, which keeps sellers logged in.
   - id: what-we-dont-use
     heading: What we do not use
     body: |

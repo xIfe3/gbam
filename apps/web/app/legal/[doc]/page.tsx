@@ -70,12 +70,23 @@ function readLastUpdated(data: unknown): string | null {
   return null;
 }
 
+// Static descriptions so metadata does not need its own API call.
+const DESCRIPTIONS: Record<(typeof LEGAL_DOCS)[number], string> = {
+  terms: "The rules for using Gbam, for sellers and for customers ordering from a seller.",
+  privacy: "What personal data Gbam collects, why, who we share it with, and your rights.",
+  cookies: "Gbam uses a single essential login cookie. No analytics or advertising cookies.",
+  refunds: "How refunds work on Gbam. Sellers refund customers directly.",
+  "seller-agreement": "What sellers agree to when they open a shop on Gbam.",
+  "acceptable-use": "What you may not sell or do on Gbam.",
+  "data-deletion": "How to ask Gbam to delete your account and personal data.",
+};
+
 export async function generateMetadata({ params }: PageProps<"/legal/[doc]">): Promise<Metadata> {
   const { doc } = await params;
   if (!isLegalDoc(doc)) {
     return { title: "Legal" };
   }
-  return { title: LEGAL_LABELS[doc] };
+  return { title: LEGAL_LABELS[doc], description: DESCRIPTIONS[doc] };
 }
 
 export default async function LegalDocPage({ params }: PageProps<"/legal/[doc]">) {
@@ -100,7 +111,7 @@ export default async function LegalDocPage({ params }: PageProps<"/legal/[doc]">
         >
           {section.heading}
         </h2>
-        <div className="grid gap-5 md:grid-cols-[1fr_16rem] md:items-start">
+        <div className="grid gap-5 xl:grid-cols-[1fr_16rem] xl:items-start">
           <Prose markdown={section.body} />
           {section.short !== "" && <ShortVersion>{section.short}</ShortVersion>}
         </div>
@@ -109,8 +120,8 @@ export default async function LegalDocPage({ params }: PageProps<"/legal/[doc]">
   }
 
   return (
-    <div className="mx-auto max-w-4xl px-4 py-12">
-      <PillTabs items={tabs} activeHref={`/legal/${doc}`} />
+    <div className="mx-auto max-w-5xl px-4 py-12">
+      <PillTabs items={tabs} activeHref={`/legal/${doc}`} label="Legal documents" />
       {failed && (
         <div className="mt-8">
           <ContentUnavailable what="This document" />
@@ -126,10 +137,15 @@ export default async function LegalDocPage({ params }: PageProps<"/legal/[doc]">
             This is a draft pending legal review.
           </p>
           {entry.summary && <p className="text-ink-muted mt-4 max-w-prose">{entry.summary}</p>}
-          <div className="mt-6">
-            <LegalToc items={sections} />
+          {/* Contents list: inline at the top on mobile, a sticky right-hand rail from md up. */}
+          <div className="mt-6 md:grid md:grid-cols-[1fr_14rem] md:gap-8">
+            {sections.length > 0 && (
+              <div className="md:sticky md:top-24 md:order-2 md:self-start">
+                <LegalToc items={sections} />
+              </div>
+            )}
+            <div className="md:order-1">{sectionBlocks}</div>
           </div>
-          {sectionBlocks}
         </article>
       )}
     </div>
