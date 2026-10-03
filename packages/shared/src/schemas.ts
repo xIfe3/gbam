@@ -94,7 +94,28 @@ export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 /** Trimmed, lowercased, valid email. Lowercasing makes "Ada@X.com" and "ada@x.com" match. */
 export const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
 
-export const contactMessageSchema = z.object({
+/** Max 200 stops someone sending a huge string to make the Argon2 hash do heavy work. */
+export const passwordSchema = z.string().min(8).max(200);
+
+/** The 6-digit code we email for verification and password reset. */
+export const codeSchema = z.string().regex(/^\d{6}$/, "Enter the 6-digit code");
+
+export const signupSchema = z.object({
+  businessName: z.string().trim().min(1).max(120),
+  slug: slugSchema,
+  phone: nigerianPhoneSchema,
+  email: emailSchema,
+  password: passwordSchema,
+});
+export type SignupInput = z.output<typeof signupSchema>;
+
+export const loginSchema = z.object({
+  email: emailSchema,
+  password: passwordSchema,
+});
+export type LoginInput = z.output<typeof loginSchema>;
+
+export const contactMessageSchema =z.object({
   // Single line: the name goes into the subject of the email we send ourselves, so a
   // newline could inject extra email headers.
   name: z

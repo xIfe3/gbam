@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { contactMessageSchema, emailSchema } from "./schemas";
+import {
+  codeSchema,
+  contactMessageSchema,
+  emailSchema,
+  loginSchema,
+  passwordSchema,
+  signupSchema,
+} from "./schemas";
 
 const valid = { name: "Ada", email: "ada@example.com", message: "Hello, I have a question." };
 
@@ -10,6 +17,50 @@ describe("emailSchema", () => {
 
   it("rejects a non-email", () => {
     expect(emailSchema.safeParse("not-an-email").success).toBe(false);
+  });
+});
+
+describe("auth schemas", () => {
+  const signup = {
+    businessName: "Ada's Cakes",
+    slug: "adas-cakes",
+    phone: "0803 123 4567",
+    email: " Ada@Example.com ",
+    password: "longenough",
+  };
+
+  it("emailSchema normalises", () => {
+    expect(emailSchema.parse(" Ada@Example.com ")).toBe("ada@example.com");
+  });
+
+  it("passwordSchema enforces 8 to 200 characters", () => {
+    expect(passwordSchema.safeParse("1234567").success).toBe(false);
+    expect(passwordSchema.safeParse("12345678").success).toBe(true);
+    expect(passwordSchema.safeParse("a".repeat(200)).success).toBe(true);
+    expect(passwordSchema.safeParse("a".repeat(201)).success).toBe(false);
+  });
+
+  it("codeSchema needs exactly 6 digits", () => {
+    expect(codeSchema.safeParse("012345").success).toBe(true);
+    expect(codeSchema.safeParse("12345").success).toBe(false);
+    expect(codeSchema.safeParse("1234567").success).toBe(false);
+    expect(codeSchema.safeParse("12345a").success).toBe(false);
+  });
+
+  it("signupSchema normalises email and phone, rejects reserved slugs", () => {
+    const parsed = signupSchema.parse(signup);
+    expect(parsed.email).toBe("ada@example.com");
+    expect(parsed.phone).toBe("2348031234567");
+    expect(signupSchema.safeParse({ ...signup, slug: "admin" }).success).toBe(false);
+    expect(signupSchema.safeParse({ ...signup, businessName: "" }).success).toBe(false);
+    expect(signupSchema.safeParse({ ...signup, businessName: "x".repeat(121) }).success).toBe(
+      false,
+    );
+  });
+
+  it("loginSchema takes email and password", () => {
+    expect(loginSchema.parse({ email: " A@B.com", password: "12345678" }).email).toBe("a@b.com");
+    expect(loginSchema.safeParse({ email: "a@b.com", password: "" }).success).toBe(false);
   });
 });
 
