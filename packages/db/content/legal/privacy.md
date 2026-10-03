@@ -70,7 +70,7 @@ sections:
     heading: How long we keep it
     body: |
       We keep account data while your account is open. When you ask us to delete your account we complete the deletion within 30 days of confirming the request came from the account owner (see [Data Deletion](/legal/data-deletion)). We may keep some records for longer where the law, tax or accounting rules, or Paystack's requirements say we must, or where we need them to handle a dispute. Contact-form messages are kept only as long as needed to answer and follow up.
-    short: We keep data while your account is open, then delete it within 30 days of your request, apart from records we must keep.
+    short: We keep data while your account is open, then delete it within 30 days of confirming the request is from you, apart from records we must keep.
   - id: your-rights
     heading: Your rights
     body: |

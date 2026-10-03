@@ -31,7 +31,7 @@ sections:
   - id: payments
     heading: Payments and fees
     body: |
-      Card and bank payments are handled by Paystack. Gbam never sees or stores a customer's card number.
+      Card and bank payments are handled by Paystack. Gbam never sees or stores a customer's full card number.
 
       We charge sellers a Gbam fee on each paid order. Paystack also charges a processing fee, which is taken from the seller's share. The current fee is shown on our [Pricing page](/pricing), which is the version that applies. We may change fees in future and will update that page and tell sellers in advance.
     short: Paystack handles card payments. Fees are on the Pricing page.
