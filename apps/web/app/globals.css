@@ -18,5 +18,5 @@
 }
 
 body {
-  @apply bg-zinc-50 text-zinc-900 antialiased;
+  @apply bg-blush text-ink antialiased;
 }
