@@ -15,12 +15,18 @@ export class EmailQueue {
    * adding the same email twice never sends it twice.
    */
   async send(jobId: string, job: EmailJob) {
-    await this.queue.add(job.kind, job, {
+    const options = {
       jobId,
       attempts: 5,
-      backoff: { type: "exponential", delay: 2_000 },
-      removeOnComplete: 1_000,
-      removeOnFail: 5_000,
-    });
+      backoff: { type: "exponential" as const, delay: 2_000 },
+      removeOnComplete: 1_000 as number | boolean,
+      removeOnFail: 5_000 as number | { age: number },
+    };
+    // Codes sit in plaintext in the job data, so don't keep those jobs around.
+    if (job.kind === "verify_email" || job.kind === "reset_password") {
+      options.removeOnComplete = true;
+      options.removeOnFail = { age: 3600 };
+    }
+    await this.queue.add(job.kind, job, options);
   }
 }
