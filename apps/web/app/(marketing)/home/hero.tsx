@@ -59,7 +59,7 @@ export function Hero() {
       <h1 className="font-display text-ink mx-auto text-5xl leading-none font-black tracking-tight sm:text-6xl md:text-7xl">
         Sell on WhatsApp.
         <br />
-        Get paid. <span className="text-coral">Gbam.</span>
+        Get paid. <span className="text-coral-deep">Gbam.</span>
       </h1>
       <p className="text-ink-muted mx-auto mt-4 max-w-md text-base leading-relaxed">
         One link for your whole shop. Customers order and pay with Paystack, get updates on
@@ -73,7 +73,7 @@ export function Hero() {
           See how it works →
         </Button>
       </div>
-      <p className="text-ink-subtle mt-3 text-xs">
+      <p className="text-ink-muted mt-3 text-xs">
         Free for founding sellers · No app to install · Payments by Paystack
       </p>
 

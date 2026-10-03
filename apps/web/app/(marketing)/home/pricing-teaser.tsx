@@ -9,7 +9,7 @@ export function PricingTeaser() {
   return (
     <section className="mx-auto max-w-5xl px-4 py-12">
       <div className="bg-coral-wash rounded-3xl px-6 py-12 text-center">
-        <p className="text-brand text-xs font-bold tracking-widest uppercase">Pricing</p>
+        <p className="text-brand-hover text-xs font-bold tracking-widest uppercase">Pricing</p>
         <h2 className="font-display text-ink mt-2 text-3xl font-black sm:text-4xl">
           {percent}% per paid order, never more than {cap}
         </h2>
