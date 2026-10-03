@@ -12,7 +12,7 @@ Every order moves through these statuses, in this order.
 - **New**: the customer placed the order. Nothing is paid yet.
 - **Awaiting payment**: you requested payment and the customer has their Paystack link.
 - **Paid**: Paystack confirmed the payment. Only the system sets this, never you.
-- **Ready / sent**: you have packed the order or sent it out.
+- **Ready / sent out**: you have packed the order or sent it out.
 - **Delivered**: the customer has received it.
 - **Cancelled**: the order was stopped before payment.
 - **Refunded**: you marked an order as refunded after payment.

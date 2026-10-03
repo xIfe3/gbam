@@ -22,8 +22,8 @@ A listing is not an essay. Two or three plain sentences are easier to read on a 
 
 ## Check it like a customer
 
-Open your own shop link on your phone, as if you had never seen the product. Is anything still a question? Add that detail.
+Open your own shop link on your phone, as if you had never seen the product. Is anything still a question? Write that detail into your product description.
 
 ## Keep prices honest
 
-If a price changes, change it in your shop right away. Customers who order at one price and are asked for another stop trusting you quickly.
+If a price changes, get it updated in your shop right away (for now, email support@gbam.app). Customers who order at one price and are asked for another stop trusting you quickly.
