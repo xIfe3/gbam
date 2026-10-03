@@ -57,7 +57,7 @@ export function Checkout({ slug, products }: Props) {
 
   if (state.status === "success") {
     return (
-      <section className="rounded-xl border border-emerald-200 bg-brand-50 p-6 text-center">
+      <section className="rounded-xl border border-emerald-200 bg-brand-tint p-6 text-center">
         <p className="text-sm text-emerald-800">Order placed</p>
         <p className="my-2 font-mono text-3xl font-bold tracking-wider">{state.code}</p>
         <p className="text-zinc-700">
@@ -175,7 +175,7 @@ export function Checkout({ slug, products }: Props) {
       <button
         type="submit"
         disabled={pending || itemCount === 0}
-        className="w-full rounded-xl bg-brand-600 px-4 py-3 font-semibold text-white hover:bg-brand-700 disabled:opacity-50"
+        className="w-full rounded-xl bg-brand px-4 py-3 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
       >
         {submitLabel}
       </button>

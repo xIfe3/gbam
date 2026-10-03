@@ -30,7 +30,7 @@ export function StatusActions({ orderId, allowed }: { orderId: string; allowed: 
             className={
               DESTRUCTIVE.has(status)
                 ? "rounded-lg border border-rose-300 px-4 py-2 font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
-                : "rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700 disabled:opacity-50"
+                : "rounded-lg bg-brand px-4 py-2 font-medium text-white hover:bg-brand-hover disabled:opacity-50"
             }
           >
             {ACTION_LABEL[status]}

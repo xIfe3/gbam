@@ -40,7 +40,7 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
       {paidCode && (
         <p
           role="status"
-          className="mb-6 rounded-xl border border-emerald-200 bg-brand-50 p-4 text-emerald-900"
+          className="mb-6 rounded-xl border border-emerald-200 bg-brand-tint p-4 text-emerald-900"
         >
           Thanks! We&apos;re confirming your payment for <strong>{paidCode}</strong>. You&apos;ll
           get a WhatsApp message once it&apos;s confirmed.

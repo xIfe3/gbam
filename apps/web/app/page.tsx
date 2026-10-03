@@ -10,7 +10,7 @@ export default function Home() {
       <div className="flex gap-3">
         <Link
           href="/dashboard"
-          className="rounded-lg bg-brand-600 px-4 py-2 font-medium text-white hover:bg-brand-700"
+          className="rounded-lg bg-brand px-4 py-2 font-medium text-white hover:bg-brand-hover"
         >
           Seller dashboard
         </Link>

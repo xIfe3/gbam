@@ -64,7 +64,7 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
           href={waLink}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-sm font-medium text-brand-700 hover:underline"
+          className="text-sm font-medium text-brand-hover hover:underline"
         >
           +{order.customer.phone} · Chat on WhatsApp
         </a>

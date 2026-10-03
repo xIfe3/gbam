@@ -1,10 +1,20 @@
 @import "tailwindcss";
 
 @theme {
-  --color-brand-50: #ecfdf5;
-  --color-brand-600: #059669;
-  --color-brand-700: #047857;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --color-brand: #13804f;
+  --color-brand-hover: #0f6b42;
+  --color-brand-tint: #dcefe5;
+  --color-coral: #ff7a6b;
+  --color-coral-deep: #c9473a;
+  --color-coral-tint: #ffd2c9;
+  --color-coral-wash: #fff0ec;
+  --color-blush: #fff8f5;
+  --color-ink: #132a20;
+  --color-ink-muted: #3b4b43;
+  --color-ink-subtle: #6b7a72;
+  /* Set by next/font in layout.tsx */
+  --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
+  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
