@@ -18,6 +18,7 @@ import {
 } from "@gbam/shared";
 import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
 import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
+import { isUniqueViolation } from "../common/db-errors.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { generateOrderCode } from "./order-code.js";
@@ -317,21 +318,4 @@ function firstRow<T>(rows: T[], what: string): T {
     throw new Error(`Expected the database to return the ${what}, but it returned nothing`);
   }
   return row;
-}
-
-/**
- * True if `error` is Postgres saying "this would create a duplicate" (error code 23505)
- * for the given unique constraint. Drizzle wraps the Postgres error, so we look at the
- * error and at what it wraps (`error.cause`).
- */
-function isUniqueViolation(error: unknown, constraintName: string): boolean {
-  let current: unknown = error;
-  while (current !== null && typeof current === "object") {
-    const pgError = current as { code?: string; constraint_name?: string; cause?: unknown };
-    if (pgError.code === "23505" && pgError.constraint_name === constraintName) {
-      return true;
-    }
-    current = pgError.cause;
-  }
-  return false;
 }
