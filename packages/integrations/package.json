@@ -29,6 +29,7 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@gbam/shared": "workspace:*",
     "zod": "^4.6.5"
   },
   "devDependencies": {

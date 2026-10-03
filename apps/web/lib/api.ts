@@ -114,6 +114,15 @@ export type OrderDetail = Order & {
     actor: string;
     createdAt: string;
   }[];
+  /** Newest first. */
+  payments: {
+    id: string;
+    status: "pending" | "success" | "failed";
+    amountKobo: number;
+    platformFeeKobo: number;
+    paystackFeeKobo: number | null;
+    createdAt: string;
+  }[];
 };
 
 // ---- One function per API endpoint ----

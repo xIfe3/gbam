@@ -15,6 +15,13 @@
       "when": 1790964710610,
       "tag": "0001_futuristic_stature",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1791023130602,
+      "tag": "0002_awesome_callisto",
+      "breakpoints": true
     }
   ]
 }

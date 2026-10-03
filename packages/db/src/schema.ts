@@ -35,7 +35,10 @@ export const sellers = pgTable("sellers", {
   slug: text("slug").notNull().unique(),
   businessName: text("business_name").notNull(),
   whatsappPhone: text("whatsapp_phone").notNull().unique(),
+  /** Seller's Paystack subaccount: payments split to their bank account. */
   paystackSubaccountCode: text("paystack_subaccount_code"),
+  /** "Founding seller" offer: no gbam fee until this date. null = normal fees. */
+  feeWaivedUntil: timestamp("fee_waived_until", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -126,6 +129,10 @@ export const payments = pgTable(
     amountKobo: kobo("amount_kobo"),
     /** Paystack checkout link we sent the customer. */
     authorizationUrl: text("authorization_url"),
+    /** gbam's cut, decided when the payment link was created (see shared/fees.ts). */
+    platformFeeKobo: bigint("platform_fee_kobo", { mode: "number" }).notNull().default(0),
+    /** Paystack's actual fee, read back from Paystack once paid. null until then. */
+    paystackFeeKobo: bigint("paystack_fee_kobo", { mode: "number" }),
     status: paymentStatusEnum("status").notNull().default("pending"),
     raw: jsonb("raw"),
     createdAt: createdAt(),

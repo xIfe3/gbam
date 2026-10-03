@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import { estimatePaystackFee } from "@gbam/shared";
 import { z } from "zod";
 
 /**
@@ -16,8 +17,12 @@ export type InitializeTransactionInput = {
   amountKobo: number;
   email: string;
   callbackUrl?: string;
-  /** Seller's subaccount, so Paystack splits the money to them directly. */
-  subaccount?: string;
+  /**
+   * Split the payment with a seller. Paystack sends the money to the seller's
+   * subaccount, minus `platformFeeKobo` (our cut) which stays in our main account.
+   * The seller's share also pays Paystack's own fee ("bearer: subaccount").
+   */
+  split?: { subaccount: string; platformFeeKobo: number };
   metadata?: Record<string, unknown>;
 };
 
@@ -28,6 +33,8 @@ export type VerifiedTransaction = {
   status: "success" | "failed" | "abandoned" | "ongoing" | "pending" | "reversed" | (string & {});
   amountKobo: number;
   currency: string;
+  /** What Paystack charged for this transaction, in kobo. null if it didn't say. */
+  paystackFeeKobo: number | null;
   raw: unknown;
 };
 
@@ -50,8 +57,14 @@ const paystackEnvelope = z.object({
 const initializeData = z.object({ authorization_url: z.url(), reference: z.string() });
 
 const verifyData = z
-  .object({ reference: z.string(), status: z.string(), amount: z.number(), currency: z.string() })
-  .loose();
+  .object({
+    reference: z.string(),
+    status: z.string(),
+    amount: z.number(),
+    currency: z.string(),
+    fees: z.number().nullable().optional(), // Paystack's fee in kobo
+  })
+  .loose(); // .loose() = keep any other fields Paystack sends (we store them as `raw`)
 
 export class HttpPaystackClient implements PaystackClient {
   constructor(
@@ -60,17 +73,26 @@ export class HttpPaystackClient implements PaystackClient {
   ) {}
 
   async initializeTransaction(input: InitializeTransactionInput) {
+    const params: Record<string, unknown> = {
+      reference: input.reference,
+      amount: input.amountKobo,
+      email: input.email,
+      currency: "NGN",
+      callback_url: input.callbackUrl,
+      metadata: input.metadata,
+    };
+    if (input.split) {
+      params.subaccount = input.split.subaccount;
+      // A flat amount (kobo) for our main account. It overrides the percentage set on the
+      // subaccount in the Paystack dashboard, so our code is the one source of truth.
+      params.transaction_charge = input.split.platformFeeKobo;
+      // Paystack's fee comes out of the seller's share, not ours.
+      params.bearer = "subaccount";
+    }
+
     const body = await this.request("/transaction/initialize", initializeData, {
       method: "POST",
-      body: JSON.stringify({
-        reference: input.reference,
-        amount: input.amountKobo,
-        email: input.email,
-        currency: "NGN",
-        callback_url: input.callbackUrl,
-        subaccount: input.subaccount,
-        metadata: input.metadata,
-      }),
+      body: JSON.stringify(params),
     });
     return { authorizationUrl: body.authorization_url, reference: body.reference };
   }
@@ -80,11 +102,18 @@ export class HttpPaystackClient implements PaystackClient {
       `/transaction/verify/${encodeURIComponent(reference)}`,
       verifyData,
     );
+
+    let paystackFeeKobo: number | null = null;
+    if (typeof body.fees === "number") {
+      paystackFeeKobo = body.fees;
+    }
+
     return {
       reference: body.reference,
       status: body.status,
       amountKobo: body.amount,
       currency: body.currency,
+      paystackFeeKobo,
       raw: body,
     };
   }
@@ -173,7 +202,15 @@ export class FakePaystackClient implements PaystackClient {
   ) {}
 
   async initializeTransaction(input: InitializeTransactionInput) {
-    this.log(`[fake paystack] initialize ${input.reference} for ${input.amountKobo} kobo`);
+    let splitNote = "no split";
+    if (input.split) {
+      splitNote =
+        `split to ${input.split.subaccount}, gbam fee ${input.split.platformFeeKobo} kobo, ` +
+        `seller pays Paystack fee`;
+    }
+    this.log(
+      `[fake paystack] initialize ${input.reference} for ${input.amountKobo} kobo (${splitNote})`,
+    );
     return {
       authorizationUrl: `https://checkout.paystack.com/fake-${input.reference}`,
       reference: input.reference,
@@ -182,7 +219,16 @@ export class FakePaystackClient implements PaystackClient {
 
   async verifyTransaction(reference: string) {
     const amountKobo = await this.lookupAmount(reference);
-    if (amountKobo === undefined) throw new PaystackError("Transaction reference not found", 404);
-    return { reference, status: "success", amountKobo, currency: "NGN", raw: { fake: true } };
+    if (amountKobo === undefined) {
+      throw new PaystackError("Transaction reference not found", 404);
+    }
+    return {
+      reference,
+      status: "success",
+      amountKobo,
+      currency: "NGN",
+      paystackFeeKobo: estimatePaystackFee(amountKobo),
+      raw: { fake: true },
+    };
   }
 }

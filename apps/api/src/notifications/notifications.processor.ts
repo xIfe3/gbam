@@ -13,6 +13,7 @@ import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue
 // WhatsApp (Meta) error codes where trying again can never work.
 const PERMANENT_WHATSAPP_ERRORS = [
   131026, // the recipient can't receive messages (e.g. not on WhatsApp)
+  131030, // test number: recipient isn't on the app's allowed-recipients list
   132000, // wrong number of {{n}} values for the template
   132001, // template doesn't exist or isn't approved yet
 ];

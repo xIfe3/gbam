@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "../../status-badge";
+import { MoneyBreakdown } from "./money-breakdown";
 import { StatusActions } from "./status-actions";
 
 async function loadOrder(id: string) {
@@ -90,6 +91,8 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
           <span className="tabular-nums">{formatNaira(order.totalKobo)}</span>
         </p>
       </section>
+
+      <MoneyBreakdown payments={order.payments} />
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="mb-2 font-semibold">History</h2>

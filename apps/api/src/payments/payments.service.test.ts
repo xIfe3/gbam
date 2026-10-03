@@ -4,7 +4,11 @@
  */
 import "reflect-metadata";
 import { orders, payments, products, sellers } from "@gbam/db";
-import type { PaystackClient, VerifiedTransaction } from "@gbam/integrations";
+import type {
+  InitializeTransactionInput,
+  PaystackClient,
+  VerifiedTransaction,
+} from "@gbam/integrations";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -19,11 +23,13 @@ process.loadEnvFile?.("../../.env");
 
 class StubPaystack implements PaystackClient {
   initialized = 0;
+  lastInitialize: InitializeTransactionInput | undefined = undefined;
   verifyResult: (reference: string) => Partial<VerifiedTransaction> = () => ({});
   amounts = new Map<string, number>();
 
-  async initializeTransaction(input: { reference: string; amountKobo: number }) {
+  async initializeTransaction(input: InitializeTransactionInput) {
     this.initialized++;
+    this.lastInitialize = input;
     this.amounts.set(input.reference, input.amountKobo);
     return { authorizationUrl: `https://pay.test/${input.reference}`, reference: input.reference };
   }
@@ -32,8 +38,9 @@ class StubPaystack implements PaystackClient {
     return {
       reference,
       status: "success",
-      amountKobo: this.amounts.get(reference)!,
+      amountKobo: this.amounts.get(reference) ?? 0,
       currency: "NGN",
+      paystackFeeKobo: 1_500,
       raw: {},
       ...this.verifyResult(reference),
     };
@@ -170,5 +177,56 @@ describe("PaymentsService (integration)", () => {
     // Logged as NEEDS REFUND; the order stays cancelled.
     expect(await service.confirm(link.reference)).toBe("paid");
     expect(await statusOf(order.id)).toBe("cancelled");
+  });
+
+  describe("gbam fee and Paystack split", () => {
+    // Each order is 2 × ₦500 = ₦1,000 (100,000 kobo), so 1.5% = 1,500 kobo (₦15).
+    const setSeller = (values: {
+      paystackSubaccountCode?: string | null;
+      feeWaivedUntil?: Date | null;
+    }) => db.update(sellers).set(values).where(eq(sellers.id, sellerId));
+
+    const paymentFor = async (reference: string) => {
+      const rows = await db.select().from(payments).where(eq(payments.reference, reference));
+      return rows[0];
+    };
+
+    it("records the fee but sends no split when the seller has no subaccount", async () => {
+      await setSeller({ paystackSubaccountCode: null, feeWaivedUntil: null });
+      const { link } = await orderAwaitingPayment();
+
+      expect(paystack.lastInitialize?.split).toBeUndefined();
+      expect((await paymentFor(link.reference))?.platformFeeKobo).toBe(1_500);
+    });
+
+    it("splits to the seller, keeps 1.5%, and stores Paystack's real fee once paid", async () => {
+      await setSeller({ paystackSubaccountCode: "ACCT_test123", feeWaivedUntil: null });
+      try {
+        const { link } = await orderAwaitingPayment();
+        expect(paystack.lastInitialize?.split).toEqual({
+          subaccount: "ACCT_test123",
+          platformFeeKobo: 1_500,
+        });
+
+        await service.confirm(link.reference);
+        const payment = await paymentFor(link.reference);
+        expect(payment?.platformFeeKobo).toBe(1_500);
+        expect(payment?.paystackFeeKobo).toBe(1_500); // from the stub's verify()
+      } finally {
+        await setSeller({ paystackSubaccountCode: null });
+      }
+    });
+
+    it("charges founding sellers nothing while their waiver lasts", async () => {
+      const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
+      await setSeller({ paystackSubaccountCode: "ACCT_test123", feeWaivedUntil: nextYear });
+      try {
+        const { link } = await orderAwaitingPayment();
+        expect(paystack.lastInitialize?.split?.platformFeeKobo).toBe(0);
+        expect((await paymentFor(link.reference))?.platformFeeKobo).toBe(0);
+      } finally {
+        await setSeller({ paystackSubaccountCode: null, feeWaivedUntil: null });
+      }
+    });
   });
 });

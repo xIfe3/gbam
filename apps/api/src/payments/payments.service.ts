@@ -1,5 +1,5 @@
 import { orders, payments, sellers } from "@gbam/db";
-import { InvalidOrderTransitionError, type OrderStatus } from "@gbam/shared";
+import { calculatePlatformFee, InvalidOrderTransitionError, type OrderStatus } from "@gbam/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
 import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
@@ -78,10 +78,15 @@ export class PaymentsService {
       const randomPart = randomBytes(4).toString("hex");
       const reference = `gbam_${order.code}_${randomPart}`;
 
-      // If the seller has a Paystack subaccount, Paystack sends the money straight to them.
-      let subaccount: string | undefined = undefined;
+      // gbam's cut for this order (1.5%, capped, or 0 for founding sellers). The rules
+      // live in packages/shared/src/fees.ts.
+      const platformFeeKobo = calculatePlatformFee(order.totalKobo, order.seller.feeWaivedUntil);
+
+      // If the seller has a Paystack subaccount, Paystack pays them directly and keeps
+      // our cut in our account. Without one, the whole amount lands in our account.
+      let split: { subaccount: string; platformFeeKobo: number } | undefined = undefined;
       if (order.seller.paystackSubaccountCode) {
-        subaccount = order.seller.paystackSubaccountCode;
+        split = { subaccount: order.seller.paystackSubaccountCode, platformFeeKobo };
       }
 
       // We call Paystack while still holding the lock, on purpose: creating the link is
@@ -92,7 +97,7 @@ export class PaymentsService {
         email: placeholderEmail(order.customer.phone),
         // Where Paystack sends the customer after paying.
         callbackUrl: `${this.env.WEB_URL}/${order.seller.slug}?paid=${order.code}`,
-        subaccount,
+        split,
         metadata: { orderId, orderCode: order.code, sellerId: order.sellerId },
       });
 
@@ -103,6 +108,7 @@ export class PaymentsService {
         reference,
         amountKobo: order.totalKobo,
         authorizationUrl: initialized.authorizationUrl,
+        platformFeeKobo,
         status: "pending",
       });
 
@@ -155,7 +161,7 @@ export class PaymentsService {
 
     await this.db
       .update(payments)
-      .set({ status: "success", raw: verified.raw })
+      .set({ status: "success", paystackFeeKobo: verified.paystackFeeKobo, raw: verified.raw })
       .where(eq(payments.id, payment.id));
 
     try {

@@ -30,7 +30,7 @@ const envSchema = z
     WHATSAPP_API_VERSION: z
       .string()
       .regex(/^v\d+\.\d+$/)
-      .default("v23.0"),
+      .default("v25.0"),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;

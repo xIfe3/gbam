@@ -2,6 +2,7 @@ import {
   customers,
   orderEvents,
   orderItems,
+  payments,
   orders,
   products,
   sellers,
@@ -105,6 +106,19 @@ export class OrdersService {
         customer: true,
         items: true,
         events: { orderBy: [asc(orderEvents.createdAt)] },
+        // Only the money columns. `raw` (Paystack's full reply) can include the
+        // customer's card details, so it never leaves the API.
+        payments: {
+          columns: {
+            id: true,
+            status: true,
+            amountKobo: true,
+            platformFeeKobo: true,
+            paystackFeeKobo: true,
+            createdAt: true,
+          },
+          orderBy: [desc(payments.createdAt)],
+        },
       },
     });
 

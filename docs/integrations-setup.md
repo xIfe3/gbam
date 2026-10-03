@@ -35,6 +35,27 @@ Paystack needs an email per transaction; customers only give a phone number, so 
 `<phone>@customers.gbam.app`. Paystack receipts to that address won't arrive. Collect real
 emails later if receipts matter.
 
+## Fees: who gets what
+
+Rules live in `packages/shared/src/fees.ts`. Edit `PLATFORM_FEE` there to change them.
+
+- **gbam fee:** 1.5% of each order, capped at ₦1,000. Sent to Paystack per payment as
+  `transaction_charge`, which overrides the percentage on the subaccount. Keep the
+  subaccount's own percentage at 0 in the dashboard, so the code is the only source.
+- **Paystack fee:** paid from the seller's share (`bearer: "subaccount"`), so gbam never
+  loses money on a sale.
+- **Founding sellers:** no gbam fee until a date. Set `sellers.fee_waived_until`, e.g.
+  three months from now:
+  `update sellers set fee_waived_until = now() + interval '3 months' where slug = '...';`
+- Each payment stores `platform_fee_kobo` (your cut) and `paystack_fee_kobo` (Paystack's
+  real fee, once paid). The order page shows the seller the breakdown.
+
+### Paying a real test transaction without a tunnel
+
+1. Request payment on an order, open the Paystack link, and pay with a Paystack test card.
+2. Run `pnpm simulate:payment GB-XXXX`. It sends the signed webhook Paystack would have
+   sent; the worker then checks with Paystack, sees the real payment, and marks it paid.
+
 ## WhatsApp Cloud API
 
 1. In Meta for Developers, create an app with the **WhatsApp** product and add a phone
