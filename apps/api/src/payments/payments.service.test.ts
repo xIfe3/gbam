@@ -10,10 +10,10 @@ import type {
   VerifiedTransaction,
 } from "@gbam/integrations";
 import { Test, type TestingModule } from "@nestjs/testing";
-import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
+import { createTestSeller } from "../test-helpers.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { PaymentsModule } from "./payments.module.js";
@@ -70,12 +70,9 @@ describe("PaymentsService (integration)", () => {
     ordersService = moduleRef.get(OrdersService);
     db = moduleRef.get(DB);
 
-    slug = `pay-${randomUUID().slice(0, 8)}`;
-    const [seller] = await db
-      .insert(sellers)
-      .values({ slug, businessName: "Pay Test", whatsappPhone: `235${Date.now()}`.slice(0, 13) })
-      .returning();
-    sellerId = seller!.id;
+    const seller = await createTestSeller(db, "pay");
+    slug = seller.slug;
+    sellerId = seller.id;
     const [product] = await db
       .insert(products)
       .values({ sellerId, name: "Puff-puff", priceKobo: 50_000 })

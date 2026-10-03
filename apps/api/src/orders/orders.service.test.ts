@@ -11,6 +11,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
+import { createTestSeller } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -30,12 +31,9 @@ describe("OrdersService (integration)", () => {
     service = moduleRef.get(OrdersService);
     db = moduleRef.get(DB);
 
-    slug = `test-${randomUUID().slice(0, 8)}`;
-    const [seller] = await db
-      .insert(sellers)
-      .values({ slug, businessName: "Test Store", whatsappPhone: `234${Date.now()}`.slice(0, 13) })
-      .returning();
-    sellerId = seller!.id;
+    const seller = await createTestSeller(db, "test");
+    slug = seller.slug;
+    sellerId = seller.id;
     const [product] = await db
       .insert(products)
       .values({ sellerId, name: "Suya", priceKobo: 150_000 })
