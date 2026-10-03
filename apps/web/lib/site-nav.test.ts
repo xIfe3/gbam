@@ -6,11 +6,7 @@ import { FOOTER_GROUPS, HEADER_LINKS, LEGAL_DOCS } from "./site-nav";
 
 // Routes whose page.tsx is not built yet. Later tasks remove entries as they build each page
 // (the test below fails if a built page is left in this list).
-const PENDING_ROUTES: string[] = [
-  "/login",
-  "/signup",
-  ...LEGAL_DOCS.map((doc) => `/legal/${doc}`),
-];
+const PENDING_ROUTES: string[] = ["/login", "/signup"];
 
 function isGroup(name: string): boolean {
   return name.startsWith("(") && name.endsWith(")");
