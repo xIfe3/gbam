@@ -1,0 +1,89 @@
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<h2>Template 2 of 3 · Legal page: three choices</h2>
+<p class="subtitle">Shown as <b>Privacy Policy</b>; Terms, Cookies, Refunds, Seller Agreement, Acceptable Use and Data Deletion follow the same pattern. The differences: how you <b>move between legal pages</b>, how you <b>jump within a long page</b>, and how the <b>plain-English summary</b> is shown.</p>
+
+<style>
+  .t { background:#FFF8F5; border-radius:20px; padding:14px; font-family:'DM Sans',sans-serif; color:#132A20; font-size:10.5px; }
+  .fr { font-family:Fraunces,serif; letter-spacing:-0.02em; }
+  .navbar { display:flex; justify-content:space-between; align-items:center; color:#3B4B43; margin-bottom:12px; }
+  .h { font-family:Fraunces,serif; font-weight:900; letter-spacing:-0.02em; margin:2px 0 4px; line-height:1.05; }
+  .muted { color:#3B4B43; line-height:1.55; margin:0 0 6px; }
+  .date { color:#6B7A72; margin-bottom:8px; }
+  .sec { font-weight:700; font-size:11px; margin-top:6px; }
+  .line { height:6px; background:#EEE6E1; border-radius:3px; margin:5px 0; }
+  .paper { background:#fff; border-radius:14px; padding:12px; }
+  .pill { display:inline-block; border-radius:999px; padding:4px 9px; margin:0 4px 4px 0; background:#fff; color:#3B4B43; }
+  .pill.on { background:#13804F; color:#fff; font-weight:700; }
+</style>
+
+<div class="cards">
+
+  <!-- A -->
+  <div class="card" data-choice="A-sidebar" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="display:flex;gap:10px">
+        <div style="width:96px;flex-shrink:0;background:#fff;border-radius:12px;padding:9px;line-height:1.95;color:#3B4B43">
+          <b style="color:#132A20">Legal</b><br>Terms<br><span style="color:#13804F;font-weight:700">● Privacy</span><br>Cookies<br>Refunds<br>Seller Agreement<br>Acceptable Use<br>Data Deletion
+        </div>
+        <div class="paper" style="flex:1">
+          <div class="h" style="font-size:20px">Privacy Policy</div>
+          <div class="date">Last updated 3 October 2026</div>
+          <div style="background:#FFF0EC;border-radius:10px;padding:8px;margin-bottom:8px"><b>In plain English:</b> we collect only what we need to run orders and payments, never sell your data, and delete it when you ask.</div>
+          <div class="sec">1. Who we are</div><div class="line"></div><div class="line" style="width:80%"></div>
+          <div class="sec">2. What we collect</div><div class="line"></div><div class="line" style="width:70%"></div>
+        </div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>A · Sidebar of all legal pages</h3><p>Left menu lists every legal page; one coral "plain English" box on top. Simple and familiar. On long pages you scroll a lot, with no "jump to section".</p></div>
+  </div>
+
+  <!-- B -->
+  <div class="card" data-choice="B-toc" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="margin-bottom:8px"><span class="pill">Terms</span><span class="pill on">Privacy</span><span class="pill">Cookies</span><span class="pill">Refunds</span><span class="pill">Seller Agreement</span><span class="pill">More ▾</span></div>
+      <div style="display:flex;gap:10px">
+        <div class="paper" style="flex:1">
+          <div class="h" style="font-size:20px">Privacy Policy</div>
+          <div class="date">Last updated 3 October 2026 · 8 min read</div>
+          <div class="sec">1. Who we are</div>
+          <div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><div class="line"></div><div class="line" style="width:85%"></div></div><div style="width:92px;background:#DCEFE5;border-radius:8px;padding:6px;font-size:9.5px"><b>Short version:</b> Gbam is run by Zephra Studios in Nigeria.</div></div>
+          <div class="sec">2. What we collect</div>
+          <div style="display:flex;gap:8px;align-items:flex-start"><div style="flex:1"><div class="line"></div><div class="line" style="width:75%"></div></div><div style="width:92px;background:#DCEFE5;border-radius:8px;padding:6px;font-size:9.5px"><b>Short version:</b> name, phone, order details. No card numbers.</div></div>
+        </div>
+        <div style="width:88px;flex-shrink:0;background:#fff;border-radius:12px;padding:8px;line-height:1.9;color:#3B4B43;align-self:flex-start">
+          <b style="color:#132A20">On this page</b><br><span style="color:#13804F;font-weight:700">1. Who we are</span><br>2. What we collect<br>3. How we use it<br>4. Sharing<br>5. Your rights<br>6. Contact
+        </div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>B · Tabs + "on this page" + short version per section</h3><p>Switch legal pages with pill tabs; a sticky contents list on the right jumps within the page; each section gets its own green "Short version" note beside it. Most readable for long documents.</p></div>
+  </div>
+
+  <!-- C -->
+  <div class="card" data-choice="C-hub-cards" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="background:#13804F;border-radius:14px;padding:12px;color:#fff;margin-bottom:8px">
+        <div class="h" style="font-size:20px;color:#fff">Privacy Policy</div>
+        <div style="color:#DCEFE5">Last updated 3 October 2026</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px">
+        <div style="background:#fff;border-radius:10px;padding:7px"><b style="color:#13804F">✓ We collect</b><br>Name, phone, orders</div>
+        <div style="background:#fff;border-radius:10px;padding:7px"><b style="color:#FF7A6B">✕ We never</b><br>Sell your data</div>
+        <div style="background:#fff;border-radius:10px;padding:7px"><b style="color:#13804F">↺ You can</b><br>Delete it anytime</div>
+      </div>
+      <div class="paper">
+        <div class="sec">▸ 1. Who we are</div>
+        <div class="sec">▾ 2. What we collect</div><div class="line"></div><div class="line" style="width:80%"></div>
+        <div class="sec">▸ 3. How we use it</div>
+        <div class="sec">▸ 4. Your rights</div>
+      </div>
+      <div style="margin-top:8px;color:#6B7A72">Other legal pages: Terms · Cookies · Refunds · Seller Agreement · More</div>
+    </div></div>
+    <div class="card-body"><h3>C · Summary cards + collapsible sections</h3><p>Green header, three "at a glance" cards (collect / never / you can), then sections that open and close. Friendliest and fastest to skim. Collapsed text is a bit less transparent for a legal page.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">My suggestion: <b>B</b>, perhaps with <b>C's three "at a glance" cards</b> at the top. Long legal docs (Terms, Seller Agreement) really benefit from "jump to section", and per-section short versions build trust.</p>

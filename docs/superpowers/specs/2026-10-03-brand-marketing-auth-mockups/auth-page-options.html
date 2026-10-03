@@ -1,0 +1,96 @@
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<h2>Template 3 of 3 · Auth pages: three choices</h2>
+<p class="subtitle">Shown as <b>Sign up</b>; Log in, Verify code, Forgot password and Reset password use the same frame. Remember most sellers will do this <b>on a phone</b>; the small preview under each shows the mobile version.</p>
+
+<style>
+  .t { border-radius:20px; overflow:hidden; font-family:'DM Sans',sans-serif; color:#132A20; font-size:10.5px; background:#FFF8F5; }
+  .fr { font-family:Fraunces,serif; letter-spacing:-0.02em; }
+  .h { font-family:Fraunces,serif; font-weight:900; letter-spacing:-0.02em; margin:2px 0 4px; line-height:1.05; }
+  .muted { color:#3B4B43; line-height:1.5; margin:0 0 8px; }
+  .lbl { font-weight:700; display:block; margin-bottom:3px; }
+  .field { background:#fff; border:1.5px solid #E9DCD5; border-radius:11px; padding:7px 9px; margin-bottom:7px; color:#8A968F; }
+  .btn { display:block; text-align:center; background:#13804F; color:#fff; border-radius:999px; padding:8px; font-weight:700; }
+  .photo { background:repeating-linear-gradient(45deg,#2C8F61,#2C8F61 8px,#33966A 8px,#33966A 16px); border-radius:16px; display:flex; align-items:center; justify-content:center; text-align:center; color:#DCEFE5; padding:6px; }
+  .toast { position:absolute; background:#fff; border-radius:12px; padding:6px 8px; box-shadow:0 8px 22px rgba(0,0,0,.18); display:flex; gap:6px; align-items:center; white-space:nowrap; font-size:9.5px; color:#132A20; }
+  .bang { width:20px; height:20px; border-radius:50%; background:#FFE3DE; color:#FF7A6B; font-family:Fraunces,serif; font-weight:900; display:flex; align-items:center; justify-content:center; }
+  .mob { width:110px; height:200px; border-radius:20px; background:#132A20; padding:5px; margin:10px auto 0; }
+  .mobs { width:100%; height:100%; border-radius:16px; overflow:hidden; background:#FFF8F5; padding:8px 7px; font-size:7px; }
+  .mobs .field { padding:4px 5px; border-radius:7px; margin-bottom:4px; }
+  .mobs .btn { padding:5px; }
+  .steps { display:flex; gap:4px; margin-bottom:8px; }
+  .steps span { flex:1; height:4px; border-radius:2px; background:#EEE6E1; }
+  .steps span.on { background:#13804F; }
+</style>
+
+<div class="cards">
+
+  <!-- A -->
+  <div class="card" data-choice="A-split" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="t" style="display:flex;min-height:250px">
+        <div style="flex:1;padding:14px">
+          <span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span>
+          <div class="h" style="font-size:19px;margin-top:10px">Start selling in 5 minutes</div>
+          <p class="muted">Free for founding sellers.</p>
+          <span class="lbl">Business name</span><div class="field">Mama Ngozi Kitchen</div>
+          <span class="lbl">Email</span><div class="field">you@example.com</div>
+          <span class="lbl">Password</span><div class="field">••••••••</div>
+          <span class="btn">Create my shop</span>
+        </div>
+        <div style="flex:1;background:#13804F;position:relative;display:flex;align-items:center;justify-content:center;padding:12px">
+          <div class="photo" style="width:100%;height:180px">Photo: seller</div>
+          <div class="toast" style="top:22px;right:8px"><span class="bang">!</span><span><b>Payment received</b><br>₦6,000</span></div>
+        </div>
+      </div>
+      <div class="mob"><div class="mobs"><span class="fr" style="font-weight:900;font-size:9px">gbam<span style="color:#FF7A6B">!</span></span><div class="h" style="font-size:11px;margin-top:6px">Start selling</div><div class="field">Business name</div><div class="field">Email</div><div class="field">Password</div><span class="btn">Create my shop</span><p style="color:#8A968F;margin-top:5px">(photo panel hidden on phones)</p></div></div>
+    </div>
+    <div class="card-body"><h3>A · Split: form + brand panel</h3><p>Form left, green panel with photo and the "Payment received" card right (as shown earlier). Feels premium on desktop; on phones the panel disappears and it's a plain form.</p></div>
+  </div>
+
+  <!-- B -->
+  <div class="card" data-choice="B-card" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="t" style="min-height:250px;position:relative;padding:16px;display:flex;align-items:center;justify-content:center;background:radial-gradient(circle at 15% 20%,#FFD2C9 0,transparent 35%),radial-gradient(circle at 85% 85%,#DCEFE5 0,transparent 40%),#FFF8F5">
+        <div style="width:210px;background:#fff;border-radius:20px;padding:14px;box-shadow:0 14px 40px rgba(19,42,32,.12);position:relative">
+          <div style="text-align:center"><span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><div class="h" style="font-size:17px;margin-top:6px">Start selling in 5 minutes</div><p class="muted">Free for founding sellers.</p></div>
+          <span class="lbl">Business name</span><div class="field">Mama Ngozi Kitchen</div>
+          <span class="lbl">Email</span><div class="field">you@example.com</div>
+          <span class="lbl">Password</span><div class="field">••••••••</div>
+          <span class="btn">Create my shop</span>
+          <div class="toast" style="top:-14px;right:-60px"><span class="bang">!</span><span><b>Payment received</b><br>₦6,000</span></div>
+        </div>
+      </div>
+      <div class="mob"><div class="mobs" style="background:radial-gradient(circle at 20% 10%,#FFD2C9 0,transparent 40%),#FFF8F5"><div style="background:#fff;border-radius:10px;padding:6px"><div style="text-align:center"><span class="fr" style="font-weight:900;font-size:9px">gbam<span style="color:#FF7A6B">!</span></span><div class="h" style="font-size:10px">Start selling</div></div><div class="field">Business name</div><div class="field">Email</div><div class="field">Password</div><span class="btn">Create my shop</span></div></div></div>
+    </div>
+    <div class="card-body"><h3>B · Centered card on a soft background</h3><p>One white card on blush with soft coral &amp; green glows; the "Payment received" card pinned to its corner. Looks the same on phone and desktop. Simple and focused, less storytelling.</p></div>
+  </div>
+
+  <!-- C -->
+  <div class="card" data-choice="C-guided" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="t" style="display:flex;min-height:250px">
+        <div style="width:110px;background:#13804F;color:#fff;padding:12px;display:flex;flex-direction:column;gap:10px">
+          <span class="fr" style="font-size:15px;font-weight:900">gbam<span style="color:#FFD2C9">!</span></span>
+          <div><b>① Your shop</b><br><span style="opacity:.8">name &amp; link</span></div>
+          <div style="opacity:.6"><b>② Verify</b><br>6-digit code</div>
+          <div style="opacity:.6"><b>③ Get paid</b><br>bank details</div>
+          <div class="photo" style="height:70px;margin-top:auto;font-size:9px">Photo</div>
+        </div>
+        <div style="flex:1;padding:14px">
+          <div class="steps"><span class="on"></span><span></span><span></span></div>
+          <div class="h" style="font-size:18px">Name your shop</div>
+          <p class="muted">This is what customers see.</p>
+          <span class="lbl">Business name</span><div class="field">Mama Ngozi Kitchen</div>
+          <span class="lbl">Your link</span><div class="field" style="color:#132A20">gbam.app/<b style="color:#13804F">mama-ngozi</b> ✓</div>
+          <span class="lbl">Email</span><div class="field">you@example.com</div>
+          <span class="btn">Continue</span>
+        </div>
+      </div>
+      <div class="mob"><div class="mobs"><div class="steps"><span class="on"></span><span></span><span></span></div><div class="h" style="font-size:10px">Name your shop</div><div class="field">Mama Ngozi Kitchen</div><div class="field" style="color:#132A20">gbam.app/<b style="color:#13804F">mama-ngozi</b> ✓</div><div class="field">Email</div><span class="btn">Continue</span></div></div>
+    </div>
+    <div class="card-body"><h3>C · Guided steps with progress</h3><p>Green rail shows the journey (shop → verify → bank details) with a progress bar; signup is broken into small steps and shows their shop link live as they type. Best for non-techy sellers; signup flows straight into onboarding.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">My suggestion: <b>C for Sign up</b> (it naturally becomes onboarding: verify → bank details → Paystack subaccount), and <b>B's centered card for Log in, Forgot &amp; Reset password</b>, which are single short forms that don't need steps.</p>

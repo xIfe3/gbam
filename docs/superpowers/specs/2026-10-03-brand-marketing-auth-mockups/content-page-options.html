@@ -1,0 +1,94 @@
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<h2>Template 1 of 3 · Content page: three choices</h2>
+<p class="subtitle">Shown as the <b>Features</b> page, but About, Use cases, How it works, Pricing and Contact all follow the chosen pattern. Each has a different <b>header</b> and a different way of laying out <b>sections</b>. Mix freely ("A's header + B's sections") in the terminal. Grey boxes = real photos / product mockups later.</p>
+
+<style>
+  .t { background:#FFF8F5; border-radius:20px; padding:16px; font-family:'DM Sans',sans-serif; color:#132A20; font-size:11px; }
+  .fr { font-family:Fraunces,serif; letter-spacing:-0.02em; }
+  .nav { display:flex; justify-content:space-between; align-items:center; color:#3B4B43; margin-bottom:16px; }
+  .nav b { background:#13804F; color:#fff; border-radius:999px; padding:5px 10px; }
+  .photo { background:repeating-linear-gradient(45deg,#E9E2DD,#E9E2DD 8px,#EFE9E4 8px,#EFE9E4 16px); border-radius:16px; display:flex; align-items:center; justify-content:center; text-align:center; color:#7D716A; padding:6px; }
+  .eyebrow { color:#FF7A6B; font-weight:700; text-transform:uppercase; letter-spacing:.08em; font-size:9.5px; }
+  .h { font-family:Fraunces,serif; font-weight:900; letter-spacing:-0.02em; margin:3px 0 5px; line-height:1.05; }
+  .muted { color:#3B4B43; line-height:1.5; margin:0; }
+  .cta { display:inline-block; background:#13804F; color:#fff; border-radius:999px; padding:7px 13px; font-weight:700; }
+  .band { background:#13804F; color:#fff; border-radius:16px; padding:12px; text-align:center; margin-top:12px; }
+  .tile { background:#fff; border-radius:16px; padding:10px; }
+  .navbar { display:flex; justify-content:space-between; align-items:center; color:#3B4B43; margin-bottom:14px; }
+</style>
+
+<div class="cards">
+
+  <!-- A -->
+  <div class="card" data-choice="A-alternating" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:16px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="text-align:center;margin-bottom:14px">
+        <div class="eyebrow">Features</div>
+        <div class="h" style="font-size:24px">Everything your WhatsApp shop needs</div>
+        <p class="muted" style="max-width:300px;margin:0 auto">From "how much?" to "delivered".</p>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;margin-bottom:10px">
+        <div style="flex:1"><div class="eyebrow">Storefront</div><div class="h" style="font-size:15px">Your shop, one link</div><p class="muted">Share it in your status and chats.</p></div>
+        <div class="photo" style="flex:1;height:80px">Mockup: storefront</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-direction:row-reverse;margin-bottom:10px">
+        <div style="flex:1"><div class="eyebrow">Payments</div><div class="h" style="font-size:15px">Paid before you pack</div><p class="muted">Paystack links on WhatsApp.</p></div>
+        <div class="photo" style="flex:1;height:80px">Photo: customer paying</div>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center">
+        <div style="flex:1"><div class="eyebrow">Updates</div><div class="h" style="font-size:15px">Customers always know</div><p class="muted">Automatic WhatsApp updates.</p></div>
+        <div class="photo" style="flex:1;height:80px">Mockup: WhatsApp updates</div>
+      </div>
+      <div class="band"><b class="fr" style="font-size:14px">Ready? <span style="color:#FFD2C9">Gbam.</span></b></div>
+    </div></div>
+    <div class="card-body"><h3>A · Centered header + alternating rows</h3><p><b>Header:</b> small eyebrow, big centered title. <b>Sections:</b> text and image swap sides down the page. Calm, easy to read, great for storytelling (About, How it works). Can feel long on Features.</p></div>
+  </div>
+
+  <!-- B -->
+  <div class="card" data-choice="B-bento" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:16px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="display:flex;gap:12px;align-items:center;margin-bottom:12px">
+        <div style="flex:1.2"><div class="eyebrow">Features</div><div class="h" style="font-size:22px">Everything your WhatsApp shop needs</div><p class="muted" style="margin-bottom:8px">From "how much?" to "delivered".</p><span class="cta">Start free</span></div>
+        <div class="photo" style="flex:1;height:110px">Photo: seller with phone</div>
+      </div>
+      <div style="display:grid;grid-template-columns:1.4fr 1fr;gap:8px">
+        <div class="tile" style="grid-row:span 2"><div class="eyebrow">Storefront</div><div class="h" style="font-size:15px">Your shop, one link</div><div class="photo" style="height:105px;margin-top:6px">Mockup: storefront</div></div>
+        <div class="tile" style="background:#FFF0EC"><div class="eyebrow">Payments</div><div class="h" style="font-size:13px">Paid before you pack</div></div>
+        <div class="tile" style="background:#DCEFE5"><div class="eyebrow" style="color:#13804F">Updates</div><div class="h" style="font-size:13px">Auto WhatsApp updates</div></div>
+        <div class="tile"><div class="eyebrow">Dashboard</div><div class="h" style="font-size:13px">Every order in one place</div></div>
+        <div class="tile"><div class="eyebrow">Payouts</div><div class="h" style="font-size:13px">Straight to your bank</div></div>
+      </div>
+      <div class="band"><b class="fr" style="font-size:14px">Ready? <span style="color:#FFD2C9">Gbam.</span></b></div>
+    </div></div>
+    <div class="card-body"><h3>B · Split header + bento grid</h3><p><b>Header:</b> title &amp; button left, photo right. <b>Sections:</b> a grid of tiles in different sizes and tints (green, coral). Modern, scannable, shows lots at once. Best for Features &amp; Use cases.</p></div>
+  </div>
+
+  <!-- C -->
+  <div class="card" data-choice="C-sticky-phone" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="t">
+      <div class="navbar"><span class="fr" style="font-size:16px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span><span>Features · Pricing · Help</span></div>
+      <div style="background:#13804F;border-radius:18px;padding:16px;color:#fff;margin-bottom:12px;position:relative;overflow:hidden">
+        <div class="eyebrow" style="color:#FFD2C9">Features</div>
+        <div class="h" style="font-size:22px;color:#fff;max-width:210px">Everything your WhatsApp shop needs</div>
+        <p class="muted" style="color:#DCEFE5">From "how much?" to "delivered".</p>
+        <div class="photo" style="position:absolute;right:12px;top:12px;width:70px;height:70px;border-radius:50%;background:repeating-linear-gradient(45deg,#2C8F61,#2C8F61 6px,#33966A 6px,#33966A 12px);color:#DCEFE5;font-size:9px">Photo</div>
+      </div>
+      <div style="display:flex;gap:12px">
+        <div style="flex:1;display:flex;flex-direction:column;gap:8px">
+          <div class="tile" style="border-left:3px solid #FF7A6B"><div class="h" style="font-size:13px">① Your shop, one link</div><p class="muted">Share it everywhere.</p></div>
+          <div class="tile" style="opacity:.55"><div class="h" style="font-size:13px">② Paid before you pack</div></div>
+          <div class="tile" style="opacity:.55"><div class="h" style="font-size:13px">③ Customers always know</div></div>
+          <div class="tile" style="opacity:.55"><div class="h" style="font-size:13px">④ Every order, one place</div></div>
+        </div>
+        <div style="width:92px;height:180px;border-radius:18px;background:#132A20;padding:5px;flex-shrink:0"><div style="width:100%;height:100%;border-radius:14px;background:#E8F0EA;display:flex;align-items:center;justify-content:center;text-align:center;color:#3B4B43;font-size:9px;padding:4px">Phone changes to match the highlighted step as you scroll</div></div>
+      </div>
+      <div class="band"><b class="fr" style="font-size:14px">Ready? <span style="color:#FFD2C9">Gbam.</span></b></div>
+    </div></div>
+    <div class="card-body"><h3>C · Colour-block header + scroll story</h3><p><b>Header:</b> a bold green panel with a round photo. <b>Sections:</b> steps on the left; a phone on the right stays in place and <i>changes screen</i> as you scroll. The most "wow", shows the real product. More work to build.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:16px">My suggestion: <b>B's bento for Features &amp; Use cases</b>, <b>C's scroll story for How it works</b>, <b>A's rows for About</b>. Pages don't all have to match exactly; they share colours, fonts and the green "Ready? Gbam." band, which keeps them one family.</p>

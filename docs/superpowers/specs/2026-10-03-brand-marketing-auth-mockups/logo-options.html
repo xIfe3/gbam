@@ -1,0 +1,80 @@
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,600;9..144,800;9..144,900&family=DM+Sans:wght@500;700&display=swap" rel="stylesheet">
+
+<h2>Which logo direction?</h2>
+<p class="subtitle">Early concepts to pick a <b>direction</b>, not final artwork. Each shows the full logo, how it sits in a nav bar, and the tiny app icon / browser-tab size (the real test). Forest green #13804F, coral #FF7A6B, ink #132A20.</p>
+
+<style>
+  .lg { background:#FFF8F5; border-radius:18px; padding:22px 18px; }
+  .big { display:flex; align-items:center; gap:10px; min-height:70px; }
+  .nav { margin-top:14px; background:#fff; border-radius:12px; padding:9px 12px; display:flex; align-items:center; justify-content:space-between; font-family:'DM Sans',sans-serif; font-size:12px; color:#3B4B43; }
+  .nav .l { display:flex; align-items:center; gap:6px; }
+  .icons { margin-top:14px; display:flex; align-items:end; gap:14px; font-family:'DM Sans',sans-serif; font-size:11px; color:#6B7A72; }
+  .icons div { text-align:center; }
+  .fr { font-family:Fraunces,serif; color:#132A20; letter-spacing:-0.02em; }
+</style>
+
+<div class="cards">
+
+  <!-- A: wordmark with coral exclamation -->
+  <div class="card" data-choice="wordmark-bang" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="lg">
+      <div class="big"><span class="fr" style="font-size:54px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span></div>
+      <div class="nav"><span class="l"><span class="fr" style="font-size:20px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span></span><span>Features · Pricing · <b style="color:#13804F">Start free</b></span></div>
+      <div class="icons">
+        <div><div style="width:56px;height:56px;border-radius:14px;background:#13804F;display:flex;align-items:center;justify-content:center"><span class="fr" style="font-size:34px;font-weight:900;color:#fff">g<span style="color:#FF7A6B">!</span></span></div>app icon</div>
+        <div><div style="width:16px;height:16px;border-radius:4px;background:#13804F;display:flex;align-items:center;justify-content:center"><span class="fr" style="font-size:11px;font-weight:900;color:#fff">g</span></div>16px</div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>A · Wordmark "gbam!"</h3><p>Just the name, with a coral exclamation mark: the "Gbam!" shout. Simple, timeless, cheap to apply everywhere. Relies on the font for personality.</p></div>
+  </div>
+
+  <!-- B: chat bubble with check -->
+  <div class="card" data-choice="bubble-check" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="lg">
+      <div class="big">
+        <svg width="58" height="58" viewBox="0 0 64 64"><path d="M32 6C17 6 6 16.5 6 29.5c0 7 3.2 13.2 8.4 17.5L12 58l12.3-6.2c2.4.6 5 .9 7.7.9 15 0 26-10.5 26-23.2S47 6 32 6z" fill="#13804F"/><path d="M21 30.5l7.5 7.5L44 22.5" stroke="#FF7A6B" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="fr" style="font-size:46px;font-weight:800">gbam</span>
+      </div>
+      <div class="nav"><span class="l"><svg width="22" height="22" viewBox="0 0 64 64"><path d="M32 6C17 6 6 16.5 6 29.5c0 7 3.2 13.2 8.4 17.5L12 58l12.3-6.2c2.4.6 5 .9 7.7.9 15 0 26-10.5 26-23.2S47 6 32 6z" fill="#13804F"/><path d="M21 30.5l7.5 7.5L44 22.5" stroke="#FF7A6B" stroke-width="7" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><span class="fr" style="font-size:19px;font-weight:800">gbam</span></span><span>Features · Pricing · <b style="color:#13804F">Start free</b></span></div>
+      <div class="icons">
+        <div><div style="width:56px;height:56px;border-radius:14px;background:#FFF0EC;display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M32 6C17 6 6 16.5 6 29.5c0 7 3.2 13.2 8.4 17.5L12 58l12.3-6.2c2.4.6 5 .9 7.7.9 15 0 26-10.5 26-23.2S47 6 32 6z" fill="#13804F"/><path d="M21 30.5l7.5 7.5L44 22.5" stroke="#FF7A6B" stroke-width="6" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>app icon</div>
+        <div><svg width="16" height="16" viewBox="0 0 64 64"><path d="M32 6C17 6 6 16.5 6 29.5c0 7 3.2 13.2 8.4 17.5L12 58l12.3-6.2c2.4.6 5 .9 7.7.9 15 0 26-10.5 26-23.2S47 6 32 6z" fill="#13804F"/><path d="M21 30.5l7.5 7.5L44 22.5" stroke="#FF7A6B" stroke-width="8" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg><br>16px</div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>B · Chat bubble + tick</h3><p>A speech bubble (orders happen in chat) with a coral tick (done, paid, gbam). Says what the product does at a glance. Risk: chat-bubble logos are common.</p></div>
+  </div>
+
+  <!-- C: burst -->
+  <div class="card" data-choice="burst" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="lg">
+      <div class="big">
+        <svg width="62" height="62" viewBox="0 0 64 64"><path d="M32 2l6.5 13.5L52 8l-3.8 14.7L62 28l-13.2 6.4L54 50l-15.3-4.2L32 62l-6.7-16.2L10 50l5.2-15.6L2 28l13.8-5.3L12 8l13.5 7.5z" fill="#FF7A6B"/><circle cx="32" cy="32" r="13" fill="#13804F"/><path d="M26 32.5l4.2 4.2L39 27.6" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        <span class="fr" style="font-size:46px;font-weight:800">gbam</span>
+      </div>
+      <div class="nav"><span class="l"><svg width="22" height="22" viewBox="0 0 64 64"><path d="M32 2l6.5 13.5L52 8l-3.8 14.7L62 28l-13.2 6.4L54 50l-15.3-4.2L32 62l-6.7-16.2L10 50l5.2-15.6L2 28l13.8-5.3L12 8l13.5 7.5z" fill="#FF7A6B"/><circle cx="32" cy="32" r="13" fill="#13804F"/></svg><span class="fr" style="font-size:19px;font-weight:800">gbam</span></span><span>Features · Pricing · <b style="color:#13804F">Start free</b></span></div>
+      <div class="icons">
+        <div><div style="width:56px;height:56px;border-radius:14px;background:#13804F;display:flex;align-items:center;justify-content:center"><svg width="40" height="40" viewBox="0 0 64 64"><path d="M32 2l6.5 13.5L52 8l-3.8 14.7L62 28l-13.2 6.4L54 50l-15.3-4.2L32 62l-6.7-16.2L10 50l5.2-15.6L2 28l13.8-5.3L12 8l13.5 7.5z" fill="#FF7A6B"/><circle cx="32" cy="32" r="13" fill="#13804F"/><path d="M26 32.5l4.2 4.2L39 27.6" stroke="#fff" stroke-width="4" fill="none" stroke-linecap="round" stroke-linejoin="round"/></svg></div>app icon</div>
+        <div><svg width="16" height="16" viewBox="0 0 64 64"><path d="M32 2l6.5 13.5L52 8l-3.8 14.7L62 28l-13.2 6.4L54 50l-15.3-4.2L32 62l-6.7-16.2L10 50l5.2-15.6L2 28l13.8-5.3L12 8l13.5 7.5z" fill="#FF7A6B"/><circle cx="32" cy="32" r="14" fill="#13804F"/></svg><br>16px</div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>C · The "Gbam!" burst</h3><p>A coral starburst (the comic-book "BAM!" impact) around a green tick: the sound of a done deal, drawn. The most playful and ownable. Busier at tiny sizes.</p></div>
+  </div>
+
+  <!-- D: monogram g with spark -->
+  <div class="card" data-choice="monogram" onclick="toggleSelect(this)">
+    <div class="card-image"><div class="lg">
+      <div class="big">
+        <div style="width:58px;height:58px;border-radius:18px;background:#13804F;display:flex;align-items:center;justify-content:center;position:relative"><span class="fr" style="font-size:44px;font-weight:900;color:#fff;line-height:1;margin-top:-6px">g</span><span style="position:absolute;top:7px;right:7px;width:11px;height:11px;border-radius:50%;background:#FF7A6B"></span></div>
+        <span class="fr" style="font-size:46px;font-weight:800">gbam</span>
+      </div>
+      <div class="nav"><span class="l"><div style="width:22px;height:22px;border-radius:7px;background:#13804F;display:flex;align-items:center;justify-content:center;position:relative"><span class="fr" style="font-size:17px;font-weight:900;color:#fff;line-height:1;margin-top:-3px">g</span><span style="position:absolute;top:2px;right:2px;width:5px;height:5px;border-radius:50%;background:#FF7A6B"></span></div><span class="fr" style="font-size:19px;font-weight:800">gbam</span></span><span>Features · Pricing · <b style="color:#13804F">Start free</b></span></div>
+      <div class="icons">
+        <div><div style="width:56px;height:56px;border-radius:16px;background:#13804F;display:flex;align-items:center;justify-content:center;position:relative"><span class="fr" style="font-size:42px;font-weight:900;color:#fff;line-height:1;margin-top:-6px">g</span><span style="position:absolute;top:7px;right:7px;width:10px;height:10px;border-radius:50%;background:#FF7A6B"></span></div>app icon</div>
+        <div><div style="width:16px;height:16px;border-radius:5px;background:#13804F;display:flex;align-items:center;justify-content:center"><span class="fr" style="font-size:12px;font-weight:900;color:#fff;line-height:1;margin-top:-2px">g</span></div>16px</div>
+      </div>
+    </div></div>
+    <div class="card-body"><h3>D · "g" monogram + coral dot</h3><p>A soft green tile with a serif "g" and a coral notification dot ("you have a new order"). Clean app-icon feel, scales perfectly. Less storytelling than B or C.</p></div>
+  </div>
+</div>
+
+<p class="subtitle" style="margin-top:18px">My pick: <b>C</b> if you want Gbam to be memorable and fun, <b>D</b> if you want it to scale cleanly everywhere. A good option is <b>C's idea, simplified</b>: fewer burst points so it survives 16px. Whatever you pick, a designer can refine it later; this sets the direction.</p>

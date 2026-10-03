@@ -1,0 +1,86 @@
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,700;9..144,900&family=DM+Sans:wght@400;500;700&display=swap" rel="stylesheet">
+
+<h2>Hero B, refined</h2>
+<p class="subtitle">Centered headline, photos on both sides, the phone in the middle showing a real order conversation, and the <b>"Payment received ₦6,000"</b> card floating off the phone's top-right edge. Grey boxes = real photos we'll choose later.</p>
+
+<style>
+  .hx { background:#FFF8F5; border-radius:22px; padding:22px 18px 30px; font-family:'DM Sans',sans-serif; color:#132A20; text-align:center; overflow:hidden; }
+  .fr { font-family:Fraunces,serif; letter-spacing:-0.02em; }
+  .nav { display:flex; justify-content:space-between; align-items:center; font-size:12px; color:#3B4B43; margin-bottom:26px; text-align:left; }
+  .nav b { background:#13804F; color:#fff; border-radius:999px; padding:6px 12px; }
+  .h1 { font-family:Fraunces,serif; font-weight:900; font-size:44px; line-height:1.0; margin:0 0 12px; letter-spacing:-0.025em; }
+  .h1 span { color:#FF7A6B; }
+  .lead { font-size:15px; line-height:1.5; color:#3B4B43; margin:0 auto 16px; max-width:430px; }
+  .cta { display:inline-block; background:#13804F; color:#fff; border-radius:999px; padding:11px 20px; font-size:14px; font-weight:700; }
+  .cta2 { display:inline-block; color:#13804F; font-size:14px; font-weight:700; margin-left:12px; }
+  .trust { font-size:11px; color:#6B7A72; margin-top:10px; }
+  .photo { background:repeating-linear-gradient(45deg,#E9E2DD,#E9E2DD 8px,#EFE9E4 8px,#EFE9E4 16px); border-radius:22px; display:flex; align-items:center; justify-content:center; text-align:center; font-size:11px; color:#7D716A; padding:8px; flex-shrink:0; }
+  .stage { display:flex; gap:14px; align-items:center; justify-content:center; margin-top:34px; }
+  .phone { position:relative; width:190px; height:380px; border-radius:34px; background:#132A20; padding:8px; box-shadow:0 24px 60px rgba(19,42,32,.28); flex-shrink:0; text-align:left; }
+  .screen { width:100%; height:100%; border-radius:27px; background:#E8F0EA; overflow:hidden; display:flex; flex-direction:column; }
+  .chatbar { background:#13804F; color:#fff; padding:12px 10px 8px; font-size:11px; display:flex; align-items:center; gap:7px; }
+  .avatar { width:22px; height:22px; border-radius:50%; background:#FFD2C9; color:#A8392D; font-weight:700; font-size:10px; display:flex; align-items:center; justify-content:center; }
+  .msgs { padding:8px; display:flex; flex-direction:column; gap:6px; font-size:9.5px; line-height:1.35; }
+  .in { background:#fff; border-radius:10px 10px 10px 3px; padding:7px 8px; max-width:88%; }
+  .out { background:#D7F0E1; border-radius:10px 10px 3px 10px; padding:7px 8px; max-width:80%; align-self:flex-end; }
+  .item { display:flex; justify-content:space-between; color:#3B4B43; }
+  .paybtn { margin-top:5px; background:#13804F; color:#fff; border-radius:7px; padding:5px; text-align:center; font-weight:700; }
+  .time { font-size:8px; color:#8A968F; text-align:right; margin-top:2px; }
+  .toast { position:absolute; top:34px; right:-118px; background:#fff; border-radius:16px; padding:10px 12px; font-size:12px; box-shadow:0 12px 34px rgba(19,42,32,.18); display:flex; gap:9px; align-items:center; text-align:left; white-space:nowrap; }
+  .bang { width:30px; height:30px; border-radius:50%; background:#FFE3DE; color:#FF7A6B; font-weight:900; display:flex; align-items:center; justify-content:center; font-family:Fraunces,serif; font-size:18px; }
+  .toast small { color:#6B7A72; }
+  .toast2 { position:absolute; bottom:56px; left:-110px; background:#fff; border-radius:14px; padding:8px 11px; font-size:11px; box-shadow:0 12px 34px rgba(19,42,32,.14); text-align:left; white-space:nowrap; }
+  .toast2 b { color:#13804F; }
+</style>
+
+<div class="hx">
+  <div class="nav">
+    <span class="fr" style="font-size:22px;font-weight:900">gbam<span style="color:#FF7A6B">!</span></span>
+    <span>Features &nbsp;·&nbsp; How it works &nbsp;·&nbsp; Pricing &nbsp;·&nbsp; Help &nbsp;&nbsp; Log in &nbsp; <b>Start free</b></span>
+  </div>
+
+  <p class="h1">Sell on WhatsApp.<br>Get paid. <span>Gbam.</span></p>
+  <p class="lead">One link for your whole shop. Customers order and pay with Paystack, get updates on WhatsApp, and you just pack and deliver.</p>
+  <span class="cta">Start selling free</span><span class="cta2">See how it works →</span>
+  <p class="trust">Free for founding sellers · No app to install · Payments by Paystack</p>
+
+  <div class="stage">
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="photo" style="width:120px;height:150px">Photo:<br>food vendor<br>at her stall</div>
+      <div class="photo" style="width:120px;height:110px">Photo:<br>delivery rider</div>
+    </div>
+    <div class="photo" style="width:130px;height:240px">Photo:<br>fashion seller<br>packing orders</div>
+
+    <div class="phone">
+      <div class="screen">
+        <div class="chatbar"><span class="avatar">MN</span><span><b>Mama Ngozi Kitchen</b><br><span style="opacity:.8">via Gbam</span></span></div>
+        <div class="msgs">
+          <div class="in">Hi Ada 👋 We've received your order <b>GB-7K3Q</b>:
+            <div class="item" style="margin-top:4px"><span>2 × Jollof Rice</span><span>₦7,000</span></div>
+            <div class="item"><span>1 × Chapman</span><span>₦2,000</span></div>
+            <div class="time">12:04</div>
+          </div>
+          <div class="in">Please pay <b>₦9,000</b> to confirm:
+            <div class="paybtn">Pay with Paystack</div>
+            <div class="time">12:05</div>
+          </div>
+          <div class="out">Done ✅<div class="time">12:07 ✓✓</div></div>
+          <div class="in">Payment received. Thank you! Your order is being prepared 🍲<div class="time">12:07</div></div>
+        </div>
+      </div>
+      <div class="toast"><span class="bang">!</span><span><b>Payment received</b><br><small>₦6,000 · GB-2MPX · just now</small></span></div>
+      <div class="toast2">🛵 <b>3 orders</b> out for delivery</div>
+    </div>
+
+    <div class="photo" style="width:130px;height:240px">Photo:<br>customer paying<br>on her phone</div>
+    <div style="display:flex;flex-direction:column;gap:14px">
+      <div class="photo" style="width:120px;height:110px">Photo:<br>phone accessories<br>seller</div>
+      <div class="photo" style="width:120px;height:150px">Photo:<br>happy seller<br>counting orders</div>
+    </div>
+  </div>
+</div>
+
+<div class="options" style="margin-top:18px">
+  <div class="option" data-choice="approve" onclick="toggleSelect(this)"><div class="letter">✓</div><div class="content"><h3>This is it</h3><p>Go with this hero.</p></div></div>
+  <div class="option" data-choice="tweak" onclick="toggleSelect(this)"><div class="letter">~</div><div class="content"><h3>Close, needs tweaks</h3><p>Tell me what to change in the terminal.</p></div></div>
+</div>
