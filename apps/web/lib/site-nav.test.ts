@@ -39,10 +39,9 @@ function isDynamic(name: string): boolean {
 //   [slug] is the seller storefront and must not make /features or /login look built.
 // - Under "legal", the dynamic segment must be one of LEGAL_DOCS.
 function hasPage(dir: string, segments: string[], depth: number): boolean {
-  if (segments.length === 0) {
-    return existsSync(path.join(dir, "page.tsx"));
+  if (segments.length === 0 && existsSync(path.join(dir, "page.tsx"))) {
+    return true;
   }
-  const [first = "", ...rest] = segments;
   const folders = readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory());
 
   for (const folder of folders) {
@@ -50,6 +49,10 @@ function hasPage(dir: string, segments: string[], depth: number): boolean {
       return true;
     }
   }
+  if (segments.length === 0) {
+    return false;
+  }
+  const [first = "", ...rest] = segments;
   for (const folder of folders) {
     if (folder.name === first && hasPage(path.join(dir, folder.name), rest, depth + 1)) {
       return true;
@@ -121,6 +124,17 @@ describe("route resolver (fixture app dir)", () => {
 
   it("resolves the home page", () => {
     expect(routeHasPage(root, "/")).toBe(true);
+  });
+
+  it("resolves the home page when it lives in a route group", () => {
+    const grouped = mkdtempSync(path.join(os.tmpdir(), "gbam-routes-home-"));
+    mkdirSync(path.join(grouped, "(marketing)"), { recursive: true });
+    writeFileSync(
+      path.join(grouped, "(marketing)", "page.tsx"),
+      "export default function P() { return null; }",
+    );
+    expect(routeHasPage(grouped, "/")).toBe(true);
+    rmSync(grouped, { recursive: true, force: true });
   });
 });
 
