@@ -1,10 +1,9 @@
 ---
 title: How do customers pay?
 category: Payments
-sortOrder: 1
+sortOrder: 3
 published: true
 date: 2026-10-03
 ---
 
-Customers pay through a Paystack checkout link. The money goes to your bank account
-through a Paystack subaccount.
+When you request payment on an order, the customer gets a Paystack payment link on WhatsApp and pays on Paystack's secure page. When Paystack confirms it, the order becomes Paid automatically.

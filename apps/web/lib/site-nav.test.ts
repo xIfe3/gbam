@@ -8,10 +8,6 @@ import { FOOTER_GROUPS, HEADER_LINKS, LEGAL_DOCS } from "./site-nav";
 // (the test below fails if a built page is left in this list).
 const PENDING_ROUTES: string[] = [
   "/contact",
-  "/help",
-  "/faq",
-  "/blog",
-  "/changelog",
   "/login",
   "/signup",
   ...LEGAL_DOCS.map((doc) => `/legal/${doc}`),
