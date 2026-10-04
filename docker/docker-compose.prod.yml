@@ -9,8 +9,8 @@
 #
 # HTTPS reverse proxy (required): gbam.app must be served over HTTPS, so put EXACTLY ONE
 # reverse proxy (Caddy, nginx, your host's load balancer…) in front of the web service.
-# It must terminate HTTPS and APPEND the visitor's address to X-Forwarded-For (or set
-# X-Real-IP). The web app reads the visitor IP from there for per-IP rate limits, counting
+# It must terminate HTTPS and APPEND the visitor's address to X-Forwarded-For (X-Real-IP
+# is ignored). The web app reads the visitor IP from there for per-IP rate limits, counting
 # TRUSTED_PROXY_HOPS entries from the right. Never expose the web port to the internet
 # directly: anyone could then send a fake X-Forwarded-For. That is why it is bound to
 # 127.0.0.1 below; only the proxy on this machine can reach it.

@@ -88,7 +88,6 @@ async function visitorIp(): Promise<string | undefined> {
   try {
     const incoming = await headers();
     return pickVisitorIp({
-      realIp: incoming.get("x-real-ip"),
       forwardedFor: incoming.get("x-forwarded-for"),
       hops,
     });

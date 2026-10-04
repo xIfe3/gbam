@@ -6,11 +6,12 @@
  * The visitor controls everything they send, including a fake X-Forwarded-For, so the
  * LEFT-most entries can't be trusted. Only the entries added by our own proxies can: with
  * one trusted proxy that is the right-most entry, with two it is the second from the right.
+ *
+ * We deliberately ignore X-Real-IP: common proxies (nginx, Caddy) pass a visitor-sent
+ * X-Real-IP straight through unless configured otherwise, so it could be faked.
  */
 
 type VisitorIpInput = {
-  /** X-Real-IP, which a trusted proxy sets (replacing anything the visitor sent). */
-  realIp: string | null;
   forwardedFor: string | null;
   /** How many trusted proxies sit in front of the web app (TRUSTED_PROXY_HOPS). */
   hops: number;
@@ -18,13 +19,6 @@ type VisitorIpInput = {
 
 /** Returns the visitor's IP, or undefined when the headers don't tell us. */
 export function pickVisitorIp(input: VisitorIpInput): string | undefined {
-  if (input.realIp !== null) {
-    const real = input.realIp.trim();
-    if (real !== "") {
-      return real;
-    }
-  }
-
   if (input.forwardedFor === null) {
     return undefined;
   }
