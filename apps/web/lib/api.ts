@@ -2,11 +2,14 @@
 import "server-only";
 import type { OrderStatus } from "@gbam/shared";
 import { headers } from "next/headers";
-import { unstable_rethrow } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
+import { PATH_HEADER } from "./path-header";
+import { safeNextPath } from "./safe-next";
+import { clearSessionCookie, getSessionToken } from "./session";
 
 /**
  * The web app's ONLY way of talking to the API. It runs on the Next.js server, never in
- * the browser, so the API needs no CORS and the seller's id never reaches the browser.
+ * the browser, so the API needs no CORS and the session token never reaches page scripts.
  */
 function apiUrl(): string {
   const fromEnv = process.env.API_URL;
@@ -37,9 +40,40 @@ function messageFromBody(body: unknown, status: number): string {
 type RequestOptions = {
   method?: string;
   body?: string;
-  /** true = send the seller's id (dashboard routes). */
-  seller?: boolean;
+  /**
+   * "none" (default): public route, no token.
+   * "session": needs a logged-in user. No cookie or a 401 clears the cookie and redirects to
+   *   /login; 403 EMAIL_NOT_VERIFIED redirects to /signup/verify.
+   * "token": sends the token if there is one but never redirects (the caller handles errors).
+   */
+  auth?: "none" | "session" | "token";
 };
+
+/** The page being rendered, for "?next=". Falls back to the dashboard. */
+async function currentPath(): Promise<string> {
+  try {
+    const incoming = await headers();
+    const path = safeNextPath(incoming.get(PATH_HEADER));
+    if (path !== null) {
+      return path;
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+  }
+  return "/dashboard";
+}
+
+/** Clears the dead cookie (when allowed) and sends the visitor to log in again. */
+async function redirectToLogin(): Promise<never> {
+  try {
+    await clearSessionCookie();
+  } catch {
+    // Next only allows cookie changes in Server Actions and Route Handlers. While a page
+    // renders this throws; the redirect below still happens and a fresh login replaces it.
+  }
+  const next = await currentPath();
+  redirect(`/login?next=${encodeURIComponent(next)}`);
+}
 
 /**
  * The visitor's IP, from the proxy headers on the request to the Next server. The API only
@@ -76,8 +110,14 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
   if (options.body) {
     requestHeaders.set("content-type", "application/json");
   }
-  if (options.seller) {
-    requestHeaders.set("x-seller-id", currentSellerId());
+  const auth = options.auth ?? "none";
+  if (auth !== "none") {
+    const token = await getSessionToken();
+    if (token) {
+      requestHeaders.set("authorization", `Bearer ${token}`);
+    } else if (auth === "session") {
+      return redirectToLogin();
+    }
   }
   const ip = await visitorIp();
   // The API only believes x-client-ip when it comes with this shared secret, so nobody
@@ -104,22 +144,27 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     }
   }
 
+  if (!res.ok && auth === "session") {
+    if (res.status === 401) {
+      return redirectToLogin();
+    }
+    if (res.status === 403 && isUnverifiedBody(body)) {
+      redirect("/signup/verify");
+    }
+  }
   if (!res.ok) {
     throw new ApiError(res.status, body);
   }
   return body as T;
 }
 
-/**
- * PLACEHOLDER until seller login exists: the dashboard acts as DEV_SELLER_ID.
- * Mirrors the API's dev-only guard, which rejects every request in production.
- */
-function currentSellerId(): string {
-  const id = process.env.DEV_SELLER_ID;
-  if (!id) {
-    throw new Error("DEV_SELLER_ID is not set. Run `pnpm db:seed` and copy the id into .env");
-  }
-  return id;
+function isUnverifiedBody(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "code" in body &&
+    body.code === "EMAIL_NOT_VERIFIED"
+  );
 }
 
 // ---- Response shapes (mirror the API until we share response types) ----
@@ -208,18 +253,18 @@ async function listOrders(status?: OrderStatus) {
   if (status) {
     path = `/orders?status=${status}`;
   }
-  return request<OrderListItem[]>(path, { seller: true });
+  return request<OrderListItem[]>(path, { auth: "session" });
 }
 
 async function getOrder(id: string) {
-  return request<OrderDetail>(`/orders/${id}`, { seller: true });
+  return request<OrderDetail>(`/orders/${id}`, { auth: "session" });
 }
 
 async function updateOrderStatus(id: string, status: OrderStatus) {
   return request<Order>(`/orders/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
-    seller: true,
+    auth: "session",
   });
 }
 
@@ -238,8 +283,108 @@ async function sendContactMessage(body: unknown) {
   });
 }
 
+// ---- Auth ----
+
+export type PublicUser = {
+  id: string;
+  email: string;
+  emailVerified: boolean;
+  role: "seller" | "admin";
+  seller: { id: string; slug: string; businessName: string; hasPayoutAccount: boolean } | null;
+};
+
+export type AuthResult = { sessionToken: string; user: PublicUser };
+
+export type SignupBody = {
+  businessName: string;
+  slug: string;
+  phone: string;
+  email: string;
+  password: string;
+};
+
+export type SlugAvailability = { available: boolean; reason?: "taken" | "reserved" | "invalid" };
+
+async function signup(body: SignupBody) {
+  return request<AuthResult>("/auth/signup", { method: "POST", body: JSON.stringify(body) });
+}
+
+async function slugAvailable(slug: string) {
+  return request<SlugAvailability>(`/auth/slug-available?slug=${encodeURIComponent(slug)}`);
+}
+
+async function verifyEmail(code: string) {
+  return request<{ ok: true }>("/auth/verify-email", {
+    method: "POST",
+    body: JSON.stringify({ code }),
+    auth: "session",
+  });
+}
+
+async function resendCode() {
+  return request<{ ok: true }>("/auth/resend-code", { method: "POST", auth: "session" });
+}
+
+async function login(body: { email: string; password: string }) {
+  return request<AuthResult>("/auth/login", { method: "POST", body: JSON.stringify(body) });
+}
+
+async function logout() {
+  return request<{ ok: true }>("/auth/logout", { method: "POST", auth: "token" });
+}
+
+/** The logged-in user. A missing/expired session redirects to /login. */
+async function currentUser() {
+  return request<PublicUser>("/auth/me", { auth: "session" });
+}
+
+/** The logged-in user, or null (no cookie, or the API says the session is dead). Never redirects. */
+async function currentUserOrNull(): Promise<PublicUser | null> {
+  const token = await getSessionToken();
+  if (token === null) {
+    return null;
+  }
+  try {
+    return await request<PublicUser>("/auth/me", { auth: "token" });
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      return null;
+    }
+    throw error;
+  }
+}
+
+async function forgotPassword(email: string) {
+  return request<{ ok: true; message: string; requestId: string }>("/auth/forgot-password", {
+    method: "POST",
+    body: JSON.stringify({ email }),
+  });
+}
+
+async function resetPassword(body: {
+  email: string;
+  requestId: string;
+  code: string;
+  password: string;
+}) {
+  return request<AuthResult>("/auth/reset-password", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  signup,
+  slugAvailable,
+  verifyEmail,
+  resendCode,
+  login,
+  logout,
+  currentUser,
+  currentUserOrNull,
+  forgotPassword,
+  resetPassword,
   sendContactMessage,
   storefront,
   placeOrder,

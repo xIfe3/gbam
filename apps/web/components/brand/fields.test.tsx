@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
 import { CodeInput } from "./fields";
 
 function boxes() {
@@ -24,6 +24,21 @@ describe("CodeInput", () => {
   it("fills every box when a full code is pasted", () => {
     render(<CodeInput label="Code" />);
     fireEvent.paste(box(0), { clipboardData: { getData: () => "123456" } });
+    expect(boxes().map((b) => b.value)).toEqual(["1", "2", "3", "4", "5", "6"]);
+  });
+
+  it("fills every box when autofill delivers the whole code to the first box via change", () => {
+    const onChange = vi.fn();
+    render(<CodeInput label="Code" onChange={onChange} />);
+    fireEvent.change(box(0), { target: { value: "123456" } });
+    expect(boxes().map((b) => b.value)).toEqual(["1", "2", "3", "4", "5", "6"]);
+    expect(onChange).toHaveBeenLastCalledWith("123456");
+    expect(box(5)).toHaveFocus();
+  });
+
+  it("strips non-digits from a whole-code change", () => {
+    render(<CodeInput label="Code" />);
+    fireEvent.change(box(0), { target: { value: "12 34-56" } });
     expect(boxes().map((b) => b.value)).toEqual(["1", "2", "3", "4", "5", "6"]);
   });
 

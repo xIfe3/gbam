@@ -129,6 +129,12 @@ export function CodeInput({ label, length = 6, error, onChange, name = "code" }:
   }
 
   function handleChange(index: number, value: string) {
+    // One-time-code autofill (e.g. from an SMS or email) types the WHOLE code into the first
+    // box in a single change event, not a paste. Treat that like a paste.
+    if (value.replace(/\D/g, "").length >= length) {
+      handlePaste(value);
+      return;
+    }
     const digit = value.replace(/\D/g, "").slice(-1);
     const next = [...digits];
     next[index] = digit;
