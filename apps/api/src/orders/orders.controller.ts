@@ -17,13 +17,14 @@ import {
   Query,
   UseGuards,
 } from "@nestjs/common";
-import { CurrentSellerId, SellerGuard } from "../common/seller.guard.js";
+import { CurrentSellerId } from "../auth/current-user.js";
+import { SessionGuard } from "../auth/session.guard.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { OrdersService } from "./orders.service.js";
 
 /** Seller dashboard. */
 @Controller("orders")
-@UseGuards(SellerGuard)
+@UseGuards(SessionGuard)
 export class OrdersController {
   constructor(private readonly orders: OrdersService) {}
 

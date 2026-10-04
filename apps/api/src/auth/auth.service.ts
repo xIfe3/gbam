@@ -1,19 +1,41 @@
 import { emailCodes, sellers, sessions, users, type DbTransaction } from "@gbam/db";
 import { RESERVED_SLUGS, slugSchema, type SignupInput } from "@gbam/shared";
-import { BadRequestException, ConflictException, Injectable, Logger } from "@nestjs/common";
-import { and, desc, eq, gt, isNull, lt, sql } from "drizzle-orm";
-import { timingSafeEqual } from "node:crypto";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+  type OnModuleInit,
+} from "@nestjs/common";
+import { and, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { randomBytes, timingSafeEqual } from "node:crypto";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
-import { hashPassword, hashToken, newEmailCode, newSessionToken } from "./crypto.js";
+import {
+  hashPassword,
+  hashToken,
+  newEmailCode,
+  newSessionToken,
+  verifyPassword,
+} from "./crypto.js";
 
 const SESSION_DAYS = 30;
 const CODE_MINUTES = 15;
 const MAX_CODE_ATTEMPTS = 5;
 const RESEND_COOLDOWN_SECONDS = 60;
 const RESEND_PER_HOUR = 10;
+const MAX_LOGIN_FAILURES = 5;
+const LOCK_MINUTES = 15;
+const LOGIN_PER_IP = 20;
+const LOGIN_IP_WINDOW_SECONDS = 10 * 60;
+const FORGOT_PER_IP_HOUR = 20;
+const FORGOT_PER_EMAIL_HOUR = 5;
+const RESET_PER_IP = 20;
+const RESET_IP_WINDOW_SECONDS = 10 * 60;
+const SLIDE_EVERY_MS = 24 * 60 * 60 * 1000;
 
 export type PublicUser = {
   id: string;
@@ -48,6 +70,36 @@ function toPublicUser(user: UserRow, seller: SellerRow | null | undefined): Publ
   };
 }
 
+function normaliseEmail(email: string): string {
+  return email.trim().toLowerCase();
+}
+
+function sessionExpiry(from: Date): Date {
+  return new Date(from.getTime() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+}
+
+function secondsUntil(when: Date, now: Date): number {
+  return Math.max(1, Math.ceil((when.getTime() - now.getTime()) / 1000));
+}
+
+function invalidLogin(): UnauthorizedException {
+  // One message for "no such account" and "wrong password", so it reveals neither.
+  return new UnauthorizedException({
+    statusCode: 401,
+    message: "That email and password don't match",
+  });
+}
+
+// A real Argon2id hash of a random string nobody knows, made once. Login checks the
+// password against it when the email has no account, so that path is as slow as a real one.
+let dummyHash: string | null = null;
+async function dummyPasswordHash(): Promise<string> {
+  if (dummyHash === null) {
+    dummyHash = await hashPassword(randomBytes(32).toString("hex"));
+  }
+  return dummyHash;
+}
+
 function badCode(): BadRequestException {
   // One message for wrong, expired and used-up codes, so a guesser learns nothing extra.
   return new BadRequestException({
@@ -56,9 +108,9 @@ function badCode(): BadRequestException {
   });
 }
 
-/** Account creation and email verification. Never log passwords, tokens or codes here. */
+/** Accounts, sessions and codes. Never log passwords, tokens or codes here. */
 @Injectable()
-export class AuthService {
+export class AuthService implements OnModuleInit {
   private readonly logger = new Logger(AuthService.name);
 
   constructor(
@@ -66,6 +118,11 @@ export class AuthService {
     private readonly emails: EmailQueue,
     private readonly limiter: RateLimiter,
   ) {}
+
+  /** Nest calls this at startup: make the dummy hash now, not during the first login. */
+  async onModuleInit(): Promise<void> {
+    await dummyPasswordHash();
+  }
 
   async signup(
     input: SignupInput,
@@ -78,7 +135,7 @@ export class AuthService {
     const passwordHash = await hashPassword(input.password);
     const sessionToken = newSessionToken();
     const code = newEmailCode();
-    const sessionExpiry = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
+    const now = new Date();
 
     try {
       const created = await this.db.transaction(async (tx) => {
@@ -104,7 +161,8 @@ export class AuthService {
         await tx.insert(sessions).values({
           userId: user.id,
           tokenHash: hashToken(sessionToken),
-          expiresAt: sessionExpiry,
+          expiresAt: sessionExpiry(now),
+          lastUsedAt: now,
           userAgent: meta.userAgent,
           ip: meta.ip,
         });
@@ -162,12 +220,275 @@ export class AuthService {
     return { available: true };
   }
 
-  /**
-   * Checks a 6-digit code. The attempt counter is bumped in the same statement that
-   * checks it is below the limit, BEFORE we look at whether the guess was right, so
-   * parallel guesses cannot get more than 5 tries in total.
-   */
+  /** Marks the email verified if `code` is the newest live verify_email code. */
   async verifyEmail(userId: string, code: string): Promise<void> {
+    const codeId = await this.checkCode(userId, "verify_email", code);
+    const now = new Date();
+    // A transaction: the code is used up and the email verified together, or neither.
+    await this.db.transaction(async (tx) => {
+      await this.consumeCode(tx, codeId, now);
+      await tx.update(users).set({ emailVerifiedAt: now }).where(eq(users.id, userId));
+    });
+  }
+
+  async resendCode(userId: string, purpose: CodePurpose): Promise<void> {
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      throw new BadRequestException({ field: "code", message: "Account not found" });
+    }
+    if (purpose === "verify_email" && user.emailVerifiedAt !== null) {
+      return; // nothing to verify
+    }
+
+    // Cooldown by the age of the newest code (covers the code made at signup)...
+    const [latest] = await this.db
+      .select()
+      .from(emailCodes)
+      .where(and(eq(emailCodes.userId, userId), eq(emailCodes.purpose, purpose)))
+      .orderBy(desc(emailCodes.createdAt))
+      .limit(1);
+    if (latest) {
+      const ageSeconds = Math.floor((Date.now() - latest.createdAt.getTime()) / 1000);
+      if (ageSeconds < RESEND_COOLDOWN_SECONDS) {
+        throw new TooManyRequestsError(RESEND_COOLDOWN_SECONDS - ageSeconds);
+      }
+    }
+    // ...plus atomic Redis counters, so parallel requests cannot all slip past the check
+    // above, and so one account cannot be used to flood an inbox all day.
+    await this.limit(`resend-code:${userId}`, 1, RESEND_COOLDOWN_SECONDS);
+    await this.limit(`resend-code-hour:${userId}`, RESEND_PER_HOUR, 3600);
+
+    await this.issueCode(user, purpose);
+  }
+
+  // ---- Login and sessions ----
+
+  /**
+   * Email + password login. Wrong passwords are counted on the user row; the 5th in a row
+   * locks the account for 15 minutes. While locked, even the right password gets a 429,
+   * so the lock tells a guesser nothing about whether a guess was right.
+   */
+  async login(
+    emailInput: string,
+    password: string,
+    meta: SessionMeta,
+  ): Promise<{ sessionToken: string; user: PublicUser }> {
+    // Per-IP limit first, so a flood of attempts can't make us do lots of slow hashing.
+    await this.limit(`login-ip:${meta.ip}`, LOGIN_PER_IP, LOGIN_IP_WINDOW_SECONDS);
+
+    const email = normaliseEmail(emailInput);
+    const [row] = await this.db
+      .select({ user: users, seller: sellers })
+      .from(users)
+      .leftJoin(sellers, eq(sellers.ownerUserId, users.id))
+      .where(eq(users.email, email))
+      .limit(1);
+
+    if (!row) {
+      // No such account. Hash anyway so the response takes as long as for a real account;
+      // otherwise the timing would reveal which emails are registered.
+      await verifyPassword(await dummyPasswordHash(), password);
+      throw invalidLogin();
+    }
+
+    const user = row.user;
+    // Always hash before looking at the lock, for the same timing reason as above.
+    const passwordOk = await verifyPassword(user.passwordHash, password);
+    const now = new Date();
+    if (user.lockedUntil !== null && user.lockedUntil > now) {
+      throw new TooManyRequestsError(secondsUntil(user.lockedUntil, now));
+    }
+
+    if (!passwordOk) {
+      const lockUntil = new Date(now.getTime() + LOCK_MINUTES * 60 * 1000);
+      // One UPDATE that both counts and (on the 5th failure) locks. Postgres reads the old
+      // row values on the right-hand side, and runs updates to one row one at a time, so
+      // parallel wrong guesses are all counted. After a lock expires the count stays at 5+,
+      // so the next wrong guess locks again; only a successful login resets it.
+      await this.db
+        .update(users)
+        .set({
+          failedLoginCount: sql`${users.failedLoginCount} + 1`,
+          lockedUntil: sql`case when ${users.failedLoginCount} + 1 >= ${MAX_LOGIN_FAILURES} then ${lockUntil.toISOString()}::timestamptz else ${users.lockedUntil} end`,
+        })
+        .where(eq(users.id, user.id));
+      throw invalidLogin();
+    }
+
+    // Right password. Reset the counter, but only if no lock appeared while we were hashing
+    // (parallel wrong guesses may have just locked the account).
+    const unlocked = await this.db
+      .update(users)
+      .set({ failedLoginCount: 0, lockedUntil: null })
+      .where(and(eq(users.id, user.id), or(isNull(users.lockedUntil), lte(users.lockedUntil, now))))
+      .returning();
+    const fresh = unlocked[0];
+    if (!fresh) {
+      throw new TooManyRequestsError(LOCK_MINUTES * 60);
+    }
+
+    const sessionToken = await this.createSession(this.db, user.id, meta);
+    return { sessionToken, user: toPublicUser(fresh, row.seller) };
+  }
+
+  /**
+   * The user behind a session token, or null if the token is unknown or expired.
+   * Sliding expiry: a session used more than a day after its last recorded use is pushed
+   * out to 30 days from now. Doing it at most once a day saves a DB write per request.
+   */
+  async sessionUser(token: string): Promise<PublicUser | null> {
+    const now = new Date();
+    const rows = await this.db
+      .select({
+        user: users,
+        seller: sellers,
+        sessionId: sessions.id,
+        lastUsedAt: sessions.lastUsedAt,
+      })
+      .from(sessions)
+      .innerJoin(users, eq(users.id, sessions.userId))
+      .leftJoin(sellers, eq(sellers.ownerUserId, users.id))
+      .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, now)))
+      .limit(1);
+    const row = rows[0];
+    if (!row) {
+      return null;
+    }
+
+    const slideBefore = new Date(now.getTime() - SLIDE_EVERY_MS);
+    if (row.lastUsedAt === null || row.lastUsedAt < slideBefore) {
+      // The same condition in the WHERE means parallel requests write at most once.
+      await this.db
+        .update(sessions)
+        .set({ expiresAt: sessionExpiry(now), lastUsedAt: now })
+        .where(
+          and(
+            eq(sessions.id, row.sessionId),
+            or(isNull(sessions.lastUsedAt), lt(sessions.lastUsedAt, slideBefore)),
+          ),
+        );
+    }
+    return toPublicUser(row.user, row.seller);
+  }
+
+  /** Like sessionUser, but a missing or expired session is a 401. */
+  async me(token: string): Promise<PublicUser> {
+    const user = await this.sessionUser(token);
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    return user;
+  }
+
+  /** Ends this one session (other devices stay signed in). */
+  async logout(token: string): Promise<void> {
+    await this.db.delete(sessions).where(eq(sessions.tokenHash, hashToken(token)));
+  }
+
+  // ---- Forgot / reset password ----
+
+  /**
+   * Emails a reset code if the account exists. Resolves the same way whether it exists or
+   * not, so the answer can't be used to find out who has an account. The rate limits run
+   * before the lookup for the same reason: they apply equally to every email.
+   */
+  async forgotPassword(emailInput: string, meta: SessionMeta): Promise<void> {
+    const email = normaliseEmail(emailInput);
+    // Hash the email for the Redis key so raw addresses don't sit in Redis.
+    const emailKey = hashToken(email);
+    await this.limit(`forgot-ip:${meta.ip}`, FORGOT_PER_IP_HOUR, 3600);
+    await this.limit(`forgot-email:${emailKey}`, 1, RESEND_COOLDOWN_SECONDS);
+    await this.limit(`forgot-email-hour:${emailKey}`, FORGOT_PER_EMAIL_HOUR, 3600);
+
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    if (!user) {
+      return;
+    }
+    await this.issueCode(user, "reset_password");
+  }
+
+  /**
+   * Sets a new password using an emailed reset code. Every existing session is deleted
+   * (a stolen session stops working), and the caller is signed in with a fresh one.
+   * Receiving the code also proves the email address, and clears any login lockout.
+   */
+  async resetPassword(
+    emailInput: string,
+    code: string,
+    newPassword: string,
+    meta: SessionMeta,
+  ): Promise<{ sessionToken: string; user: PublicUser }> {
+    await this.limit(`reset-ip:${meta.ip}`, RESET_PER_IP, RESET_IP_WINDOW_SECONDS);
+
+    const email = normaliseEmail(emailInput);
+    const [user] = await this.db.select().from(users).where(eq(users.email, email));
+    if (!user) {
+      // Same error as a wrong code, so this can't be used to probe for accounts.
+      throw badCode();
+    }
+    const codeId = await this.checkCode(user.id, "reset_password", code);
+
+    // Slow on purpose, so it runs outside the transaction (see signup).
+    const passwordHash = await hashPassword(newPassword);
+    const now = new Date();
+    const result = await this.db.transaction(async (tx) => {
+      await this.consumeCode(tx, codeId, now);
+      const [updated] = await tx
+        .update(users)
+        .set({
+          passwordHash,
+          failedLoginCount: 0,
+          lockedUntil: null,
+          emailVerifiedAt: sql`coalesce(${users.emailVerifiedAt}, ${now.toISOString()}::timestamptz)`,
+        })
+        .where(eq(users.id, user.id))
+        .returning();
+      if (!updated) {
+        throw new Error("Expected the database to return the updated user");
+      }
+      await tx.delete(sessions).where(eq(sessions.userId, user.id));
+      const sessionToken = await this.createSession(tx, user.id, meta);
+      return { updated, sessionToken };
+    });
+
+    const [seller] = await this.db.select().from(sellers).where(eq(sellers.ownerUserId, user.id));
+    return { sessionToken: result.sessionToken, user: toPublicUser(result.updated, seller) };
+  }
+
+  // ---- Helpers ----
+
+  private async limit(key: string, max: number, windowSeconds: number): Promise<void> {
+    const result = await this.limiter.hit(key, max, windowSeconds);
+    if (!result.allowed) {
+      throw new TooManyRequestsError(result.retryAfterSeconds);
+    }
+  }
+
+  private async createSession(
+    db: Db | DbTransaction,
+    userId: string,
+    meta: SessionMeta,
+  ): Promise<string> {
+    const sessionToken = newSessionToken();
+    const now = new Date();
+    await db.insert(sessions).values({
+      userId,
+      tokenHash: hashToken(sessionToken),
+      expiresAt: sessionExpiry(now),
+      lastUsedAt: now,
+      userAgent: meta.userAgent,
+      ip: meta.ip,
+    });
+    return sessionToken;
+  }
+
+  /**
+   * Checks a 6-digit code and returns its id (the caller then consumes it inside its own
+   * transaction). The attempt counter is bumped in the same statement that checks it is
+   * below the limit, BEFORE we look at whether the guess was right, so parallel guesses
+   * cannot get more than 5 tries in total.
+   */
+  private async checkCode(userId: string, purpose: CodePurpose, code: string): Promise<string> {
     const now = new Date();
     const [latest] = await this.db
       .select()
@@ -175,7 +496,7 @@ export class AuthService {
       .where(
         and(
           eq(emailCodes.userId, userId),
-          eq(emailCodes.purpose, "verify_email"),
+          eq(emailCodes.purpose, purpose),
           isNull(emailCodes.consumedAt),
           gt(emailCodes.expiresAt, now),
         ),
@@ -207,55 +528,30 @@ export class AuthService {
     if (given.length !== stored.length || !timingSafeEqual(given, stored)) {
       throw badCode();
     }
-
-    await this.db.transaction(async (tx) => {
-      // "consumed_at is null" makes this a one-shot: a parallel request with the same
-      // right code finds nothing to consume and fails.
-      const consumed = await tx
-        .update(emailCodes)
-        .set({ consumedAt: now })
-        .where(and(eq(emailCodes.id, bumped.id), isNull(emailCodes.consumedAt)))
-        .returning({ id: emailCodes.id });
-      if (consumed.length === 0) {
-        throw badCode();
-      }
-      await tx.update(users).set({ emailVerifiedAt: now }).where(eq(users.id, userId));
-    });
+    return bumped.id;
   }
 
-  async resendCode(userId: string, purpose: CodePurpose): Promise<void> {
-    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
-    if (!user) {
-      throw new BadRequestException({ field: "code", message: "Account not found" });
+  /**
+   * Marks a code used. "consumed_at is null" makes this a one-shot: a parallel request
+   * with the same right code finds nothing to consume and fails.
+   */
+  private async consumeCode(tx: DbTransaction, codeId: string, now: Date): Promise<void> {
+    const consumed = await tx
+      .update(emailCodes)
+      .set({ consumedAt: now })
+      .where(and(eq(emailCodes.id, codeId), isNull(emailCodes.consumedAt)))
+      .returning({ id: emailCodes.id });
+    if (consumed.length === 0) {
+      throw badCode();
     }
-    if (purpose === "verify_email" && user.emailVerifiedAt !== null) {
-      return; // nothing to verify
-    }
+  }
 
-    // Cooldown by the age of the newest code (covers the code made at signup)...
-    const [latest] = await this.db
-      .select()
-      .from(emailCodes)
-      .where(and(eq(emailCodes.userId, userId), eq(emailCodes.purpose, purpose)))
-      .orderBy(desc(emailCodes.createdAt))
-      .limit(1);
-    if (latest) {
-      const ageSeconds = Math.floor((Date.now() - latest.createdAt.getTime()) / 1000);
-      if (ageSeconds < RESEND_COOLDOWN_SECONDS) {
-        throw new TooManyRequestsError(RESEND_COOLDOWN_SECONDS - ageSeconds);
-      }
-    }
-    // ...plus atomic Redis counters, so parallel requests cannot all slip past the check
-    // above, and so one account cannot be used to flood an inbox all day.
-    const cooldown = await this.limiter.hit(`resend-code:${userId}`, 1, RESEND_COOLDOWN_SECONDS);
-    if (!cooldown.allowed) {
-      throw new TooManyRequestsError(cooldown.retryAfterSeconds);
-    }
-    const hourly = await this.limiter.hit(`resend-code-hour:${userId}`, RESEND_PER_HOUR, 3600);
-    if (!hourly.allowed) {
-      throw new TooManyRequestsError(hourly.retryAfterSeconds);
-    }
-
+  /**
+   * Replaces any live code of this purpose with a new one and queues the email. A queue
+   * failure is logged (never with the code) and swallowed: the old code is already gone,
+   * and the user can simply ask again, so failing the request would only confuse them.
+   */
+  private async issueCode(user: UserRow, purpose: CodePurpose): Promise<void> {
     const code = newEmailCode();
     const codeId = await this.db.transaction(async (tx) => {
       // Invalidate older codes by marking them consumed, so only the new one works.
@@ -264,34 +560,28 @@ export class AuthService {
         .set({ consumedAt: new Date() })
         .where(
           and(
-            eq(emailCodes.userId, userId),
+            eq(emailCodes.userId, user.id),
             eq(emailCodes.purpose, purpose),
             isNull(emailCodes.consumedAt),
           ),
         );
-      return this.insertCode(tx, userId, purpose, code);
+      return this.insertCode(tx, user.id, purpose, code);
     });
-    if (purpose === "verify_email") {
-      await this.emails.send(`code-${codeId}`, { kind: "verify_email", to: user.email, code });
-    } else {
-      await this.emails.send(`code-${codeId}`, { kind: "reset_password", to: user.email, code });
+    try {
+      if (purpose === "verify_email") {
+        await this.emails.send(`code-${codeId}`, { kind: "verify_email", to: user.email, code });
+      } else {
+        await this.emails.send(`code-${codeId}`, { kind: "reset_password", to: user.email, code });
+      }
+    } catch (error) {
+      let reason = "unknown error";
+      if (error instanceof Error) {
+        reason = error.message;
+      }
+      this.logger.error(
+        `Could not queue the ${purpose} email (email_codes row ${codeId}): ${reason}`,
+      );
     }
-  }
-
-  /** Temporary session lookup for the controller; Task 12 replaces it with a guard. */
-  async userFromToken(token: string): Promise<PublicUser | null> {
-    const rows = await this.db
-      .select({ user: users, seller: sellers })
-      .from(sessions)
-      .innerJoin(users, eq(users.id, sessions.userId))
-      .leftJoin(sellers, eq(sellers.ownerUserId, users.id))
-      .where(and(eq(sessions.tokenHash, hashToken(token)), gt(sessions.expiresAt, new Date())))
-      .limit(1);
-    const row = rows[0];
-    if (!row) {
-      return null;
-    }
-    return toPublicUser(row.user, row.seller);
   }
 
   private async insertCode(

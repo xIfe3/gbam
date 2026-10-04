@@ -109,13 +109,30 @@ export const signupSchema = z.object({
 });
 export type SignupInput = z.output<typeof signupSchema>;
 
+/**
+ * Login checks only that a password was typed (and caps its size for the same Argon2
+ * reason as above). The signup policy is for new passwords, so it is not applied here.
+ */
 export const loginSchema = z.object({
   email: emailSchema,
-  password: passwordSchema,
+  password: z.string().min(1).max(200),
 });
 export type LoginInput = z.output<typeof loginSchema>;
 
-export const contactMessageSchema =z.object({
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+export type ForgotPasswordInput = z.output<typeof forgotPasswordSchema>;
+
+/** The new password must meet the signup policy. */
+export const resetPasswordSchema = z.object({
+  email: emailSchema,
+  code: codeSchema,
+  password: passwordSchema,
+});
+export type ResetPasswordInput = z.output<typeof resetPasswordSchema>;
+
+export const contactMessageSchema = z.object({
   // Single line: the name goes into the subject of the email we send ourselves, so a
   // newline could inject extra email headers.
   name: z

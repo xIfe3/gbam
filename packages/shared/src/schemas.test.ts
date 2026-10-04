@@ -3,8 +3,10 @@ import {
   codeSchema,
   contactMessageSchema,
   emailSchema,
+  forgotPasswordSchema,
   loginSchema,
   passwordSchema,
+  resetPasswordSchema,
   signupSchema,
 } from "./schemas";
 
@@ -61,6 +63,29 @@ describe("auth schemas", () => {
   it("loginSchema takes email and password", () => {
     expect(loginSchema.parse({ email: " A@B.com", password: "12345678" }).email).toBe("a@b.com");
     expect(loginSchema.safeParse({ email: "a@b.com", password: "" }).success).toBe(false);
+  });
+
+  it("loginSchema does not apply the signup password policy, only a size cap", () => {
+    // Older or shorter passwords must still be able to log in; the policy is for new ones.
+    expect(loginSchema.safeParse({ email: "a@b.com", password: "x" }).success).toBe(true);
+    expect(loginSchema.safeParse({ email: "a@b.com", password: "x".repeat(200) }).success).toBe(
+      true,
+    );
+    expect(loginSchema.safeParse({ email: "a@b.com", password: "x".repeat(201) }).success).toBe(
+      false,
+    );
+  });
+
+  it("forgotPasswordSchema normalises the email", () => {
+    expect(forgotPasswordSchema.parse({ email: " Ada@B.com " }).email).toBe("ada@b.com");
+    expect(forgotPasswordSchema.safeParse({ email: "nope" }).success).toBe(false);
+  });
+
+  it("resetPasswordSchema needs email, a 6-digit code and a policy-compliant password", () => {
+    const ok = { email: "A@b.com", code: "012345", password: "new password" };
+    expect(resetPasswordSchema.parse(ok).email).toBe("a@b.com");
+    expect(resetPasswordSchema.safeParse({ ...ok, code: "12345" }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ ...ok, password: "short" }).success).toBe(false);
   });
 });
 

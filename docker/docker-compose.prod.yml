@@ -73,7 +73,6 @@ services:
     build: { context: .., dockerfile: apps/web/Dockerfile }
     environment:
       API_URL: http://api:4000
-      DEV_SELLER_ID: ${DEV_SELLER_ID:-}
     ports: ["3000:3000"]
     restart: unless-stopped
     depends_on: [api]

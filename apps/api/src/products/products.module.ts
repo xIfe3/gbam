@@ -12,7 +12,9 @@ import {
   UseGuards,
 } from "@nestjs/common";
 import { and, asc, eq } from "drizzle-orm";
-import { CurrentSellerId, SellerGuard } from "../common/seller.guard.js";
+import { AuthModule } from "../auth/auth.module.js";
+import { CurrentSellerId } from "../auth/current-user.js";
+import { SessionGuard } from "../auth/session.guard.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 
@@ -59,7 +61,7 @@ export class ProductsService {
 }
 
 @Controller("products")
-@UseGuards(SellerGuard)
+@UseGuards(SessionGuard)
 export class ProductsController {
   constructor(private readonly products: ProductsService) {}
 
@@ -88,6 +90,7 @@ export class StorefrontController {
 }
 
 @Module({
+  imports: [AuthModule],
   controllers: [ProductsController, StorefrontController],
   providers: [ProductsService],
 })

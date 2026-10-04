@@ -68,7 +68,8 @@ Open `localhost:3000/mama-ngozi` next to the code.
 - [ ] `apps/api/src/env.ts`: settings from `.env`, checked at startup.
 - [ ] `apps/api/src/infra/infra.module.ts`: **read the comment at the top slowly.**
       It explains "providers", the idea behind every `@Inject...` you've seen.
-- [ ] `apps/api/src/common/seller.guard.ts`: the temporary seller login.
+- [ ] `apps/api/src/auth/session.guard.ts`: seller login. Turns the session token into the
+      signed-in user (and `current-user.ts` hands it to controllers).
 - [ ] `apps/api/src/common/domain-errors.filter.ts`: illegal move → HTTP 409.
 - [ ] `apps/api/src/health/health.controller.ts`
 

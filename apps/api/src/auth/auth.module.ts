@@ -3,11 +3,13 @@ import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { AuthController } from "./auth.controller.js";
 import { AuthService } from "./auth.service.js";
+import { SessionGuard } from "./session.guard.js";
 
 @Module({
   imports: [EmailModule, RateLimiterModule],
   controllers: [AuthController],
-  providers: [AuthService],
-  exports: [AuthService],
+  providers: [AuthService, SessionGuard],
+  // Modules that use @UseGuards(SessionGuard) import AuthModule to get these.
+  exports: [AuthService, SessionGuard],
 })
 export class AuthModule {}
