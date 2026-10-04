@@ -53,7 +53,7 @@ export default async function BlogPostPage({ params }: PageProps<"/blog/[slug]">
         {failed && <ContentUnavailable what="This post" />}
         {entry && (
           <>
-            <p className="text-ink-subtle mt-4 text-sm">{formatDate(entry.publishedAt)}</p>
+            <p className="text-ink-muted mt-4 text-sm">{formatDate(entry.publishedAt)}</p>
             <h1 className="font-display text-ink mt-2 mb-6 text-4xl leading-tight font-black">
               {entry.title}
             </h1>

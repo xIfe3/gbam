@@ -94,13 +94,22 @@ export async function verifyEmailAction(_prev: FormState, formData: FormData): P
   redirect(AFTER_VERIFY);
 }
 
+/** "42 seconds" for short waits; "50 minutes" (rounded up) once it is over 2 minutes. */
+function waitText(seconds: number): string {
+  if (seconds <= 120) {
+    return `${seconds} seconds`;
+  }
+  const minutes = Math.ceil(seconds / 60);
+  return `${minutes} minutes`;
+}
+
 export async function resendCodeAction(): Promise<FormState> {
   try {
     await api.resendCode();
   } catch (error) {
     const seconds = retryAfterSeconds(error);
     if (seconds !== null) {
-      return { error: `Please wait ${seconds} seconds before asking for another code.` };
+      return { error: `Please wait ${waitText(seconds)} before asking for another code.` };
     }
     return { error: failureMessage(error, "resend code") };
   }

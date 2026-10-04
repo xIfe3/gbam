@@ -10,7 +10,7 @@ date: 2026-10-03
 1. Go to **Log in** and choose **Forgot password**.
 2. Enter the email address you signed up with.
 3. We email you a 6-digit code.
-4. Enter the code and choose a new password.
+4. Enter the code on the same page where you asked for it, and choose a new password. If you closed that page, request a new code.
 
 ## If the email does not arrive
 

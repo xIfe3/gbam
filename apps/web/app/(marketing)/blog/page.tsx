@@ -39,7 +39,7 @@ export default async function BlogPage() {
                 href={`/blog/${post.slug}`}
                 className="focus-visible:outline-brand hover:bg-coral-wash block rounded-2xl bg-white p-5 focus-visible:outline-2 focus-visible:outline-offset-2"
               >
-                <span className="text-ink-subtle block text-sm">{formatDate(post.publishedAt)}</span>
+                <span className="text-ink-muted block text-sm">{formatDate(post.publishedAt)}</span>
                 <span className="font-display text-ink mt-1 block text-2xl font-bold">
                   {post.title}
                 </span>

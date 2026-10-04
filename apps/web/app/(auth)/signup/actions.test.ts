@@ -140,6 +140,21 @@ describe("resendCodeAction", () => {
     expect(state.error).toContain("42 seconds");
   });
 
+  it("shows long waits in minutes, rounded up", async () => {
+    apiMock.resendCode.mockRejectedValue(
+      new FakeApiError(429, { message: "Too many", retryAfterSeconds: 2950 }),
+    );
+    const state = await resendCodeAction();
+    expect(state.error).toBe("Please wait 50 minutes before asking for another code.");
+  });
+
+  it("keeps seconds up to 120", async () => {
+    apiMock.resendCode.mockRejectedValue(
+      new FakeApiError(429, { message: "Too many", retryAfterSeconds: 120 }),
+    );
+    expect((await resendCodeAction()).error).toContain("120 seconds");
+  });
+
   it("lets a session redirect through", async () => {
     apiMock.resendCode.mockRejectedValue(new Error("NEXT_REDIRECT:/login?next=%2Fdashboard"));
     await expect(resendCodeAction()).rejects.toThrow("NEXT_REDIRECT:/login");

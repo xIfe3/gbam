@@ -57,6 +57,22 @@ describe("CodeInput", () => {
     expect(box(1)).toHaveFocus();
   });
 
+  it("shrinks its boxes to fit a 360px phone (about 280px inside the auth card)", () => {
+    render(<CodeInput label="Code" />);
+    // Fixed 44px boxes (w-11) need 6 × 44 + 5 gaps = 304px and overflow. Flexible boxes
+    // share the row instead: at most 44px wide, allowed to shrink below their content.
+    for (const input of boxes()) {
+      expect(input).toHaveClass("flex-1", "min-w-0", "max-w-11", "h-12");
+      expect(input).not.toHaveClass("w-11");
+    }
+    const row = box(0).parentElement;
+    if (row === null) {
+      throw new Error("Expected the boxes to sit in a row");
+    }
+    expect(row).toHaveClass("flex", "gap-1.5");
+    expect(row).not.toHaveClass("gap-2");
+  });
+
   it("links the error to each box", () => {
     render(<CodeInput label="Code" error="Wrong code" />);
     const alert = screen.getByRole("alert");

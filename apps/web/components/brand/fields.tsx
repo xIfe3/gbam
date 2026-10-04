@@ -34,7 +34,7 @@ function FieldShell({
       </label>
       {children}
       {hint && !error && (
-        <p id={`${id}-hint`} className="text-ink-subtle text-sm">
+        <p id={`${id}-hint`} className="text-ink-muted text-sm">
           {hint}
         </p>
       )}
@@ -183,7 +183,7 @@ export function CodeInput({ label, length = 6, error, onChange, name = "code" }:
         aria-label={`${label} digit ${i + 1}`}
         aria-invalid={error ? true : undefined}
         aria-describedby={error ? `${id}-error` : undefined}
-        className="text-ink focus-visible:outline-brand aria-[invalid=true]:border-coral-deep h-12 w-11 rounded-xl border-2 border-brand-tint bg-white text-center text-xl font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="text-ink focus-visible:outline-brand aria-[invalid=true]:border-coral-deep h-12 min-w-0 max-w-11 flex-1 rounded-xl border-2 border-brand-tint bg-white text-center text-xl font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
       />,
     );
   }
@@ -193,7 +193,7 @@ export function CodeInput({ label, length = 6, error, onChange, name = "code" }:
       <span id={`${id}-label`} className="text-ink text-sm font-bold">
         {label}
       </span>
-      <div className="flex gap-2">{boxes}</div>
+      <div className="flex gap-1.5">{boxes}</div>
       <input type="hidden" name={name} value={digits.join("")} />
       {error && (
         <p id={`${id}-error`} role="alert" className="text-coral-deep text-sm font-medium">

@@ -20,26 +20,45 @@ export const whatsappPhoneSchema = z.string().regex(/^\d{10,15}$/, "Invalid phon
 
 /**
  * Storefronts live at gbam.app/{slug}, so a slug must never shadow an app route.
- * Add any new top-level route in apps/web/app here too.
+ * Add any new top-level route in apps/web/app here too (apps/web/app/reserved-slugs.test.ts
+ * fails if one is missing).
  */
 export const RESERVED_SLUGS = new Set([
   "about",
+  "acceptable-use",
   "admin",
   "api",
   "app",
+  "apple-icon",
   "auth",
   "billing",
   "blog",
+  "changelog",
+  "contact",
+  "cookies",
   "dashboard",
+  "data-deletion",
   "docs",
+  "faq",
+  "features",
+  "forgot-password",
   "gbam",
   "help",
+  "how-it-works",
+  "icon",
+  "legal",
   "login",
   "logout",
+  "mission",
+  "opengraph-image",
   "orders",
   "pricing",
   "privacy",
+  "refunds",
   "register",
+  "reset-password",
+  "security",
+  "seller-agreement",
   "settings",
   "signin",
   "signup",
@@ -48,6 +67,8 @@ export const RESERVED_SLUGS = new Set([
   "storefront",
   "support",
   "terms",
+  "twitter-image",
+  "use-cases",
   "www",
 ]);
 

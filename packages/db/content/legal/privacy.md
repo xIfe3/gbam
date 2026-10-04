@@ -5,7 +5,7 @@ category: Legal
 sortOrder: 2
 published: true
 date: 2026-10-03
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-04
 sections:
   - id: who-we-are
     heading: Who we are
@@ -19,8 +19,8 @@ sections:
     body: |
       **Sellers**
 
-      - Account details: name, email address, WhatsApp number and a hashed password (we cannot read your password).
-      - Shop details: shop name, products and prices.
+      - Account details: email address and a hashed password (we cannot read your password). We do not ask for your personal name.
+      - Shop details: business name, shop link, WhatsApp number, products and prices.
       - Payout details: bank name, the account holder name and the **last 4 digits** of your account number only. The full account number is held by Paystack, not by us.
       - Login sessions: the IP address and a description of the browser or device for each signed-in session, for security and fraud prevention.
 
@@ -36,7 +36,7 @@ sections:
       **Messages**
 
       - WhatsApp message delivery status (sent, delivered, read, failed).
-      - Contact form: your name, email address, optional phone number and your message, plus your IP address so we can limit spam.
+      - Contact form: your name, email address, optional phone number and your message. To limit spam we briefly use your IP address in a short-lived counter (for up to an hour); it is not saved with your message.
 
       **We never see or store full card numbers or CVVs.** Card details are entered with Paystack, which shares only the partial card details above with us.
     short: Only what we need to run orders. Never full card numbers or CVVs, but Paystack shares partial card details with us for each payment.

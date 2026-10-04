@@ -9,7 +9,29 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
   },
   test: {
-    environment: "jsdom",
-    setupFiles: ["./vitest.setup.ts"],
+    // Two "projects" (groups of test files with their own settings), run together.
+    // `extends: true` means each also gets the plugins and alias above.
+    projects: [
+      {
+        // Plain .ts tests (server code, actions, file checks) run in Node: fast, and
+        // import.meta.url is a real file path there.
+        extends: true,
+        test: {
+          name: "node",
+          environment: "node",
+          include: ["**/*.test.ts"],
+        },
+      },
+      {
+        // Component tests (.tsx) need a fake browser DOM, which jsdom provides.
+        extends: true,
+        test: {
+          name: "jsdom",
+          environment: "jsdom",
+          include: ["**/*.test.tsx"],
+          setupFiles: ["./vitest.setup.ts"],
+        },
+      },
+    ],
   },
 });

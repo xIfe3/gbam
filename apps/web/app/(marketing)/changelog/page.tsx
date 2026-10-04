@@ -35,7 +35,7 @@ export default async function ChangelogPage() {
         <ol className="flex flex-col gap-6">
           {entries.map((entry) => (
             <li key={entry.slug} className="rounded-2xl bg-white p-6">
-              <p className="text-ink-subtle text-sm">{formatDate(entry.publishedAt)}</p>
+              <p className="text-ink-muted text-sm">{formatDate(entry.publishedAt)}</p>
               <h2 className="font-display text-ink mt-1 text-2xl font-bold">{entry.title}</h2>
               <Prose markdown={entry.body} />
             </li>
