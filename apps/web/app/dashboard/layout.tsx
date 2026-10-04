@@ -1,9 +1,13 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Logo } from "@/components/brand/logo";
 import { api } from "@/lib/api";
 import { PayoutBanner } from "./payout-banner";
+
+// Keep private pages out of search results even if someone links to them.
+export const metadata: Metadata = { robots: { index: false } };
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // A missing or expired session redirects to /login inside api.currentUser().

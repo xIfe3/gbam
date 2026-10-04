@@ -11,10 +11,21 @@ const products = [{ id: "p1", name: "Jollof Rice", description: null, priceKobo:
 describe("Checkout", () => {
   it("links to the terms and privacy policy near the order button", () => {
     render(<Checkout slug="mama" products={products} />);
-    const terms = screen.getByRole("link", { name: "Terms" });
-    const privacy = screen.getByRole("link", { name: "Privacy" });
+    const terms = screen.getByRole("link", { name: /Terms/ });
+    const privacy = screen.getByRole("link", { name: /Privacy/ });
     expect(terms).toHaveAttribute("href", "/legal/terms");
     expect(privacy).toHaveAttribute("href", "/legal/privacy");
+  });
+
+  it("opens the legal links in a new tab so the basket is not lost", () => {
+    render(<Checkout slug="mama" products={products} />);
+    const terms = screen.getByRole("link", { name: /Terms/ });
+    const privacy = screen.getByRole("link", { name: /Privacy/ });
+    for (const link of [terms, privacy]) {
+      expect(link).toHaveAttribute("target", "_blank");
+      expect(link).toHaveAttribute("rel", "noopener noreferrer");
+      expect(link).toHaveTextContent("(opens in a new tab)");
+    }
   });
 
   it("keeps the order button disabled until an item is added, then shows the total", () => {

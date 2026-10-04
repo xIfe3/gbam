@@ -15,8 +15,12 @@ import { placeOrder, type PlaceOrderState } from "./actions";
 const stepperClasses =
   "text-ink border-brand-tint hover:bg-coral-wash focus-visible:outline-brand flex size-11 items-center justify-center rounded-full border-2 bg-white text-xl focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40";
 
+// Legal pages open in a new tab so the customer keeps their basket and typed details.
+const newTabProps = { target: "_blank", rel: "noopener noreferrer" };
+
+// inline-block + py-2 gives a tap area of at least 44px high.
 const legalLinkClasses =
-  "text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
+  "inline-block py-2 text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 type Props = { slug: string; products: Storefront["products"] };
 
@@ -187,7 +191,7 @@ export function Checkout({ slug, products }: Props) {
       {state.status === "error" && (
         <p
           role="alert"
-          className="bg-coral-wash text-coral-deep rounded-xl px-4 py-3 text-sm font-medium"
+          className="bg-coral-wash text-ink border-coral-deep rounded-xl border-l-4 px-4 py-3 text-sm font-medium"
         >
           {state.message}
         </p>
@@ -202,12 +206,14 @@ export function Checkout({ slug, products }: Props) {
 
       <p className="text-ink-muted text-sm">
         By ordering you agree to Gbam&apos;s{" "}
-        <Link href="/legal/terms" className={legalLinkClasses}>
+        <Link href="/legal/terms" className={legalLinkClasses} {...newTabProps}>
           {LEGAL_LABELS.terms}
+          <span className="sr-only"> (opens in a new tab)</span>
         </Link>{" "}
         and{" "}
-        <Link href="/legal/privacy" className={legalLinkClasses}>
+        <Link href="/legal/privacy" className={legalLinkClasses} {...newTabProps}>
           {LEGAL_LABELS.privacy}
+          <span className="sr-only"> (opens in a new tab)</span>
         </Link>
         .
       </p>

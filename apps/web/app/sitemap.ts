@@ -7,18 +7,20 @@ import { FOOTER_GROUPS, HEADER_LINKS } from "@/lib/site-nav";
 // come from the API and the build must work without the API running.
 export const dynamic = "force-dynamic";
 
-// Every marketing and legal path from the site navigation, once each. Login and sign-up
-// stay in the list: they are public pages people search for.
+// Login and sign-up are marked noindex, so they stay out of the sitemap.
+const LEFT_OUT = ["/login", "/signup"];
+
+// Every marketing and legal path from the site navigation, once each.
 function staticPaths(): string[] {
   const paths: string[] = [];
   for (const link of HEADER_LINKS) {
-    if (!paths.includes(link.href)) {
+    if (!paths.includes(link.href) && !LEFT_OUT.includes(link.href)) {
       paths.push(link.href);
     }
   }
   for (const group of FOOTER_GROUPS) {
     for (const link of group.links) {
-      if (!paths.includes(link.href)) {
+      if (!paths.includes(link.href) && !LEFT_OUT.includes(link.href)) {
         paths.push(link.href);
       }
     }

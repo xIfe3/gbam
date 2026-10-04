@@ -8,7 +8,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: "*",
       allow: "/",
-      disallow: ["/dashboard", "/signup/", "/reset-password", "/forgot-password"],
+      // Disallow rules are prefix matches, so "/dashboard" alone would also block a storefront
+      // called "/dashboardcafe". "$" means "exactly this path"; a trailing "/" means "below it".
+      disallow: ["/dashboard$", "/dashboard/", "/signup/", "/reset-password$", "/forgot-password$"],
     },
     sitemap: `${SITE_URL}/sitemap.xml`,
   };

@@ -62,8 +62,8 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         <Checkout slug={store.slug} products={products} />
       )}
       <footer className="text-ink-muted mt-10 text-sm">
-        Powered by <span className="font-display text-coral-deep font-black">Gbam.</span> Payments
-        by Paystack.
+        Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
+        Paystack.
       </footer>
     </main>
   );
