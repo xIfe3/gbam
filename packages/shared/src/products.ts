@@ -88,9 +88,15 @@ const optionSchema = z.object({
 const variantSchema = z.object({
   id: z.uuid().optional(),
   optionValues: z.array(z.string()),
-  priceKobo: z.number().int().min(PRODUCT_LIMITS.minPriceKobo, "Minimum price is ₦100"),
+  // The upper bounds keep values inside the database's integer column (max 2147483647),
+  // so a huge number is a validation error instead of a server error.
+  priceKobo: z
+    .number()
+    .int()
+    .min(PRODUCT_LIMITS.minPriceKobo, "Minimum price is ₦100")
+    .max(2_000_000_000, "That price is too high"),
   // null means unlimited stock
-  stock: z.number().int().min(0).nullable(),
+  stock: z.number().int().min(0).max(1_000_000, "That stock is too high").nullable(),
   imageId: z.uuid().nullable(),
   isEnabled: z.boolean(),
 });
@@ -142,7 +148,11 @@ export const productInputSchema = z
         continue;
       }
 
+      // A variant that already failed the checks below would only add a noisy duplicate issue.
+      let valuesAreValid = true;
+
       if (variant.optionValues.length !== product.options.length) {
+        valuesAreValid = false;
         ctx.addIssue({
           code: "custom",
           message: "Pick one value for every option",
@@ -153,6 +163,7 @@ export const productInputSchema = z
           const option = product.options[j];
           const value = variant.optionValues[j];
           if (!option || value === undefined || !option.values.includes(value)) {
+            valuesAreValid = false;
             ctx.addIssue({
               code: "custom",
               message: "That value is not one of the option's values",
@@ -163,15 +174,17 @@ export const productInputSchema = z
       }
 
       // JSON gives an unambiguous key even when a value contains "/" or ",".
-      const key = JSON.stringify(variant.optionValues);
-      if (seenCombinations.has(key)) {
-        ctx.addIssue({
-          code: "custom",
-          message: "Two options have the same combination",
-          path: ["variants", i, "optionValues"],
-        });
+      if (valuesAreValid) {
+        const key = JSON.stringify(variant.optionValues);
+        if (seenCombinations.has(key)) {
+          ctx.addIssue({
+            code: "custom",
+            message: "Two options have the same combination",
+            path: ["variants", i, "optionValues"],
+          });
+        }
+        seenCombinations.add(key);
       }
-      seenCombinations.add(key);
 
       if (variant.imageId !== null && !product.imageIds.includes(variant.imageId)) {
         ctx.addIssue({
