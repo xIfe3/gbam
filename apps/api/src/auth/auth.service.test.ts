@@ -530,6 +530,38 @@ describe("AuthService signup and verification (integration)", () => {
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
+  it("a successful resetPassword also uses up the user's other live reset codes", async () => {
+    const input = newInput();
+    await service.signup(input, meta);
+    // Two reset requests, e.g. from a laptop and then a phone.
+    const first = await service.forgotPassword(input.email, freshMeta());
+    const firstCode = lastCodeFor(input.email, "reset_password");
+    await redis.del(`forgot-email:${hashToken(input.email)}`);
+    const second = await service.forgotPassword(input.email, freshMeta());
+    const secondCode = lastCodeFor(input.email, "reset_password");
+
+    await service.resetPassword(
+      input.email,
+      second.requestId,
+      secondCode,
+      "a brand new password",
+      freshMeta(),
+    );
+
+    // The first code was never used, but the password has now changed: it must be dead.
+    await expect(
+      service.resetPassword(
+        input.email,
+        first.requestId,
+        firstCode,
+        "an attacker's password",
+        freshMeta(),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    const again = await service.login(input.email, "a brand new password", freshMeta());
+    expect(again.user.email).toBe(input.email);
+  });
+
   it("resetPassword clears a lockout and marks the email verified", async () => {
     const input = newInput();
     const { user } = await service.signup(input, meta);

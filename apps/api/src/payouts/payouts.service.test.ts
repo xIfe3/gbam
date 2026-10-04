@@ -399,8 +399,10 @@ describe("PayoutsService (integration)", () => {
       vi.spyOn(paystack, "createSubaccount").mockResolvedValueOnce({
         subaccountCode: "ACCT_orphan_two",
       });
+      // Drizzle's query errors quote the SQL parameters in their message, which here would
+      // include the account holder's name and the last 4 digits. They must not be logged.
       vi.spyOn(db, "update").mockImplementationOnce(() => {
-        throw new Error("database went away");
+        throw new Error("Failed query: update sellers ... params: PRIVATE_HOLDER_NAME,LAST4_9876");
       });
 
       const error = await errorFrom(
@@ -409,8 +411,21 @@ describe("PayoutsService (integration)", () => {
 
       expect(error).toBeInstanceOf(ServiceUnavailableException);
       expect(await sellerRow(sellerId)).toEqual(before);
-      expect(JSON.stringify(errorLog.mock.calls)).toContain("ACCT_orphan_two");
-      expect(JSON.stringify(errorLog.mock.calls)).not.toContain(GOOD_ACCOUNT);
+      // JSON.stringify turns an Error into "{}", so write out each logged argument by hand.
+      let logged = "";
+      for (const call of errorLog.mock.calls) {
+        for (const arg of call) {
+          if (arg instanceof Error) {
+            logged += ` ${arg.name} ${arg.message} ${arg.stack ?? ""}`;
+          } else {
+            logged += ` ${String(arg)}`;
+          }
+        }
+      }
+      expect(logged).toContain("ACCT_orphan_two");
+      expect(logged).not.toContain(GOOD_ACCOUNT);
+      expect(logged).not.toContain("PRIVATE_HOLDER_NAME");
+      expect(logged).not.toContain("LAST4_9876");
     });
 
     it("loads the bank list before taking the lock, so slow bank pages can't outlast it", async () => {

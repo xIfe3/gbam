@@ -12,11 +12,15 @@ export class DomainErrorsFilter implements ExceptionFilter {
     if (error instanceof TooManyRequestsError) {
       // Round up so we never say "try again in 0 minutes".
       const minutes = Math.max(1, Math.ceil(error.retryAfterSeconds / 60));
+      let minutesText = `${minutes} minutes`;
+      if (minutes === 1) {
+        minutesText = "1 minute";
+      }
       res.setHeader("Retry-After", String(error.retryAfterSeconds));
       res.status(429).json({
         statusCode: 429,
         error: "TooManyRequests",
-        message: `Too many attempts, try again in ${minutes} minutes`,
+        message: `Too many attempts, try again in ${minutesText}`,
         retryAfterSeconds: error.retryAfterSeconds,
       });
       return;

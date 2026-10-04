@@ -225,9 +225,14 @@ export class PayoutsService {
     } catch (error) {
       // Paystack has the subaccount but we couldn't save it. Logged (the code is not secret)
       // so it can be matched up by hand; the seller can simply try again.
+      // Only the error's class name is logged: a Drizzle query error's message quotes the
+      // SQL parameters, which include the account holder's name and last 4 digits.
+      let errorKind = "unknown error";
+      if (error instanceof Error) {
+        errorKind = error.name;
+      }
       this.logger.error(
-        `Subaccount ${subaccountCode} created for seller ${sellerId} but saving it failed`,
-        error,
+        `Subaccount ${subaccountCode} created for seller ${sellerId} but saving it failed (${errorKind})`,
       );
       throw new ServiceUnavailableException({
         statusCode: 503,

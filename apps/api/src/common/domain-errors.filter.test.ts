@@ -34,6 +34,6 @@ describe("DomainErrorsFilter: TooManyRequestsError", () => {
   });
 
   it("never says 0 minutes", () => {
-    expect(run(5).body).toMatchObject({ message: "Too many attempts, try again in 1 minutes" });
+    expect(run(5).body).toMatchObject({ message: "Too many attempts, try again in 1 minute" });
   });
 });

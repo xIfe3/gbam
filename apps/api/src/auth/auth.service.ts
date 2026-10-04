@@ -425,6 +425,7 @@ export class AuthService implements OnModuleInit {
    * Sets a new password using an emailed reset code. Every existing session is deleted
    * (a stolen session stops working), and the caller is signed in with a fresh one.
    * Receiving the code also proves the email address, and clears any login lockout.
+   * The user's other unused reset codes stop working too.
    */
   async resetPassword(
     emailInput: string,
@@ -450,6 +451,19 @@ export class AuthService implements OnModuleInit {
     const now = new Date();
     const result = await this.db.transaction(async (tx) => {
       await this.consumeCode(tx, codeId, now);
+      // The password has changed, so every OTHER live reset code for this user (e.g. one
+      // requested on another device, or by someone who knows the email) is used up too.
+      // Inside the transaction, so this only happens if the reset itself succeeds.
+      await tx
+        .update(emailCodes)
+        .set({ consumedAt: now })
+        .where(
+          and(
+            eq(emailCodes.userId, user.id),
+            eq(emailCodes.purpose, "reset_password"),
+            isNull(emailCodes.consumedAt),
+          ),
+        );
       const [updated] = await tx
         .update(users)
         .set({
