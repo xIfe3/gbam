@@ -6,6 +6,7 @@ import {
   forgotPasswordSchema,
   loginSchema,
   passwordSchema,
+  payoutAccountSchema,
   resetPasswordSchema,
   signupSchema,
 } from "./schemas";
@@ -127,5 +128,32 @@ describe("contactMessageSchema", () => {
     expect(contactMessageSchema.safeParse({ ...valid, message: "a".repeat(3001) }).success).toBe(
       false,
     );
+  });
+});
+
+describe("payoutAccountSchema", () => {
+  it("accepts a bank code and a 10-digit account number, trimming spaces", () => {
+    const parsed = payoutAccountSchema.parse({ bankCode: "058", accountNumber: " 0123456789 " });
+    expect(parsed).toEqual({ bankCode: "058", accountNumber: "0123456789" });
+    // Real Paystack codes are not all digits (e.g. "035A", "MFB50094").
+    const letters = payoutAccountSchema.safeParse({
+      bankCode: "MFB50094",
+      accountNumber: "0123456789",
+    });
+    expect(letters.success).toBe(true);
+  });
+
+  it("rejects account numbers that are not exactly 10 digits", () => {
+    for (const accountNumber of ["012345678", "01234567890", "01234abcde", ""]) {
+      const result = payoutAccountSchema.safeParse({ bankCode: "058", accountNumber });
+      expect(result.success).toBe(false);
+    }
+  });
+
+  it("rejects a missing or odd bank code", () => {
+    for (const bankCode of ["", "05 8", "x".repeat(21), "../x"]) {
+      const result = payoutAccountSchema.safeParse({ bankCode, accountNumber: "0123456789" });
+      expect(result.success).toBe(false);
+    }
   });
 });

@@ -151,3 +151,19 @@ export const contactMessageSchema = z.object({
   message: z.string().trim().min(10).max(3000),
 });
 export type ContactMessageInput = z.infer<typeof contactMessageSchema>;
+
+/**
+ * A seller's payout bank account. `bankCode` is Paystack's code from the bank list (letters
+ * and digits, e.g. "058" or "MFB50094"). Nigerian account numbers (NUBAN) are 10 digits.
+ */
+export const payoutAccountSchema = z.object({
+  bankCode: z
+    .string()
+    .trim()
+    .regex(/^[A-Za-z0-9]{1,20}$/, "Choose your bank from the list"),
+  accountNumber: z
+    .string()
+    .trim()
+    .regex(/^\d{10}$/, "Enter your 10-digit account number"),
+});
+export type PayoutAccountInput = z.output<typeof payoutAccountSchema>;

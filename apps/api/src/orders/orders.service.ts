@@ -16,7 +16,13 @@ import {
   type OrderActor,
   type OrderStatus,
 } from "@gbam/shared";
-import { BadRequestException, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from "@nestjs/common";
 import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -181,6 +187,12 @@ export class OrdersService {
       // Throws InvalidOrderTransitionError (→ HTTP 409) if this move isn't allowed.
       assertTransition(current.status, to, actor);
 
+      // A seller can only ask for payment once Paystack knows where to send their money.
+      // (The system actor is not limited: it never starts a payment request itself.)
+      if (actor === "seller" && to === "awaiting_payment") {
+        await assertHasPayoutAccount(tx, sellerId);
+      }
+
       const updatedRows = await tx
         .update(orders)
         .set({ status: to })
@@ -308,6 +320,25 @@ export class OrdersService {
     } catch (error) {
       this.logger.error(`Failed to queue notification for event ${eventId}`, error);
     }
+  }
+}
+
+/** 409 PAYOUT_ACCOUNT_REQUIRED unless the seller has a Paystack subaccount. */
+async function assertHasPayoutAccount(tx: DbTransaction, sellerId: string | undefined) {
+  if (!sellerId) {
+    throw new Error("assertHasPayoutAccount needs a sellerId");
+  }
+  const rows = await tx
+    .select({ subaccountCode: sellers.paystackSubaccountCode })
+    .from(sellers)
+    .where(eq(sellers.id, sellerId));
+  const seller = rows[0];
+  if (!seller || seller.subaccountCode === null) {
+    throw new ConflictException({
+      statusCode: 409,
+      code: "PAYOUT_ACCOUNT_REQUIRED",
+      message: "Add your bank account to start receiving payments",
+    });
   }
 }
 

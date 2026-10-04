@@ -10,6 +10,15 @@ export type UpdateStatusState = { error?: string };
 
 const inputSchema = z.object({ orderId: z.uuid(), status: orderStatusSchema });
 
+function isPayoutAccountRequired(body: unknown): boolean {
+  return (
+    typeof body === "object" &&
+    body !== null &&
+    "code" in body &&
+    body.code === "PAYOUT_ACCOUNT_REQUIRED"
+  );
+}
+
 export async function updateOrderStatus(
   _prev: UpdateStatusState,
   formData: FormData,
@@ -26,6 +35,10 @@ export async function updateOrderStatus(
   } catch (error) {
     // A session-expired redirect thrown by lib/api must reach Next, not become an error message.
     unstable_rethrow(error);
+    // No payout account yet: nothing changed, so no refresh; say what to do instead.
+    if (error instanceof ApiError && error.status === 409 && isPayoutAccountRequired(error.body)) {
+      return { error: "Add your bank account to start receiving payments." };
+    }
     if (error instanceof ApiError && error.status === 409) {
       refresh(); // someone else changed it first; show the current state
       return { error: "This order changed in the meantime. Here's its latest status." };

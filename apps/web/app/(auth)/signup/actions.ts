@@ -13,8 +13,8 @@ import {
   type FormState,
 } from "../action-helpers";
 
-/** Where a freshly verified user goes. Task 14 builds /signup/get-paid (step 3) and changes this. */
-const AFTER_VERIFY = "/dashboard";
+/** Where a freshly verified user goes: step 3, adding the bank account they'll be paid into. */
+const AFTER_VERIFY = "/signup/get-paid";
 
 export async function signupAction(_prev: FormState, formData: FormData): Promise<FormState> {
   // Everything typed except the password is sent back so the form keeps it on an error.

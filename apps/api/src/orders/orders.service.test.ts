@@ -5,7 +5,7 @@
 import "reflect-metadata";
 import { orderEvents, products, sellers } from "@gbam/db";
 import { InvalidOrderTransitionError } from "@gbam/shared";
-import { NotFoundException } from "@nestjs/common";
+import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -34,6 +34,11 @@ describe("OrdersService (integration)", () => {
     const seller = await createTestSeller(db, "test");
     slug = seller.slug;
     sellerId = seller.id;
+    // Sellers need a payout account before they can request payment (one test removes it).
+    await db
+      .update(sellers)
+      .set({ paystackSubaccountCode: "ACCT_test123" })
+      .where(eq(sellers.id, sellerId));
     const [product] = await db
       .insert(products)
       .values({ sellerId, name: "Suya", priceKobo: 150_000 })
@@ -78,6 +83,57 @@ describe("OrdersService (integration)", () => {
 
     const paid = await service.transition({ orderId: id, to: "paid", actor: "system" });
     expect(paid.status).toBe("paid");
+  });
+
+  it("blocks requesting payment until the seller has a payout account", async () => {
+    await db.update(sellers).set({ paystackSubaccountCode: null }).where(eq(sellers.id, sellerId));
+    try {
+      const { id } = await placeOrder();
+
+      let caught: unknown = null;
+      try {
+        await service.transition({
+          orderId: id,
+          to: "awaiting_payment",
+          actor: "seller",
+          sellerId,
+        });
+      } catch (error) {
+        caught = error;
+      }
+
+      expect(caught).toBeInstanceOf(ConflictException);
+      const body = (caught as ConflictException).getResponse();
+      expect(body).toMatchObject({ code: "PAYOUT_ACCOUNT_REQUIRED" });
+      // Nothing changed: still pending, no new history entry.
+      const detail = await service.getForSeller(sellerId, id);
+      expect(detail.status).toBe("pending");
+      expect(detail.events.map((e) => e.toStatus)).toEqual(["pending"]);
+
+      // Other moves still work, and the system (not a seller) isn't affected.
+      const system = await service.transition({
+        orderId: id,
+        to: "awaiting_payment",
+        actor: "system",
+      });
+      expect(system.status).toBe("awaiting_payment");
+    } finally {
+      await db
+        .update(sellers)
+        .set({ paystackSubaccountCode: "ACCT_test123" })
+        .where(eq(sellers.id, sellerId));
+    }
+  });
+
+  it("lets a seller with a payout account request payment", async () => {
+    const { id } = await placeOrder();
+    const moved = await service.transition({
+      orderId: id,
+      to: "awaiting_payment",
+      actor: "seller",
+      sellerId,
+    });
+    expect(moved.status).toBe("awaiting_payment");
   });
 
   it("lets exactly one of two concurrent identical transitions win", async () => {

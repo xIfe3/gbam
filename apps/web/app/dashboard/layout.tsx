@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Logo } from "@/components/brand/logo";
 import { api } from "@/lib/api";
+import { PayoutBanner } from "./payout-banner";
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   // A missing or expired session redirects to /login inside api.currentUser().
@@ -13,8 +14,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   let shopName = user.email;
+  let needsPayoutAccount = false;
   if (user.seller) {
     shopName = user.seller.businessName;
+    needsPayoutAccount = !user.seller.hasPayoutAccount;
   }
 
   return (
@@ -36,6 +39,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </button>
         </form>
       </header>
+      {needsPayoutAccount && <PayoutBanner />}
       {children}
     </div>
   );

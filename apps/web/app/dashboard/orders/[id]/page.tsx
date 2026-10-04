@@ -30,6 +30,12 @@ export async function generateMetadata(
 export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]">) {
   const { id } = await props.params;
   const order = await loadOrder(id);
+  // "Request payment" needs a payout account (Paystack subaccount) to send the money to.
+  const user = await api.currentUser();
+  let canRequestPayment = false;
+  if (user.seller) {
+    canRequestPayment = user.seller.hasPayoutAccount;
+  }
   const waLink = `https://wa.me/${order.customer.phone}?text=${encodeURIComponent(
     `Hi ${order.customer.name}, about your order ${order.code}`,
   )}`;
@@ -54,7 +60,11 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
           <StatusBadge status={order.status} />
         </div>
         {/* Same state machine the API enforces, so buttons and API can never disagree. */}
-        <StatusActions orderId={order.id} allowed={nextStatuses(order.status, "seller")} />
+        <StatusActions
+          orderId={order.id}
+          allowed={nextStatuses(order.status, "seller")}
+          canRequestPayment={canRequestPayment}
+        />
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">

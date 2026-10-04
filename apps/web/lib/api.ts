@@ -379,8 +379,40 @@ async function resetPassword(body: {
   });
 }
 
+// ---- Payouts (sign-up step 3) ----
+
+export type Bank = { name: string; code: string };
+
+export type PayoutAccountBody = { bankCode: string; accountNumber: string };
+
+/** What the API saved. Only the last 4 digits of the account number ever come back. */
+export type PayoutAccount = { bankName: string; accountLast4: string; bankAccountName: string };
+
+async function listBanks() {
+  return request<Bank[]>("/payouts/banks", { auth: "session" });
+}
+
+async function resolvePayoutAccount(body: PayoutAccountBody) {
+  return request<{ accountName: string; bankName: string }>("/payouts/resolve-account", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function createPayoutAccount(body: PayoutAccountBody) {
+  return request<PayoutAccount>("/payouts/account", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  listBanks,
+  resolvePayoutAccount,
+  createPayoutAccount,
   signup,
   slugAvailable,
   verifyEmail,

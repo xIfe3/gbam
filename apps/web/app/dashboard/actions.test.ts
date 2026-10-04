@@ -46,6 +46,15 @@ describe("updateOrderStatus", () => {
     await expect(updateOrderStatus({}, form())).rejects.toThrow("NEXT_REDIRECT:/login");
   });
 
+  it("explains that a bank account is needed when the API says PAYOUT_ACCOUNT_REQUIRED", async () => {
+    apiMock.updateOrderStatus.mockRejectedValue(
+      new FakeApiError(409, { statusCode: 409, code: "PAYOUT_ACCOUNT_REQUIRED" }),
+    );
+    const state = await updateOrderStatus({}, form());
+    expect(state.error).toBe("Add your bank account to start receiving payments.");
+    expect(refresh).not.toHaveBeenCalled();
+  });
+
   it("still shows the friendly message for a 409", async () => {
     apiMock.updateOrderStatus.mockRejectedValue(new FakeApiError(409, {}));
     const state = await updateOrderStatus({}, form());

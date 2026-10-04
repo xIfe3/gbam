@@ -5,6 +5,7 @@
 import "reflect-metadata";
 import { orders, payments, products, sellers } from "@gbam/db";
 import type {
+  Bank,
   InitializeTransactionInput,
   PaystackClient,
   VerifiedTransaction,
@@ -20,6 +21,8 @@ import { PaymentsModule } from "./payments.module.js";
 import { PaymentsService } from "./payments.service.js";
 
 process.loadEnvFile?.("../../.env");
+
+const SUBACCOUNT = "ACCT_test123";
 
 class StubPaystack implements PaystackClient {
   initialized = 0;
@@ -44,6 +47,19 @@ class StubPaystack implements PaystackClient {
       raw: {},
       ...this.verifyResult(reference),
     };
+  }
+
+  // Payout setup isn't part of these tests.
+  async listBanks(): Promise<Bank[]> {
+    throw new Error("not used in payments tests");
+  }
+
+  async resolveAccount(): Promise<{ accountName: string }> {
+    throw new Error("not used in payments tests");
+  }
+
+  async createSubaccount(): Promise<{ subaccountCode: string }> {
+    throw new Error("not used in payments tests");
   }
 }
 
@@ -73,6 +89,11 @@ describe("PaymentsService (integration)", () => {
     const seller = await createTestSeller(db, "pay");
     slug = seller.slug;
     sellerId = seller.id;
+    // A seller can only request payment once they have a payout account (subaccount).
+    await db
+      .update(sellers)
+      .set({ paystackSubaccountCode: SUBACCOUNT })
+      .where(eq(sellers.id, sellerId));
     const [product] = await db
       .insert(products)
       .values({ sellerId, name: "Puff-puff", priceKobo: 50_000 })
@@ -85,8 +106,8 @@ describe("PaymentsService (integration)", () => {
     await moduleRef.close();
   });
 
-  /** A fresh order moved to awaiting_payment, plus its payment link. */
-  async function orderAwaitingPayment() {
+  /** A fresh order the seller has moved to awaiting_payment. */
+  async function orderMovedToAwaitingPayment() {
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Bisi", phone: "2348022223333" },
       items: [{ productId, quantity: 2 }],
@@ -97,6 +118,12 @@ describe("PaymentsService (integration)", () => {
       actor: "seller",
       sellerId,
     });
+    return order;
+  }
+
+  /** A fresh order moved to awaiting_payment, plus its payment link. */
+  async function orderAwaitingPayment() {
+    const order = await orderMovedToAwaitingPayment();
     const link = await service.ensurePaymentLink(order.id);
     return { order, link };
   }
@@ -189,40 +216,43 @@ describe("PaymentsService (integration)", () => {
     };
 
     it("records the fee but sends no split when the seller has no subaccount", async () => {
+      // Sellers can't request payment without a subaccount any more, but an order that was
+      // already awaiting payment (e.g. from before that rule) still gets a link, unsplit.
+      const order = await orderMovedToAwaitingPayment();
       await setSeller({ paystackSubaccountCode: null, feeWaivedUntil: null });
-      const { link } = await orderAwaitingPayment();
+      try {
+        const link = await service.ensurePaymentLink(order.id);
 
-      expect(paystack.lastInitialize?.split).toBeUndefined();
-      expect((await paymentFor(link.reference))?.platformFeeKobo).toBe(1_500);
+        expect(paystack.lastInitialize?.split).toBeUndefined();
+        expect((await paymentFor(link.reference))?.platformFeeKobo).toBe(1_500);
+      } finally {
+        await setSeller({ paystackSubaccountCode: SUBACCOUNT });
+      }
     });
 
     it("splits to the seller, keeps 1.5%, and stores Paystack's real fee once paid", async () => {
-      await setSeller({ paystackSubaccountCode: "ACCT_test123", feeWaivedUntil: null });
-      try {
-        const { link } = await orderAwaitingPayment();
-        expect(paystack.lastInitialize?.split).toEqual({
-          subaccount: "ACCT_test123",
-          platformFeeKobo: 1_500,
-        });
+      await setSeller({ paystackSubaccountCode: SUBACCOUNT, feeWaivedUntil: null });
+      const { link } = await orderAwaitingPayment();
+      expect(paystack.lastInitialize?.split).toEqual({
+        subaccount: SUBACCOUNT,
+        platformFeeKobo: 1_500,
+      });
 
-        await service.confirm(link.reference);
-        const payment = await paymentFor(link.reference);
-        expect(payment?.platformFeeKobo).toBe(1_500);
-        expect(payment?.paystackFeeKobo).toBe(1_500); // from the stub's verify()
-      } finally {
-        await setSeller({ paystackSubaccountCode: null });
-      }
+      await service.confirm(link.reference);
+      const payment = await paymentFor(link.reference);
+      expect(payment?.platformFeeKobo).toBe(1_500);
+      expect(payment?.paystackFeeKobo).toBe(1_500); // from the stub's verify()
     });
 
     it("charges founding sellers nothing while their waiver lasts", async () => {
       const nextYear = new Date(Date.now() + 365 * 24 * 60 * 60 * 1000);
-      await setSeller({ paystackSubaccountCode: "ACCT_test123", feeWaivedUntil: nextYear });
+      await setSeller({ paystackSubaccountCode: SUBACCOUNT, feeWaivedUntil: nextYear });
       try {
         const { link } = await orderAwaitingPayment();
         expect(paystack.lastInitialize?.split?.platformFeeKobo).toBe(0);
         expect((await paymentFor(link.reference))?.platformFeeKobo).toBe(0);
       } finally {
-        await setSeller({ paystackSubaccountCode: null, feeWaivedUntil: null });
+        await setSeller({ paystackSubaccountCode: SUBACCOUNT, feeWaivedUntil: null });
       }
     });
   });
