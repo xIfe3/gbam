@@ -125,8 +125,13 @@ export const forgotPasswordSchema = z.object({
 export type ForgotPasswordInput = z.output<typeof forgotPasswordSchema>;
 
 /** The new password must meet the signup policy. */
+/**
+ * `requestId` is what forgot-password returned to this browser. The reset code only works
+ * together with it, so someone who knows just the email can't use or burn the code.
+ */
 export const resetPasswordSchema = z.object({
   email: emailSchema,
+  requestId: z.string().regex(/^[A-Za-z0-9_-]{43}$/, "Start the reset again"),
   code: codeSchema,
   password: passwordSchema,
 });

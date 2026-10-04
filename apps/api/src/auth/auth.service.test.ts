@@ -339,6 +339,13 @@ describe("AuthService signup and verification (integration)", () => {
     expect(lockedFor).toBeGreaterThan(14 * 60 * 1000);
     expect(lockedFor).toBeLessThanOrEqual(15 * 60 * 1000);
 
+    // A wrong guess while locked is also a 429 and is not counted.
+    await expect(service.login(input.email, "wrong password", freshMeta())).rejects.toBeInstanceOf(
+      TooManyRequestsError,
+    );
+    const [stillLocked] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(stillLocked?.failedLoginCount).toBe(5);
+
     // Pretend 15 minutes have passed.
     await db
       .update(users)
@@ -349,6 +356,30 @@ describe("AuthService signup and verification (integration)", () => {
     const [row] = await db.select().from(users).where(eq(users.id, user.id));
     expect(row?.failedLoginCount).toBe(0);
     expect(row?.lockedUntil).toBeNull();
+  });
+
+  it("after a lock expires, one wrong guess starts a fresh count instead of re-locking", async () => {
+    const input = newInput();
+    const { user } = await service.signup(input, meta);
+    for (let i = 0; i < 5; i++) {
+      await expect(
+        service.login(input.email, "wrong password", freshMeta()),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+    }
+    await db
+      .update(users)
+      .set({ lockedUntil: new Date(Date.now() - 1000) })
+      .where(eq(users.id, user.id));
+
+    await expect(service.login(input.email, "wrong password", freshMeta())).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    const [row] = await db.select().from(users).where(eq(users.id, user.id));
+    expect(row?.failedLoginCount).toBe(1);
+    expect(row?.lockedUntil).toBeNull();
+    // Not locked: the right password still works.
+    const result = await service.login(input.email, input.password, freshMeta());
+    expect(result.user.id).toBe(user.id);
   });
 
   it("counts concurrent wrong passwords atomically", async () => {
@@ -396,11 +427,31 @@ describe("AuthService signup and verification (integration)", () => {
 
   // ---- Forgot / reset password ----
 
-  it("forgotPassword for an unknown email resolves and queues nothing", async () => {
+  const REQUEST_ID = /^[A-Za-z0-9_-]{43}$/;
+
+  it("forgotPassword for an unknown email returns a requestId and queues nothing", async () => {
     const email = `nobody-${randomUUID()}@example.com`;
     const before = sent.length;
-    await expect(service.forgotPassword(email, freshMeta())).resolves.toBeUndefined();
+    const result = await service.forgotPassword(email, freshMeta());
+    expect(Object.keys(result)).toEqual(["requestId"]);
+    expect(result.requestId).toMatch(REQUEST_ID);
     expect(sent.length).toBe(before);
+  });
+
+  it("forgotPassword answers known and unknown emails with the same shape", async () => {
+    const input = newInput();
+    await service.signup(input, meta);
+    const known = await service.forgotPassword(input.email, freshMeta());
+    const unknown = await service.forgotPassword(`nobody-${randomUUID()}@example.com`, freshMeta());
+    expect(Object.keys(known)).toEqual(Object.keys(unknown));
+    expect(known.requestId).toMatch(REQUEST_ID);
+    expect(unknown.requestId).toMatch(REQUEST_ID);
+    // Only a hash of the requestId is stored.
+    const [row] = await db
+      .select()
+      .from(emailCodes)
+      .where(eq(emailCodes.requestTokenHash, hashToken(known.requestId)));
+    expect(row?.purpose).toBe("reset_password");
   });
 
   it("forgotPassword queues a reset code and is limited per email, account or not", async () => {
@@ -422,12 +473,26 @@ describe("AuthService signup and verification (integration)", () => {
     );
   });
 
+  it("forgotPassword caps each email at 10 requests a day, account or not", async () => {
+    const input = newInput();
+    await service.signup(input, meta);
+    const nobody = `nobody-${randomUUID()}@example.com`;
+    for (const email of [input.email, nobody]) {
+      // Pretend 10 requests were already made today (spread out, so no short-term limit).
+      await redis.set(`forgot-email-day:${hashToken(email)}`, "10", "EX", 86_400);
+      await expect(service.forgotPassword(email, freshMeta())).rejects.toBeInstanceOf(
+        TooManyRequestsError,
+      );
+    }
+  });
+
   it("forgotPassword resolves even if the queue is down", async () => {
     const input = newInput();
     await service.signup(input, meta);
     const before = sentTo(input.email);
     failNextSend = true;
-    await expect(service.forgotPassword(input.email, freshMeta())).resolves.toBeUndefined();
+    const result = await service.forgotPassword(input.email, freshMeta());
+    expect(result.requestId).toMatch(REQUEST_ID);
     expect(failNextSend).toBe(false);
     expect(sentTo(input.email)).toBe(before);
   });
@@ -436,11 +501,12 @@ describe("AuthService signup and verification (integration)", () => {
     const input = newInput();
     const signedUp = await service.signup(input, meta);
     const otherDevice = await service.login(input.email, input.password, freshMeta());
-    await service.forgotPassword(input.email, freshMeta());
+    const { requestId } = await service.forgotPassword(input.email, freshMeta());
     const code = lastCodeFor(input.email, "reset_password");
 
     const result = await service.resetPassword(
       input.email,
+      requestId,
       code,
       "a brand new password",
       freshMeta(),
@@ -460,7 +526,7 @@ describe("AuthService signup and verification (integration)", () => {
 
     // The code is single-use.
     await expect(
-      service.resetPassword(input.email, code, "another new password", freshMeta()),
+      service.resetPassword(input.email, requestId, code, "another new password", freshMeta()),
     ).rejects.toBeInstanceOf(BadRequestException);
   });
 
@@ -471,9 +537,10 @@ describe("AuthService signup and verification (integration)", () => {
       .update(users)
       .set({ failedLoginCount: 5, lockedUntil: new Date(Date.now() + 10 * 60 * 1000) })
       .where(eq(users.id, user.id));
-    await service.forgotPassword(input.email, freshMeta());
+    const { requestId } = await service.forgotPassword(input.email, freshMeta());
     const result = await service.resetPassword(
       input.email,
+      requestId,
       lastCodeFor(input.email, "reset_password"),
       "a brand new password",
       freshMeta(),
@@ -488,24 +555,27 @@ describe("AuthService signup and verification (integration)", () => {
     const input = newInput();
     const { user } = await service.signup(input, meta);
     const verifyCode = lastCodeFor(input.email, "verify_email");
-
-    // A verify_email code is not a reset code.
-    const purposeError = await service
-      .resetPassword(input.email, verifyCode, "a brand new password", freshMeta())
-      .catch((e: unknown) => e);
-    expect(purposeError).toBeInstanceOf(BadRequestException);
-
-    await service.forgotPassword(input.email, freshMeta());
+    const { requestId } = await service.forgotPassword(input.email, freshMeta());
     const right = lastCodeFor(input.email, "reset_password");
     const wrong = right === "000000" ? "000001" : "000000";
+
+    // A verify_email code is not a reset code.
+    if (verifyCode !== right) {
+      const purposeError = await service
+        .resetPassword(input.email, requestId, verifyCode, "a brand new password", freshMeta())
+        .catch((e: unknown) => e);
+      expect(purposeError).toBeInstanceOf(BadRequestException);
+    }
+
     const wrongError = await service
-      .resetPassword(input.email, wrong, "a brand new password", freshMeta())
+      .resetPassword(input.email, requestId, wrong, "a brand new password", freshMeta())
       .catch((e: unknown) => e);
     expect(wrongError).toBeInstanceOf(BadRequestException);
 
     const unknownError = await service
       .resetPassword(
         `nobody-${randomUUID()}@example.com`,
+        requestId,
         right,
         "a brand new password",
         freshMeta(),
@@ -521,7 +591,7 @@ describe("AuthService signup and verification (integration)", () => {
       .set({ expiresAt: new Date(Date.now() - 1000) })
       .where(and(eq(emailCodes.userId, user.id), eq(emailCodes.purpose, "reset_password")));
     await expect(
-      service.resetPassword(input.email, right, "a brand new password", freshMeta()),
+      service.resetPassword(input.email, requestId, right, "a brand new password", freshMeta()),
     ).rejects.toBeInstanceOf(BadRequestException);
 
     // The password never changed.
@@ -532,16 +602,76 @@ describe("AuthService signup and verification (integration)", () => {
   it("kills a reset code after 5 wrong attempts", async () => {
     const input = newInput();
     await service.signup(input, meta);
-    await service.forgotPassword(input.email, freshMeta());
+    const { requestId } = await service.forgotPassword(input.email, freshMeta());
     const right = lastCodeFor(input.email, "reset_password");
     const wrong = right === "000000" ? "000001" : "000000";
     for (let i = 0; i < 5; i++) {
       await expect(
-        service.resetPassword(input.email, wrong, "a brand new password", freshMeta()),
+        service.resetPassword(input.email, requestId, wrong, "a brand new password", freshMeta()),
       ).rejects.toBeInstanceOf(BadRequestException);
     }
     await expect(
-      service.resetPassword(input.email, right, "a brand new password", freshMeta()),
+      service.resetPassword(input.email, requestId, right, "a brand new password", freshMeta()),
     ).rejects.toBeInstanceOf(BadRequestException);
+  });
+
+  it("someone with only the email cannot use or burn the victim's reset code", async () => {
+    const input = newInput();
+    await service.signup(input, meta);
+    // The victim asks for a reset in their browser.
+    const victim = await service.forgotPassword(input.email, freshMeta());
+    const victimCode = lastCodeFor(input.email, "reset_password");
+    const wrong = victimCode === "000000" ? "000001" : "000000";
+
+    // An attacker knows the email. With no requestId of the victim's, guesses go nowhere...
+    const randomRequestId = randomUUID() + randomUUID();
+    for (let i = 0; i < 6; i++) {
+      await expect(
+        service.resetPassword(
+          input.email,
+          randomRequestId,
+          wrong,
+          "attacker password",
+          freshMeta(),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+    // ...and the victim's right code is useless without the victim's requestId.
+    await expect(
+      service.resetPassword(
+        input.email,
+        randomRequestId,
+        victimCode,
+        "attacker password",
+        freshMeta(),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+
+    // The attacker starts their own reset request (once the 60-second cooldown has passed).
+    await redis.del(`forgot-email:${hashToken(input.email)}`);
+    const attacker = await service.forgotPassword(input.email, freshMeta());
+    expect(attacker.requestId).not.toBe(victim.requestId);
+    // Burning the attacker's own code with 5 wrong guesses...
+    for (let i = 0; i < 5; i++) {
+      await expect(
+        service.resetPassword(
+          input.email,
+          attacker.requestId,
+          wrong,
+          "attacker password",
+          freshMeta(),
+        ),
+      ).rejects.toBeInstanceOf(BadRequestException);
+    }
+    // ...does not touch the victim's: the new request did not invalidate it, and the
+    // wrong guesses were counted against the attacker's code only.
+    const result = await service.resetPassword(
+      input.email,
+      victim.requestId,
+      victimCode,
+      "the victim's new password",
+      freshMeta(),
+    );
+    expect(result.user.email).toBe(input.email);
   });
 });

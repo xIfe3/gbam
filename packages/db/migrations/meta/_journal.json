@@ -36,6 +36,13 @@
       "when": 1791048952056,
       "tag": "0004_giant_tyrannus",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1791086444175,
+      "tag": "0005_curly_baron_zemo",
+      "breakpoints": true
     }
   ]
 }

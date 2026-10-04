@@ -22,6 +22,8 @@ x-api: &api
     WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v25.0}
     RESEND_API_KEY: ${RESEND_API_KEY:-}
     EMAIL_FROM: ${EMAIL_FROM:-Gbam <no-reply@gbam.app>}
+    # Long random string; same value for api and web (see .env.production.example).
+    INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
 
 services:
   postgres:
@@ -73,6 +75,8 @@ services:
     build: { context: .., dockerfile: apps/web/Dockerfile }
     environment:
       API_URL: http://api:4000
+      # Long random string; same value for api and web.
+      INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
     ports: ["3000:3000"]
     restart: unless-stopped
     depends_on: [api]

@@ -21,6 +21,11 @@ import { AuthService } from "./auth.service.js";
 import { hashToken, newSessionToken } from "./crypto.js";
 
 process.loadEnvFile?.("../../.env");
+// The API trusts x-client-ip only with this secret (as apps/web sends it). A fixed value
+// here keeps the test independent of .env; each call gets its own fake "IP" so the
+// per-IP limits never carry over between runs.
+const INTERNAL_SECRET = "session-guard-test-internal-secret-0123456789";
+process.env.INTERNAL_API_SECRET = INTERNAL_SECRET;
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -93,7 +98,10 @@ describe("SessionGuard over HTTP (integration)", () => {
     path: string,
     options: { authorization?: string; body?: unknown } = {},
   ) {
-    const headers: Record<string, string> = { "x-client-ip": `test-${randomUUID()}` };
+    const headers: Record<string, string> = {
+      "x-client-ip": `test-${randomUUID()}`,
+      "x-internal-secret": INTERNAL_SECRET,
+    };
     if (options.authorization !== undefined) {
       headers.authorization = options.authorization;
     }
@@ -187,7 +195,9 @@ describe("SessionGuard over HTTP (integration)", () => {
       tokenHash: hashToken(token),
       expiresAt: new Date(Date.now() + DAY_MS),
     });
-    expect((await call("GET", "/orders", { authorization: `Bearer ${token}` })).status).toBe(403);
+    const res = await call("GET", "/orders", { authorization: `Bearer ${token}` });
+    expect(res.status).toBe(403);
+    expect(res.json).toMatchObject({ code: "NO_SELLER" });
   });
 
   it("a seller cannot read another seller's order (404)", async () => {
@@ -288,13 +298,23 @@ describe("SessionGuard over HTTP (integration)", () => {
     const known = await call("POST", "/auth/forgot-password", { body: { email: seller.email } });
     expect(unknown.status).toBe(200);
     expect(known.status).toBe(200);
-    expect(unknown.json).toEqual(known.json);
+    const unknownBody = unknown.json as Record<string, unknown>;
+    const knownBody = known.json as Record<string, unknown>;
+    expect(Object.keys(unknownBody).sort()).toEqual(Object.keys(knownBody).sort());
+    expect(unknownBody.message).toBe(knownBody.message);
+    expect(unknownBody.requestId).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(knownBody.requestId).toMatch(/^[A-Za-z0-9_-]{43}$/);
   });
 
   it("reset-password with a bad code is a 400 with field code", async () => {
     const seller = await newSeller(true);
     const res = await call("POST", "/auth/reset-password", {
-      body: { email: seller.email, code: "000000", password: "a brand new password" },
+      body: {
+        email: seller.email,
+        requestId: "x".repeat(43),
+        code: "000000",
+        password: "a brand new password",
+      },
     });
     expect(res.status).toBe(400);
     expect(res.json).toMatchObject({ field: "code" });

@@ -80,8 +80,12 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     requestHeaders.set("x-seller-id", currentSellerId());
   }
   const ip = await visitorIp();
-  if (ip) {
+  // The API only believes x-client-ip when it comes with this shared secret, so nobody
+  // else can fake a visitor IP to dodge its rate limits. Server-only: never sent to browsers.
+  const internalSecret = process.env.INTERNAL_API_SECRET;
+  if (ip && internalSecret) {
     requestHeaders.set("x-client-ip", ip);
+    requestHeaders.set("x-internal-secret", internalSecret);
   }
 
   const res = await fetch(`${apiUrl()}${path}`, {

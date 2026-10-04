@@ -1,0 +1,1 @@
+ALTER TABLE "email_codes" ADD COLUMN "request_token_hash" text;

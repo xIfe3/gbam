@@ -81,11 +81,23 @@ describe("auth schemas", () => {
     expect(forgotPasswordSchema.safeParse({ email: "nope" }).success).toBe(false);
   });
 
-  it("resetPasswordSchema needs email, a 6-digit code and a policy-compliant password", () => {
-    const ok = { email: "A@b.com", code: "012345", password: "new password" };
+  it("resetPasswordSchema needs email, requestId, a 6-digit code and a policy-compliant password", () => {
+    const ok = {
+      email: "A@b.com",
+      requestId: "abcDEF0123456789_-abcDEF0123456789_-abcDEF0",
+      code: "012345",
+      password: "new password",
+    };
     expect(resetPasswordSchema.parse(ok).email).toBe("a@b.com");
+    expect(resetPasswordSchema.parse(ok).requestId).toBe(ok.requestId);
     expect(resetPasswordSchema.safeParse({ ...ok, code: "12345" }).success).toBe(false);
     expect(resetPasswordSchema.safeParse({ ...ok, password: "short" }).success).toBe(false);
+    const { requestId: _omitted, ...withoutRequestId } = ok;
+    expect(resetPasswordSchema.safeParse(withoutRequestId).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ ...ok, requestId: "short" }).success).toBe(false);
+    expect(resetPasswordSchema.safeParse({ ...ok, requestId: "a".repeat(42) + "!" }).success).toBe(
+      false,
+    );
   });
 });
 

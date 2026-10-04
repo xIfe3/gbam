@@ -9,12 +9,23 @@ import {
   type ResetPasswordInput,
   type SignupInput,
 } from "@gbam/shared";
-import { Body, Controller, Get, HttpCode, Post, Query, Req, UseGuards } from "@nestjs/common";
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  Inject,
+  Post,
+  Query,
+  Req,
+  UseGuards,
+} from "@nestjs/common";
 import type { Request } from "express";
 import { z } from "zod";
 import { clientIp } from "../common/client-ip.js";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
+import { ENV, type Env } from "../env.js";
 import { AuthService, type PublicUser, type SessionMeta } from "./auth.service.js";
 import { CurrentUser } from "./current-user.js";
 import { AllowUnverified, bearerToken, SessionGuard } from "./session.guard.js";
@@ -22,13 +33,13 @@ import { AllowUnverified, bearerToken, SessionGuard } from "./session.guard.js";
 const verifyEmailBody = z.object({ code: codeSchema });
 
 /** Who is signing in, stored on the session row (helps a user spot a strange device). */
-function sessionMeta(req: Request): SessionMeta {
+function sessionMeta(req: Request, internalSecret: string | undefined): SessionMeta {
   let userAgent: string | null = null;
   const header = req.headers["user-agent"];
   if (typeof header === "string") {
     userAgent = header.slice(0, 300);
   }
-  return { ip: clientIp(req), userAgent };
+  return { ip: clientIp(req, internalSecret), userAgent };
 }
 
 @Controller("auth")
@@ -36,11 +47,16 @@ export class AuthController {
   constructor(
     private readonly auth: AuthService,
     private readonly limiter: RateLimiter,
+    @Inject(ENV) private readonly env: Env,
   ) {}
+
+  private meta(req: Request): SessionMeta {
+    return sessionMeta(req, this.env.INTERNAL_API_SECRET);
+  }
 
   @Post("signup")
   async signup(@Req() req: Request, @Body(new ZodPipe(signupSchema)) body: SignupInput) {
-    const meta = sessionMeta(req);
+    const meta = this.meta(req);
     const result = await this.limiter.hit(`signup:${meta.ip}`, 10, 3600);
     if (!result.allowed) {
       throw new TooManyRequestsError(result.retryAfterSeconds);
@@ -50,7 +66,11 @@ export class AuthController {
 
   @Get("slug-available")
   async slugAvailable(@Req() req: Request, @Query("slug") slug: unknown) {
-    const result = await this.limiter.hit(`slug-available:${clientIp(req)}`, 30, 60);
+    const result = await this.limiter.hit(
+      `slug-available:${clientIp(req, this.env.INTERNAL_API_SECRET)}`,
+      30,
+      60,
+    );
     if (!result.allowed) {
       throw new TooManyRequestsError(result.retryAfterSeconds);
     }
@@ -84,7 +104,7 @@ export class AuthController {
   @Post("login")
   @HttpCode(200)
   async login(@Req() req: Request, @Body(new ZodPipe(loginSchema)) body: LoginInput) {
-    return this.auth.login(body.email, body.password, sessionMeta(req));
+    return this.auth.login(body.email, body.password, this.meta(req));
   }
 
   @Post("logout")
@@ -113,9 +133,10 @@ export class AuthController {
     @Req() req: Request,
     @Body(new ZodPipe(forgotPasswordSchema)) body: ForgotPasswordInput,
   ) {
-    await this.auth.forgotPassword(body.email, sessionMeta(req));
-    // The same answer whether or not the account exists.
-    return { ok: true, message: "If that email has an account, we've sent a code" };
+    // requestId comes back for every email (a dummy one when there is no account), so the
+    // answer is the same either way. The web app keeps it for the reset step.
+    const { requestId } = await this.auth.forgotPassword(body.email, this.meta(req));
+    return { ok: true, message: "If that email has an account, we've sent a code", requestId };
   }
 
   @Post("reset-password")
@@ -124,6 +145,12 @@ export class AuthController {
     @Req() req: Request,
     @Body(new ZodPipe(resetPasswordSchema)) body: ResetPasswordInput,
   ) {
-    return this.auth.resetPassword(body.email, body.code, body.password, sessionMeta(req));
+    return this.auth.resetPassword(
+      body.email,
+      body.requestId,
+      body.code,
+      body.password,
+      this.meta(req),
+    );
   }
 }

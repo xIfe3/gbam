@@ -28,7 +28,10 @@ export const whatsappStatusEnum = pgEnum("whatsapp_status", [
 ]);
 
 export const userRoleEnum = pgEnum("user_role", ["seller", "admin"]);
-export const emailCodePurposeEnum = pgEnum("email_code_purpose", ["verify_email", "reset_password"]);
+export const emailCodePurposeEnum = pgEnum("email_code_purpose", [
+  "verify_email",
+  "reset_password",
+]);
 export const contactStatusEnum = pgEnum("contact_status", ["new", "handled"]);
 export const contentTypeEnum = pgEnum("content_type", [
   "help_article",
@@ -92,6 +95,11 @@ export const emailCodes = pgTable(
     expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
     attempts: integer("attempts").notNull().default(0),
     consumedAt: timestamp("consumed_at", { withTimezone: true }),
+    /**
+     * reset_password only: SHA-256 of the requestId given to the browser that asked for
+     * the reset. The code works only together with that requestId.
+     */
+    requestTokenHash: text("request_token_hash"),
     createdAt: createdAt(),
   },
   (t) => [index("email_codes_user_idx").on(t.userId)],

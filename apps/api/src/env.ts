@@ -39,6 +39,12 @@ const envSchema = z
     RESEND_API_KEY: optional,
     /** The default is fine once gbam.app is verified in Resend. */
     EMAIL_FROM: z.string().min(1).default("Gbam <no-reply@gbam.app>"),
+    /**
+     * Shared secret between apps/web and the API (long random string, same value in both).
+     * Only requests carrying it may tell us the visitor's IP via x-client-ip; see
+     * common/client-ip.ts. Unset in dev → x-client-ip is ignored.
+     */
+    INTERNAL_API_SECRET: optional,
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
@@ -50,6 +56,7 @@ const envSchema = z
       "WHATSAPP_APP_SECRET",
       "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
       "RESEND_API_KEY",
+      "INTERNAL_API_SECRET",
     ] as const) {
       if (!env[key])
         ctx.addIssue({ code: "custom", path: [key], message: "Required in production" });

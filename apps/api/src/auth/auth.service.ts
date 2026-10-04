@@ -33,6 +33,7 @@ const LOGIN_PER_IP = 20;
 const LOGIN_IP_WINDOW_SECONDS = 10 * 60;
 const FORGOT_PER_IP_HOUR = 20;
 const FORGOT_PER_EMAIL_HOUR = 5;
+const FORGOT_PER_EMAIL_DAY = 10;
 const RESET_PER_IP = 20;
 const RESET_IP_WINDOW_SECONDS = 10 * 60;
 const SLIDE_EVERY_MS = 24 * 60 * 60 * 1000;
@@ -231,12 +232,13 @@ export class AuthService implements OnModuleInit {
     });
   }
 
-  async resendCode(userId: string, purpose: CodePurpose): Promise<void> {
+  /** Verify-email codes only; a new reset code comes from forgotPassword (it needs a requestId). */
+  async resendCode(userId: string, purpose: "verify_email"): Promise<void> {
     const [user] = await this.db.select().from(users).where(eq(users.id, userId));
     if (!user) {
       throw new BadRequestException({ field: "code", message: "Account not found" });
     }
-    if (purpose === "verify_email" && user.emailVerifiedAt !== null) {
+    if (user.emailVerifiedAt !== null) {
       return; // nothing to verify
     }
 
@@ -301,15 +303,18 @@ export class AuthService implements OnModuleInit {
 
     if (!passwordOk) {
       const lockUntil = new Date(now.getTime() + LOCK_MINUTES * 60 * 1000);
+      const nowSql = sql`${now.toISOString()}::timestamptz`;
+      // True when an earlier lock has run out: this failure then starts a fresh count at 1
+      // (so a single wrong guess after the lock does not lock the account again).
+      const lockExpired = sql`(${users.lockedUntil} is not null and ${users.lockedUntil} <= ${nowSql})`;
       // One UPDATE that both counts and (on the 5th failure) locks. Postgres reads the old
       // row values on the right-hand side, and runs updates to one row one at a time, so
-      // parallel wrong guesses are all counted. After a lock expires the count stays at 5+,
-      // so the next wrong guess locks again; only a successful login resets it.
+      // parallel wrong guesses are all counted.
       await this.db
         .update(users)
         .set({
-          failedLoginCount: sql`${users.failedLoginCount} + 1`,
-          lockedUntil: sql`case when ${users.failedLoginCount} + 1 >= ${MAX_LOGIN_FAILURES} then ${lockUntil.toISOString()}::timestamptz else ${users.lockedUntil} end`,
+          failedLoginCount: sql`case when ${lockExpired} then 1 else ${users.failedLoginCount} + 1 end`,
+          lockedUntil: sql`case when ${lockExpired} then null when ${users.failedLoginCount} + 1 >= ${MAX_LOGIN_FAILURES} then ${lockUntil.toISOString()}::timestamptz else ${users.lockedUntil} end`,
         })
         .where(eq(users.id, user.id));
       throw invalidLogin();
@@ -388,23 +393,32 @@ export class AuthService implements OnModuleInit {
   // ---- Forgot / reset password ----
 
   /**
-   * Emails a reset code if the account exists. Resolves the same way whether it exists or
-   * not, so the answer can't be used to find out who has an account. The rate limits run
-   * before the lookup for the same reason: they apply equally to every email.
+   * Emails a reset code if the account exists, and returns a `requestId` for the browser
+   * that asked. The code only works together with that requestId (we store just its hash
+   * on the code row), so someone who knows only the email can neither use nor burn the
+   * code the real owner receives.
+   *
+   * The answer is the same whether the account exists or not: unknown emails get a random
+   * requestId that matches nothing. The rate limits run before the lookup for the same
+   * reason: they apply equally to every email.
    */
-  async forgotPassword(emailInput: string, meta: SessionMeta): Promise<void> {
+  async forgotPassword(emailInput: string, meta: SessionMeta): Promise<{ requestId: string }> {
     const email = normaliseEmail(emailInput);
     // Hash the email for the Redis key so raw addresses don't sit in Redis.
     const emailKey = hashToken(email);
     await this.limit(`forgot-ip:${meta.ip}`, FORGOT_PER_IP_HOUR, 3600);
     await this.limit(`forgot-email:${emailKey}`, 1, RESEND_COOLDOWN_SECONDS);
     await this.limit(`forgot-email-hour:${emailKey}`, FORGOT_PER_EMAIL_HOUR, 3600);
+    // The daily cap bounds code guessing: at most 10 codes x 5 guesses a day per account.
+    await this.limit(`forgot-email-day:${emailKey}`, FORGOT_PER_EMAIL_DAY, 24 * 3600);
 
+    // Same kind of random value as a session token (32 bytes, base64url).
+    const requestId = newSessionToken();
     const [user] = await this.db.select().from(users).where(eq(users.email, email));
-    if (!user) {
-      return;
+    if (user) {
+      await this.issueCode(user, "reset_password", hashToken(requestId));
     }
-    await this.issueCode(user, "reset_password");
+    return { requestId };
   }
 
   /**
@@ -414,6 +428,7 @@ export class AuthService implements OnModuleInit {
    */
   async resetPassword(
     emailInput: string,
+    requestId: string,
     code: string,
     newPassword: string,
     meta: SessionMeta,
@@ -426,7 +441,9 @@ export class AuthService implements OnModuleInit {
       // Same error as a wrong code, so this can't be used to probe for accounts.
       throw badCode();
     }
-    const codeId = await this.checkCode(user.id, "reset_password", code);
+    // Only the code issued to this requestId is looked at; a wrong or unknown requestId
+    // finds nothing and gets the same error as a wrong code.
+    const codeId = await this.checkCode(user.id, "reset_password", code, hashToken(requestId));
 
     // Slow on purpose, so it runs outside the transaction (see signup).
     const passwordHash = await hashPassword(newPassword);
@@ -488,19 +505,26 @@ export class AuthService implements OnModuleInit {
    * below the limit, BEFORE we look at whether the guess was right, so parallel guesses
    * cannot get more than 5 tries in total.
    */
-  private async checkCode(userId: string, purpose: CodePurpose, code: string): Promise<string> {
+  private async checkCode(
+    userId: string,
+    purpose: CodePurpose,
+    code: string,
+    requestTokenHash: string | null = null,
+  ): Promise<string> {
     const now = new Date();
+    const conditions = [
+      eq(emailCodes.userId, userId),
+      eq(emailCodes.purpose, purpose),
+      isNull(emailCodes.consumedAt),
+      gt(emailCodes.expiresAt, now),
+    ];
+    if (requestTokenHash !== null) {
+      conditions.push(eq(emailCodes.requestTokenHash, requestTokenHash));
+    }
     const [latest] = await this.db
       .select()
       .from(emailCodes)
-      .where(
-        and(
-          eq(emailCodes.userId, userId),
-          eq(emailCodes.purpose, purpose),
-          isNull(emailCodes.consumedAt),
-          gt(emailCodes.expiresAt, now),
-        ),
-      )
+      .where(and(...conditions))
       .orderBy(desc(emailCodes.createdAt))
       .limit(1);
     if (!latest) {
@@ -547,25 +571,34 @@ export class AuthService implements OnModuleInit {
   }
 
   /**
-   * Replaces any live code of this purpose with a new one and queues the email. A queue
-   * failure is logged (never with the code) and swallowed: the old code is already gone,
-   * and the user can simply ask again, so failing the request would only confuse them.
+   * Creates a new code and queues the email.
+   * - verify_email: older live codes are invalidated, so only the newest works.
+   * - reset_password: older codes stay valid, because each is tied to the browser that
+   *   asked for it (requestTokenHash). Otherwise anyone knowing the email could cancel the
+   *   owner's code just by asking for another one.
+   * A queue failure is logged (never with the code) and swallowed: the user can simply
+   * ask again, so failing the request would only confuse them.
    */
-  private async issueCode(user: UserRow, purpose: CodePurpose): Promise<void> {
+  private async issueCode(
+    user: UserRow,
+    purpose: CodePurpose,
+    requestTokenHash: string | null = null,
+  ): Promise<void> {
     const code = newEmailCode();
     const codeId = await this.db.transaction(async (tx) => {
-      // Invalidate older codes by marking them consumed, so only the new one works.
-      await tx
-        .update(emailCodes)
-        .set({ consumedAt: new Date() })
-        .where(
-          and(
-            eq(emailCodes.userId, user.id),
-            eq(emailCodes.purpose, purpose),
-            isNull(emailCodes.consumedAt),
-          ),
-        );
-      return this.insertCode(tx, user.id, purpose, code);
+      if (purpose === "verify_email") {
+        await tx
+          .update(emailCodes)
+          .set({ consumedAt: new Date() })
+          .where(
+            and(
+              eq(emailCodes.userId, user.id),
+              eq(emailCodes.purpose, purpose),
+              isNull(emailCodes.consumedAt),
+            ),
+          );
+      }
+      return this.insertCode(tx, user.id, purpose, code, requestTokenHash);
     });
     try {
       if (purpose === "verify_email") {
@@ -589,12 +622,14 @@ export class AuthService implements OnModuleInit {
     userId: string,
     purpose: CodePurpose,
     code: string,
+    requestTokenHash: string | null = null,
   ): Promise<string> {
     const [row] = await tx
       .insert(emailCodes)
       .values({
         userId,
         purpose,
+        requestTokenHash,
         codeHash: hashToken(code),
         expiresAt: new Date(Date.now() + CODE_MINUTES * 60 * 1000),
       })
