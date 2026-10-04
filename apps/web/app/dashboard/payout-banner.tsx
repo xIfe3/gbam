@@ -6,7 +6,7 @@ export function PayoutBanner() {
   return (
     <aside
       aria-label="Payouts"
-      className="bg-coral-wash border-coral-deep mb-6 flex flex-col gap-3 rounded-2xl border-l-4 p-4 sm:flex-row sm:items-center sm:justify-between"
+      className="bg-coral-wash border-coral-tint mb-6 flex flex-col gap-3 rounded-lg border p-4 sm:flex-row sm:items-center sm:justify-between"
     >
       <p className="text-ink flex items-start gap-2 text-sm font-medium">
         <Landmark size={18} className="text-coral-deep mt-0.5 shrink-0" aria-hidden="true" />

@@ -191,7 +191,7 @@ export function Checkout({ slug, products }: Props) {
       {state.status === "error" && (
         <p
           role="alert"
-          className="bg-coral-wash text-ink border-coral-deep rounded-xl border-l-4 px-4 py-3 text-sm font-medium"
+          className="bg-coral-wash text-ink border-coral-tint rounded-lg border px-4 py-3 text-sm font-medium"
         >
           {state.message}
         </p>

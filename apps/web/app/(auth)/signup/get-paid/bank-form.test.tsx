@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // The real actions need the server; the form only needs something to point at.
@@ -7,6 +7,7 @@ vi.mock("./actions", () => ({
   createPayoutAccountAction: vi.fn(),
 }));
 
+import { resolveAccountAction } from "./actions";
 import { BankForm } from "./bank-form";
 
 const BANKS = [
@@ -49,6 +50,28 @@ describe("BankForm", () => {
     expect(number).toHaveValue("0123456789");
 
     fireEvent.change(number, { target: { value: "0123-456-789-99" } });
+    expect(number).toHaveValue("0123456789");
+  });
+
+  it("keeps the chosen bank on screen when the check comes back with an error", async () => {
+    // React resets a form after its action runs. The bank must still show afterwards,
+    // otherwise the seller sees "Choose your bank" and thinks they never picked one.
+    vi.mocked(resolveAccountAction).mockResolvedValue({
+      error: "We couldn't check this account with the bank right now. Please try again.",
+    });
+    render(<BankForm banks={BANKS} />);
+
+    const select = screen.getByRole("combobox", { name: "Bank" });
+    fireEvent.change(select, { target: { value: "0" } });
+    const number = screen.getByRole("textbox", { name: "Account number" });
+    fireEvent.change(number, { target: { value: "0123456789" } });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Check account" }));
+    });
+
+    expect(await screen.findByRole("alert")).toHaveTextContent("couldn't check this account");
+    expect(select).toHaveDisplayValue("Access Bank");
     expect(number).toHaveValue("0123456789");
   });
 });

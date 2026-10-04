@@ -111,7 +111,14 @@ export function BankForm({ banks }: { banks: Bank[] }) {
 
   return (
     <div className="flex flex-col gap-6">
-      <form action={resolveAction} className="flex flex-col gap-5" noValidate>
+      {/* React resets a form after its action runs. That blanked the bank <select> on screen
+          (its state still held the bank), so we cancel the reset: what was typed stays. */}
+      <form
+        action={resolveAction}
+        onReset={(event) => event.preventDefault()}
+        className="flex flex-col gap-5"
+        noValidate
+      >
         <FormError message={resolveState.error} />
 
         <div className="flex flex-col gap-1.5">
