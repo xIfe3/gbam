@@ -74,23 +74,26 @@ if (existing === 0) {
     { name: "Chapman (1L)", slug: "chapman-1l", priceKobo: 200_000, stock: 20 },
   ];
   for (const demo of demoProducts) {
-    const [product] = await db
-      .insert(products)
-      .values({
-        sellerId: seller.id,
-        name: demo.name,
-        slug: demo.slug,
+    // A transaction: the product and its variant are saved together or not at all.
+    await db.transaction(async (tx) => {
+      const [product] = await tx
+        .insert(products)
+        .values({
+          sellerId: seller.id,
+          name: demo.name,
+          slug: demo.slug,
+          priceKobo: demo.priceKobo,
+          stock: demo.stock,
+        })
+        .returning();
+      if (!product) throw new Error("Expected the demo product");
+      // Every product has at least one variant; with no options it is the "default" one.
+      await tx.insert(productVariants).values({
+        productId: product.id,
+        optionValues: [],
         priceKobo: demo.priceKobo,
         stock: demo.stock,
-      })
-      .returning();
-    if (!product) throw new Error("Expected the demo product");
-    // Every product has at least one variant; with no options it is the "default" one.
-    await db.insert(productVariants).values({
-      productId: product.id,
-      optionValues: [],
-      priceKobo: demo.priceKobo,
-      stock: demo.stock,
+      });
     });
   }
 }

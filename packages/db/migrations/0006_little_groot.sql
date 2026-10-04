@@ -51,9 +51,9 @@ ALTER TABLE "order_items" ADD CONSTRAINT "order_items_variant_id_product_variant
 -- Hand-written backfill for existing rows. Order matters: slug is added nullable above,
 -- filled here, made NOT NULL, and only then given its unique index.
 -- Slug = the name lowercased, with runs of other characters turned into "-". A base of
--- "order" becomes "order-1" because /[shop]/order is a reserved route. Products in the
--- same shop with the same base get a -2, -3 suffix (oldest keeps the plain slug).
-UPDATE "products" p SET "slug" = s.base || CASE WHEN s.n = 1 THEN '' ELSE '-' || s.n END
+-- "order" becomes "order-1" because /[shop]/order is a reserved route.
+-- Step 1: the oldest product with a given base in a shop takes the plain base.
+UPDATE "products" p SET "slug" = s.base
 FROM (
   SELECT id, base, row_number() OVER (PARTITION BY seller_id, base ORDER BY created_at, id) AS n
   FROM (
@@ -68,7 +68,38 @@ FROM (
       FROM "products"
     ) r
   ) b
-) s WHERE p.id = s.id;--> statement-breakpoint
+) s WHERE p.id = s.id AND s.n = 1;--> statement-breakpoint
+-- Step 2: the others (same base, same shop) get -2, -3 ... but only a suffix that is not
+-- already taken. Checking one by one (instead of numbering with row_number) means "A", "A"
+-- and "A 2" can't end up with two "a-2" slugs.
+DO $$
+DECLARE
+  r RECORD;
+  suffix integer;
+  candidate text;
+BEGIN
+  FOR r IN
+    SELECT id, seller_id,
+           CASE WHEN raw_base = 'order' THEN 'order-1' ELSE raw_base END AS base
+    FROM (
+      SELECT id, seller_id, created_at, slug,
+             coalesce(nullif(trim(both '-' from regexp_replace(lower(name), '[^a-z0-9]+', '-', 'g')), ''), 'product') AS raw_base
+      FROM "products"
+    ) x
+    WHERE slug IS NULL
+    ORDER BY created_at, id
+  LOOP
+    suffix := 2;
+    LOOP
+      candidate := r.base || '-' || suffix;
+      EXIT WHEN NOT EXISTS (
+        SELECT 1 FROM "products" WHERE seller_id = r.seller_id AND slug = candidate
+      );
+      suffix := suffix + 1;
+    END LOOP;
+    UPDATE "products" SET slug = candidate WHERE id = r.id;
+  END LOOP;
+END $$;--> statement-breakpoint
 ALTER TABLE "products" ALTER COLUMN "slug" SET NOT NULL;--> statement-breakpoint
 CREATE UNIQUE INDEX "products_seller_slug_idx" ON "products" USING btree ("seller_id","slug");--> statement-breakpoint
 UPDATE "products" SET "status" = 'hidden' WHERE "is_active" = false;--> statement-breakpoint

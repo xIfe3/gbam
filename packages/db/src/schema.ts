@@ -185,9 +185,11 @@ export const products = pgTable(
       .notNull()
       .references(() => sellers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
-    /** Set once when the product is created, never changed. Unique within a shop. */
-    // Temporary client-side default so older code that inserts without a slug keeps
-    // working. Task 8 removes it and every insert passes a real slug.
+    /**
+     * Set once when the product is created, never changed. Unique within a shop.
+     * (The default below is temporary: it lets older code that inserts without a slug
+     * keep working. Task 8 removes it and every insert passes a real slug.)
+     */
     slug: text("slug")
       .notNull()
       .$defaultFn(() => globalThis.crypto.randomUUID()),
@@ -210,10 +212,10 @@ export const products = pgTable(
   ],
 );
 
-/** A choice a buyer makes on a product, e.g. name "Size", values ["S", "M", "L"]. */
 // Row types, so other code can say "a Product" instead of repeating the table shape.
 export type Product = typeof products.$inferSelect;
 
+/** A choice a buyer makes on a product, e.g. name "Size", values ["S", "M", "L"]. */
 export const productOptions = pgTable(
   "product_options",
   {
