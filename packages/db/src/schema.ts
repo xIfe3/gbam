@@ -27,6 +27,8 @@ export const whatsappStatusEnum = pgEnum("whatsapp_status", [
   "failed",
 ]);
 
+export const productStatusEnum = pgEnum("product_status", ["active", "hidden", "archived"]);
+
 export const userRoleEnum = pgEnum("user_role", ["seller", "admin"]);
 export const emailCodePurposeEnum = pgEnum("email_code_purpose", [
   "verify_email",
@@ -183,7 +185,18 @@ export const products = pgTable(
       .notNull()
       .references(() => sellers.id, { onDelete: "cascade" }),
     name: text("name").notNull(),
+    /** Set once when the product is created, never changed. Unique within a shop. */
+    // Temporary client-side default so older code that inserts without a slug keeps
+    // working. Task 8 removes it and every insert passes a real slug.
+    slug: text("slug")
+      .notNull()
+      .$defaultFn(() => globalThis.crypto.randomUUID()),
     description: text("description"),
+    status: productStatusEnum("status").notNull().default("active"),
+    /** Optimistic-lock counter: bumped on every save so a stale editor is detected. */
+    version: integer("version").notNull().default(1),
+    // The next three columns are the old single-price model. Task 8 removes them
+    // (price and stock now live on product_variants).
     priceKobo: kobo("price_kobo"),
     /** null = untracked stock. */
     stock: integer("stock"),
@@ -191,8 +204,79 @@ export const products = pgTable(
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
-  (t) => [index("products_seller_idx").on(t.sellerId)],
+  (t) => [
+    index("products_seller_idx").on(t.sellerId),
+    uniqueIndex("products_seller_slug_idx").on(t.sellerId, t.slug),
+  ],
 );
+
+/** A choice a buyer makes on a product, e.g. name "Size", values ["S", "M", "L"]. */
+// Row types, so other code can say "a Product" instead of repeating the table shape.
+export type Product = typeof products.$inferSelect;
+
+export const productOptions = pgTable(
+  "product_options",
+  {
+    id: id(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    values: text("values").array().notNull(),
+    position: integer("position").notNull().default(0),
+  },
+  (t) => [index("product_options_product_idx").on(t.productId)],
+);
+
+/** An uploaded photo. productId is null until the photo is attached to a product. */
+export const productImages = pgTable(
+  "product_images",
+  {
+    id: id(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellers.id, { onDelete: "cascade" }),
+    productId: uuid("product_id").references(() => products.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    /** Storage keys of the two WebP sizes (1600 px and 400 px). */
+    largeKey: text("large_key").notNull(),
+    smallKey: text("small_key").notNull(),
+    width: integer("width").notNull(),
+    height: integer("height").notNull(),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("product_images_product_idx").on(t.productId),
+    index("product_images_seller_idx").on(t.sellerId),
+  ],
+);
+
+/**
+ * One buyable combination of a product's options. A product with no options has one
+ * default variant whose optionValues is empty.
+ */
+export const productVariants = pgTable(
+  "product_variants",
+  {
+    id: id(),
+    productId: uuid("product_id")
+      .notNull()
+      .references(() => products.id, { onDelete: "cascade" }),
+    position: integer("position").notNull().default(0),
+    /** One value per option, in option order, e.g. ["M", "Red"]. */
+    optionValues: text("option_values").array().notNull().default([]),
+    title: text("title").notNull().default(""),
+    priceKobo: kobo("price_kobo"),
+    /** null = untracked stock. */
+    stock: integer("stock"),
+    imageId: uuid("image_id").references(() => productImages.id, { onDelete: "set null" }),
+    isEnabled: boolean("is_enabled").notNull().default(true),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+  },
+  (t) => [uniqueIndex("product_variants_product_values_idx").on(t.productId, t.optionValues)],
+);
+
+export type ProductVariant = typeof productVariants.$inferSelect;
 
 export const orders = pgTable(
   "orders",
@@ -208,6 +292,8 @@ export const orders = pgTable(
     code: text("code").notNull(),
     status: orderStatusEnum("status").notNull().default("pending"),
     totalKobo: kobo("total_kobo"),
+    /** True when payment arrived after the stock had run out: the seller must refund. */
+    stockShortfall: boolean("stock_shortfall").notNull().default(false),
     note: text("note"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
@@ -226,8 +312,10 @@ export const orderItems = pgTable(
       .notNull()
       .references(() => orders.id, { onDelete: "cascade" }),
     productId: uuid("product_id").references(() => products.id, { onDelete: "set null" }),
+    variantId: uuid("variant_id").references(() => productVariants.id, { onDelete: "set null" }),
     // Snapshot at order time so later product edits don't rewrite history.
     productName: text("product_name").notNull(),
+    variantTitle: text("variant_title").notNull().default(""),
     unitPriceKobo: kobo("unit_price_kobo"),
     quantity: integer("quantity").notNull(),
   },
@@ -320,8 +408,25 @@ export const customersRelations = relations(customers, ({ one, many }) => ({
   orders: many(orders),
 }));
 
-export const productsRelations = relations(products, ({ one }) => ({
+export const productsRelations = relations(products, ({ one, many }) => ({
   seller: one(sellers, { fields: [products.sellerId], references: [sellers.id] }),
+  options: many(productOptions),
+  images: many(productImages),
+  variants: many(productVariants),
+}));
+
+export const productOptionsRelations = relations(productOptions, ({ one }) => ({
+  product: one(products, { fields: [productOptions.productId], references: [products.id] }),
+}));
+
+export const productImagesRelations = relations(productImages, ({ one }) => ({
+  seller: one(sellers, { fields: [productImages.sellerId], references: [sellers.id] }),
+  product: one(products, { fields: [productImages.productId], references: [products.id] }),
+}));
+
+export const productVariantsRelations = relations(productVariants, ({ one }) => ({
+  product: one(products, { fields: [productVariants.productId], references: [products.id] }),
+  image: one(productImages, { fields: [productVariants.imageId], references: [productImages.id] }),
 }));
 
 export const ordersRelations = relations(orders, ({ one, many }) => ({
@@ -336,6 +441,10 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
   order: one(orders, { fields: [orderItems.orderId], references: [orders.id] }),
   product: one(products, { fields: [orderItems.productId], references: [products.id] }),
+  variant: one(productVariants, {
+    fields: [orderItems.variantId],
+    references: [productVariants.id],
+  }),
 }));
 
 export const paymentsRelations = relations(payments, ({ one }) => ({

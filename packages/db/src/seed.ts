@@ -11,7 +11,7 @@ import { randomBytes } from "node:crypto";
 import { createDb } from "./client";
 import { CONTENT_DIR } from "./content-dir";
 import { syncContent } from "./content-loader";
-import { products, sellers, sessions, users } from "./schema";
+import { productVariants, products, sellers, sessions, users } from "./schema";
 
 config({ path: "../../.env" });
 
@@ -68,11 +68,31 @@ if (!seller) throw new Error("Expected the demo seller");
 
 const existing = await db.$count(products, eq(products.sellerId, seller.id));
 if (existing === 0) {
-  await db.insert(products).values([
-    { sellerId: seller.id, name: "Jollof Rice (large)", priceKobo: 350_000 },
-    { sellerId: seller.id, name: "Fried Plantain", priceKobo: 120_000 },
-    { sellerId: seller.id, name: "Chapman (1L)", priceKobo: 200_000, stock: 20 },
-  ]);
+  const demoProducts = [
+    { name: "Jollof Rice (large)", slug: "jollof-rice-large", priceKobo: 350_000, stock: null },
+    { name: "Fried Plantain", slug: "fried-plantain", priceKobo: 120_000, stock: null },
+    { name: "Chapman (1L)", slug: "chapman-1l", priceKobo: 200_000, stock: 20 },
+  ];
+  for (const demo of demoProducts) {
+    const [product] = await db
+      .insert(products)
+      .values({
+        sellerId: seller.id,
+        name: demo.name,
+        slug: demo.slug,
+        priceKobo: demo.priceKobo,
+        stock: demo.stock,
+      })
+      .returning();
+    if (!product) throw new Error("Expected the demo product");
+    // Every product has at least one variant; with no options it is the "default" one.
+    await db.insert(productVariants).values({
+      productId: product.id,
+      optionValues: [],
+      priceKobo: demo.priceKobo,
+      stock: demo.stock,
+    });
+  }
 }
 
 // Markdown content (help, FAQ, blog, changelog, legal) lives in packages/db/content.

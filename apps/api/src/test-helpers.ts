@@ -1,9 +1,72 @@
 /**
  * Shared setup for the integration tests (not used by the app itself).
  */
-import { sellers, type Db } from "@gbam/db";
+import {
+  productVariants,
+  products,
+  sellers,
+  type Db,
+  type Product,
+  type ProductVariant,
+} from "@gbam/db";
 import { and, like, lt } from "drizzle-orm";
 import { randomInt, randomUUID } from "node:crypto";
+
+type TestProductInput = {
+  name?: string;
+  priceKobo?: number;
+  stock?: number | null;
+  status?: "active" | "hidden" | "archived";
+};
+
+/**
+ * Creates a product with a random slug and its one default variant (no options).
+ * Until the old products.price_kobo / stock / is_active columns are removed, those are
+ * filled too so older code keeps working.
+ */
+export async function createTestProduct(
+  db: Db,
+  sellerId: string,
+  input: TestProductInput = {},
+): Promise<{ product: Product; variant: ProductVariant }> {
+  const name = input.name ?? "Test product";
+  const priceKobo = input.priceKobo ?? 150_000;
+  let stock: number | null = null;
+  if (input.stock !== undefined) {
+    stock = input.stock;
+  }
+  const status = input.status ?? "active";
+
+  // A transaction so the product and its variant are created together or not at all.
+  return db.transaction(async (tx) => {
+    const productRows = await tx
+      .insert(products)
+      .values({
+        sellerId,
+        name,
+        slug: `test-${randomUUID().slice(0, 8)}`,
+        status,
+        priceKobo,
+        stock,
+        isActive: status === "active",
+      })
+      .returning();
+    const product = productRows[0];
+    if (!product) {
+      throw new Error("Failed to create the test product");
+    }
+
+    const variantRows = await tx
+      .insert(productVariants)
+      .values({ productId: product.id, optionValues: [], priceKobo, stock })
+      .returning();
+    const variant = variantRows[0];
+    if (!variant) {
+      throw new Error("Failed to create the test variant");
+    }
+    return { product, variant };
+  });
+}
 
 /**
  * Creates a throwaway seller for one test file. Every value is random, so two runs can
