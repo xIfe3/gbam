@@ -25,6 +25,8 @@ describe("Checkout", () => {
       expect(link).toHaveAttribute("target", "_blank");
       expect(link).toHaveAttribute("rel", "noopener noreferrer");
       expect(link).toHaveTextContent("(opens in a new tab)");
+      // min-h-11 = 44px minimum tap height.
+      expect(link).toHaveClass("min-h-11");
     }
   });
 

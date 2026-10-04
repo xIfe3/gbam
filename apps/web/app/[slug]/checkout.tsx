@@ -18,9 +18,9 @@ const stepperClasses =
 // Legal pages open in a new tab so the customer keeps their basket and typed details.
 const newTabProps = { target: "_blank", rel: "noopener noreferrer" };
 
-// inline-block + py-2 gives a tap area of at least 44px high.
+// inline-flex + min-h-11 gives a tap area at least 44px high.
 const legalLinkClasses =
-  "inline-block py-2 text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
+  "inline-flex min-h-11 items-center text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 type Props = { slug: string; products: Storefront["products"] };
 
