@@ -3,9 +3,20 @@
 "use client";
 
 import { formatNaira } from "@gbam/shared";
+import Link from "next/link";
 import { useActionState, useState } from "react";
+import { Button } from "@/components/brand/button";
+import { TextField } from "@/components/brand/fields";
 import type { Storefront } from "@/lib/api";
+import { LEGAL_LABELS } from "@/lib/site-nav";
 import { placeOrder, type PlaceOrderState } from "./actions";
+
+// 44px round +/- buttons with a visible keyboard focus ring.
+const stepperClasses =
+  "text-ink border-brand-tint hover:bg-coral-wash focus-visible:outline-brand flex size-11 items-center justify-center rounded-full border-2 bg-white text-xl focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-40";
+
+const legalLinkClasses =
+  "text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 type Props = { slug: string; products: Storefront["products"] };
 
@@ -57,10 +68,12 @@ export function Checkout({ slug, products }: Props) {
 
   if (state.status === "success") {
     return (
-      <section className="rounded-xl border border-emerald-200 bg-brand-tint p-6 text-center">
-        <p className="text-sm text-emerald-800">Order placed</p>
-        <p className="my-2 font-mono text-3xl font-bold tracking-wider">{state.code}</p>
-        <p className="text-zinc-700">
+      <section className="bg-brand-tint rounded-2xl p-6 text-center">
+        <p className="text-brand-hover text-sm font-bold">Order placed</p>
+        <p className="font-display text-ink my-2 text-4xl font-black tracking-wider">
+          {state.code}
+        </p>
+        <p className="text-ink-muted">
           Total {formatNaira(state.totalKobo)}. The seller will message you on WhatsApp with payment
           details. Quote your order code if you need help.
         </p>
@@ -96,15 +109,15 @@ export function Checkout({ slug, products }: Props) {
 
   return (
     <form action={formAction} className="space-y-6">
-      <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
+      <ul className="divide-brand-tint border-brand-tint divide-y-2 rounded-2xl border-2 bg-white">
         {products.map((p) => {
           const qty = quantityOf(p.id);
           return (
             <li key={p.id} className="flex items-center gap-4 p-4">
               <div className="min-w-0 flex-1">
-                <p className="font-medium">{p.name}</p>
-                {p.description && <p className="text-sm text-zinc-500">{p.description}</p>}
-                <p className="text-sm font-semibold text-zinc-700">{formatNaira(p.priceKobo)}</p>
+                <p className="text-ink font-bold">{p.name}</p>
+                {p.description && <p className="text-ink-muted text-sm">{p.description}</p>}
+                <p className="text-ink text-sm font-bold">{formatNaira(p.priceKobo)}</p>
               </div>
               <div className="flex items-center gap-2">
                 <button
@@ -112,18 +125,21 @@ export function Checkout({ slug, products }: Props) {
                   aria-label={`Remove one ${p.name}`}
                   onClick={() => setQuantity(p.id, qty - 1)}
                   disabled={qty === 0}
-                  className="size-9 rounded-full border border-zinc-300 text-lg disabled:opacity-30"
+                  className={stepperClasses}
                 >
                   −
                 </button>
-                <span className="w-6 text-center tabular-nums" aria-live="polite">
+                <span
+                  className="text-ink w-6 text-center font-bold tabular-nums"
+                  aria-live="polite"
+                >
                   {qty}
                 </span>
                 <button
                   type="button"
                   aria-label={`Add one ${p.name}`}
                   onClick={() => setQuantity(p.id, qty + 1)}
-                  className="size-9 rounded-full border border-zinc-300 text-lg"
+                  className={stepperClasses}
                 >
                   +
                 </button>
@@ -136,68 +152,65 @@ export function Checkout({ slug, products }: Props) {
       <input type="hidden" name="items" value={JSON.stringify(quantities)} />
 
       <fieldset className="space-y-3" disabled={pending}>
-        <Field
+        <TextField
           label="Your name"
           name="name"
+          required
           autoComplete="name"
           defaultValue={previous?.name}
           error={fieldError("name")}
         />
-        <Field
+        <TextField
           label="WhatsApp number"
           name="phone"
           type="tel"
+          required
           inputMode="tel"
           placeholder="0803 123 4567"
           autoComplete="tel"
           defaultValue={previous?.phone}
           error={fieldError("phone")}
         />
-        <label className="block">
-          <span className="text-sm font-medium">Note (optional)</span>
+        <label className="flex flex-col gap-1.5">
+          <span className="text-ink text-sm font-bold">Note (optional)</span>
           <textarea
             name="note"
             rows={2}
             maxLength={500}
             defaultValue={previous?.note}
             placeholder="Delivery address, preferences…"
-            className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2"
+            className="text-ink placeholder:text-ink-subtle border-brand-tint focus-visible:outline-brand w-full rounded-xl border-2 bg-white px-4 py-3 text-base focus-visible:outline-2 focus-visible:outline-offset-2"
           />
         </label>
       </fieldset>
 
       {state.status === "error" && (
-        <p role="alert" className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700">
+        <p
+          role="alert"
+          className="bg-coral-wash text-coral-deep rounded-xl px-4 py-3 text-sm font-medium"
+        >
           {state.message}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending || itemCount === 0}
-        className="w-full rounded-xl bg-brand px-4 py-3 font-semibold text-white hover:bg-brand-hover disabled:opacity-50"
-      >
-        {submitLabel}
-      </button>
-    </form>
-  );
-}
+      {/* A grid makes the button stretch to the full width. */}
+      <div className="grid">
+        <Button type="submit" variant="primary" size="lg" disabled={pending || itemCount === 0}>
+          {submitLabel}
+        </Button>
+      </div>
 
-function Field({
-  label,
-  error,
-  ...input
-}: { label: string; error?: string } & React.InputHTMLAttributes<HTMLInputElement>) {
-  return (
-    <label className="block">
-      <span className="text-sm font-medium">{label}</span>
-      <input
-        required
-        {...input}
-        aria-invalid={!!error}
-        className="mt-1 w-full rounded-lg border border-zinc-300 bg-white px-3 py-2 aria-invalid:border-rose-500"
-      />
-      {error && <span className="mt-1 block text-sm text-rose-600">{error}</span>}
-    </label>
+      <p className="text-ink-muted text-sm">
+        By ordering you agree to Gbam&apos;s{" "}
+        <Link href="/legal/terms" className={legalLinkClasses}>
+          {LEGAL_LABELS.terms}
+        </Link>{" "}
+        and{" "}
+        <Link href="/legal/privacy" className={legalLinkClasses}>
+          {LEGAL_LABELS.privacy}
+        </Link>
+        .
+      </p>
+    </form>
   );
 }

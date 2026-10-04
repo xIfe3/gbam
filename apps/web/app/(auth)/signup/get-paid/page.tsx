@@ -6,7 +6,10 @@ import { api, ApiError, type Bank } from "@/lib/api";
 import { SignupFrame } from "../frame";
 import { BankForm } from "./bank-form";
 
-export const metadata: Metadata = { title: "Get paid" };
+export const metadata: Metadata = {
+  title: "Get paid",
+  description: "Add the bank account where your Gbam payouts will go.",
+};
 
 /** The bank list, or null when it can't be loaded right now (the page offers a retry). */
 async function loadBanks(): Promise<Bank[] | null> {

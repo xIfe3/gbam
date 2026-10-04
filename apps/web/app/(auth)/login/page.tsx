@@ -4,7 +4,10 @@ import { safeNextPath } from "@/lib/safe-next";
 import { redirectIfSignedIn } from "../guard";
 import { LoginForm } from "./login-form";
 
-export const metadata: Metadata = { title: "Log in" };
+export const metadata: Metadata = {
+  title: "Log in",
+  description: "Log in to your Gbam shop to see and manage your orders.",
+};
 
 export default async function LoginPage(props: PageProps<"/login">) {
   await redirectIfSignedIn();

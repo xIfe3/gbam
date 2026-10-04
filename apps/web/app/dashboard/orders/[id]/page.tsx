@@ -24,7 +24,7 @@ export async function generateMetadata(
 ): Promise<Metadata> {
   const { id } = await props.params;
   const order = await loadOrder(id);
-  return { title: order.code };
+  return { title: order.code, description: `Details for order ${order.code}.` };
 }
 
 export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]">) {

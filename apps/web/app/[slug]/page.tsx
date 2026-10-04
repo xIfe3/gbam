@@ -1,6 +1,7 @@
 import { RESERVED_SLUGS } from "@gbam/shared";
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
 import { Checkout } from "./checkout";
 
@@ -17,7 +18,10 @@ async function loadStore(slug: string) {
 export async function generateMetadata(props: PageProps<"/[slug]">): Promise<Metadata> {
   const { slug } = await props.params;
   const { store } = await loadStore(slug);
-  return { title: store.businessName };
+  return {
+    title: store.businessName,
+    description: `Order from ${store.businessName} and get updates on WhatsApp.`,
+  };
 }
 
 /** Public storefront at gbam.app/{slug}. */
@@ -38,25 +42,29 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
       {paidCode && (
-        <p
-          role="status"
-          className="mb-6 rounded-xl border border-emerald-200 bg-brand-tint p-4 text-emerald-900"
-        >
+        <p role="status" className="bg-brand-tint text-ink mb-6 rounded-2xl p-4">
           Thanks! We&apos;re confirming your payment for <strong>{paidCode}</strong>. You&apos;ll
           get a WhatsApp message once it&apos;s confirmed.
         </p>
       )}
       <header className="mb-6">
-        <h1 className="text-2xl font-bold">{store.businessName}</h1>
-        <p className="text-sm text-zinc-500">Order below. You&apos;ll get updates on WhatsApp.</p>
+        <Logo size="sm" />
+        <h1 className="font-display text-ink mt-6 text-4xl leading-tight font-black">
+          {store.businessName}
+        </h1>
+        <p className="text-ink-muted mt-2">Order below. You&apos;ll get updates on WhatsApp.</p>
       </header>
       {products.length === 0 ? (
-        <p className="rounded-lg border border-dashed border-zinc-300 p-6 text-center text-zinc-500">
+        <p className="border-brand-tint text-ink-muted rounded-2xl border-2 border-dashed p-6 text-center">
           No products yet.
         </p>
       ) : (
         <Checkout slug={store.slug} products={products} />
       )}
+      <footer className="text-ink-muted mt-10 text-sm">
+        Powered by <span className="font-display text-coral-deep font-black">Gbam.</span> Payments
+        by Paystack.
+      </footer>
     </main>
   );
 }

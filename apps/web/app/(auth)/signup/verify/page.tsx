@@ -4,7 +4,10 @@ import { api } from "@/lib/api";
 import { SignupFrame } from "../frame";
 import { VerifyForm } from "./verify-form";
 
-export const metadata: Metadata = { title: "Verify your email" };
+export const metadata: Metadata = {
+  title: "Verify your email",
+  description: "Enter the 6-digit code we emailed you to verify your Gbam account.",
+};
 
 export default async function VerifyPage() {
   // No session: log in first (api redirects). Already verified: nothing to do here.

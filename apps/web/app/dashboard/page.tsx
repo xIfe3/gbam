@@ -5,7 +5,10 @@ import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "./status-badge";
 
-export const metadata: Metadata = { title: "Orders" };
+export const metadata: Metadata = {
+  title: "Orders",
+  description: "Your Gbam orders.",
+};
 
 /** The filter buttons above the list. */
 const FILTERS: { status: OrderStatus | undefined; label: string; href: string }[] = [

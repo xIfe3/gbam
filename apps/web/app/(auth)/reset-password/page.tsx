@@ -4,7 +4,10 @@ import { AuthCard, AuthLink } from "@/components/brand/auth-card";
 import { redirectIfSignedIn } from "../guard";
 import { ResetForm } from "./reset-form";
 
-export const metadata: Metadata = { title: "Reset password" };
+export const metadata: Metadata = {
+  title: "Reset password",
+  description: "Choose a new password for your Gbam account.",
+};
 
 // Same shape the API requires for a requestId (43 URL-safe characters).
 const REQUEST_ID = /^[A-Za-z0-9_-]{43}$/;

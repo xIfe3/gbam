@@ -4,7 +4,10 @@ import { redirectIfSignedIn } from "../guard";
 import { SignupFrame } from "./frame";
 import { SignupForm } from "./signup-form";
 
-export const metadata: Metadata = { title: "Create your shop" };
+export const metadata: Metadata = {
+  title: "Create your shop",
+  description: "Set up your Gbam shop in minutes and start taking orders on WhatsApp.",
+};
 
 export default async function SignupPage() {
   await redirectIfSignedIn();

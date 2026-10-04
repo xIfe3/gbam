@@ -3,7 +3,10 @@ import { AuthCard, AuthLink } from "@/components/brand/auth-card";
 import { redirectIfSignedIn } from "../guard";
 import { ForgotForm } from "./forgot-form";
 
-export const metadata: Metadata = { title: "Forgot password" };
+export const metadata: Metadata = {
+  title: "Forgot password",
+  description: "Get a code by email to reset your Gbam password.",
+};
 
 export default async function ForgotPasswordPage() {
   await redirectIfSignedIn();
