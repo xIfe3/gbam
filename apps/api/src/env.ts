@@ -26,6 +26,11 @@ export const PRODUCTION_REQUIRED_KEYS = [
   "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
   "RESEND_API_KEY",
   "INTERNAL_API_SECRET",
+  "R2_ACCOUNT_ID",
+  "R2_ACCESS_KEY_ID",
+  "R2_SECRET_ACCESS_KEY",
+  "R2_BUCKET",
+  "PHOTOS_PUBLIC_URL",
 ] as const;
 
 const MIN_INTERNAL_SECRET_LENGTH = 32;
@@ -61,6 +66,16 @@ const envSchema = z
      * common/client-ip.ts. Unset in dev → x-client-ip is ignored.
      */
     INTERNAL_API_SECRET: optional,
+
+    // Product photos. All five R2 values unset in dev → photos go to PHOTOS_LOCAL_DIR.
+    R2_ACCOUNT_ID: optional,
+    R2_ACCESS_KEY_ID: optional,
+    R2_SECRET_ACCESS_KEY: optional,
+    R2_BUCKET: optional,
+    /** Where browsers load photos from, e.g. https://photos.gbam.app. */
+    PHOTOS_PUBLIC_URL: optional,
+    /** Dev-only photo folder, relative to apps/api. */
+    PHOTOS_LOCAL_DIR: z.string().min(1).default("uploads/photos"),
   })
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;

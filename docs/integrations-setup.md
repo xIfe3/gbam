@@ -109,3 +109,25 @@ you're done testing.
 `NODE_ENV=production` refuses to start without `PAYSTACK_SECRET_KEY`,
 `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`, so production can never silently
 run on the fakes. Use the **live** Paystack key (`sk_live_…`) there.
+
+## Product photos (Cloudflare R2)
+
+In dev you need nothing: with the R2 values empty, photos are saved under `apps/api/uploads/photos`
+and served by the API at `http://localhost:4000/photos`. Production uses R2 and refuses to start
+without all five values.
+
+1. In the Cloudflare dashboard go to **R2 → Create bucket** (e.g. `gbam-photos`).
+2. Open the bucket → **Settings → Custom Domains → Connect domain** and add `photos.gbam.app`.
+   This is the public address browsers load photos from.
+3. Go to **R2 → Manage API tokens → Create API token**. Give it **Object Read & Write**, limited
+   to that one bucket. Copy the Access Key ID and Secret Access Key (shown once).
+4. Your Account ID is on the R2 overview page.
+5. Set these in `.env.production`:
+
+```
+R2_ACCOUNT_ID=<account id>
+R2_ACCESS_KEY_ID=<access key id>
+R2_SECRET_ACCESS_KEY=<secret access key>
+R2_BUCKET=gbam-photos
+PHOTOS_PUBLIC_URL=https://photos.gbam.app
+```

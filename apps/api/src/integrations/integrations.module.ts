@@ -12,9 +12,12 @@ import {
   FakeWhatsAppClient,
   HttpPaystackClient,
   HttpWhatsAppClient,
+  LocalPhotoStorage,
+  R2PhotoStorage,
   ResendEmailClient,
   type EmailClient,
   type PaystackClient,
+  type PhotoStorage,
   type WhatsAppClient,
 } from "@gbam/integrations";
 import { Global, Inject, Logger, Module } from "@nestjs/common";
@@ -25,6 +28,7 @@ import { DB, type Db } from "../infra/infra.module.js";
 export const PAYSTACK = Symbol("PAYSTACK");
 export const WHATSAPP = Symbol("WHATSAPP");
 export const EMAIL = Symbol("EMAIL");
+export const PHOTO_STORAGE = Symbol("PHOTO_STORAGE");
 
 /** Use in a constructor: `@InjectPaystack() private readonly paystack: PaystackClient` */
 export function InjectPaystack() {
@@ -41,7 +45,12 @@ export function InjectEmail() {
   return Inject(EMAIL);
 }
 
-export type { EmailClient, PaystackClient, WhatsAppClient };
+/** Use in a constructor: `@InjectPhotoStorage() private readonly photos: PhotoStorage` */
+export function InjectPhotoStorage() {
+  return Inject(PHOTO_STORAGE);
+}
+
+export type { EmailClient, PaystackClient, PhotoStorage, WhatsAppClient };
 
 function createPaystackClient(env: Env, db: Db): PaystackClient {
   if (env.PAYSTACK_SECRET_KEY) {
@@ -105,13 +114,43 @@ function createEmailClient(env: Env): EmailClient {
   return new FakeEmailClient(log);
 }
 
+function createPhotoStorage(env: Env): PhotoStorage {
+  // The checks are written out (not stored in a variable) so TypeScript knows each value
+  // is a string inside the block.
+  if (
+    env.R2_ACCOUNT_ID &&
+    env.R2_ACCESS_KEY_ID &&
+    env.R2_SECRET_ACCESS_KEY &&
+    env.R2_BUCKET &&
+    env.PHOTOS_PUBLIC_URL
+  ) {
+    return new R2PhotoStorage({
+      accountId: env.R2_ACCOUNT_ID,
+      accessKeyId: env.R2_ACCESS_KEY_ID,
+      secretAccessKey: env.R2_SECRET_ACCESS_KEY,
+      bucket: env.R2_BUCKET,
+      publicBaseUrl: env.PHOTOS_PUBLIC_URL,
+    });
+  }
+
+  const logger = new Logger("LocalPhotoStorage");
+  logger.warn("R2 settings not set: saving photos to a local folder");
+
+  let publicBaseUrl = `http://localhost:${env.PORT}/photos`;
+  if (env.PHOTOS_PUBLIC_URL) {
+    publicBaseUrl = env.PHOTOS_PUBLIC_URL;
+  }
+  return new LocalPhotoStorage(env.PHOTOS_LOCAL_DIR, publicBaseUrl);
+}
+
 @Global()
 @Module({
   providers: [
     { provide: PAYSTACK, inject: [ENV, DB], useFactory: createPaystackClient },
     { provide: WHATSAPP, inject: [ENV], useFactory: createWhatsAppClient },
     { provide: EMAIL, inject: [ENV], useFactory: createEmailClient },
+    { provide: PHOTO_STORAGE, inject: [ENV], useFactory: createPhotoStorage },
   ],
-  exports: [PAYSTACK, WHATSAPP, EMAIL],
+  exports: [PAYSTACK, WHATSAPP, EMAIL, PHOTO_STORAGE],
 })
 export class IntegrationsModule {}

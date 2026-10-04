@@ -17,7 +17,25 @@ const productionKeys = {
   WHATSAPP_APP_SECRET: "secret",
   WHATSAPP_WEBHOOK_VERIFY_TOKEN: "verify",
   RESEND_API_KEY: "re_test",
+  R2_ACCOUNT_ID: "acct",
+  R2_ACCESS_KEY_ID: "key",
+  R2_SECRET_ACCESS_KEY: "secret",
+  R2_BUCKET: "bucket",
+  PHOTOS_PUBLIC_URL: "https://photos.gbam.app",
 };
+
+describe("loadEnv photo storage", () => {
+  it("lists R2_BUCKET as required in production when it is missing", () => {
+    const withoutBucket: Record<string, string> = { ...base, ...productionKeys };
+    delete withoutBucket.R2_BUCKET;
+    withoutBucket.INTERNAL_API_SECRET = "x".repeat(40);
+    expect(() => loadEnv(withoutBucket)).toThrow(/Required in production[\s\S]*at R2_BUCKET/);
+  });
+
+  it("defaults PHOTOS_LOCAL_DIR to uploads/photos", () => {
+    expect(loadEnv({ ...base }).PHOTOS_LOCAL_DIR).toBe("uploads/photos");
+  });
+});
 
 describe("loadEnv INTERNAL_API_SECRET", () => {
   it("is optional in development", () => {

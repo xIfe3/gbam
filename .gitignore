@@ -16,3 +16,5 @@ coverage/
 
 .superpowers/
 .claude/worktrees/
+
+/apps/api/uploads/
