@@ -338,7 +338,7 @@ async function currentUser() {
   return request<PublicUser>("/auth/me", { auth: "session" });
 }
 
-/** The logged-in user, or null (no cookie, or the API says the session is dead). Never redirects. */
+/** The logged-in user, or null (no cookie, dead session, or API trouble). Never redirects. */
 async function currentUserOrNull(): Promise<PublicUser | null> {
   const token = await getSessionToken();
   if (token === null) {
@@ -347,10 +347,16 @@ async function currentUserOrNull(): Promise<PublicUser | null> {
   try {
     return await request<PublicUser>("/auth/me", { auth: "token" });
   } catch (error) {
-    if (error instanceof ApiError && error.status === 401) {
-      return null;
+    unstable_rethrow(error);
+    // 401 = dead session. Anything else (API down, 5xx) also means "not known to be logged
+    // in": the login pages should still render rather than show an error page.
+    if (!(error instanceof ApiError && error.status === 401)) {
+      console.error(
+        "current user lookup failed",
+        error instanceof ApiError ? error.status : "error",
+      );
     }
-    throw error;
+    return null;
   }
 }
 

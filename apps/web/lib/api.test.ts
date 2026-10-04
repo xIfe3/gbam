@@ -114,6 +114,18 @@ describe("api session handling", () => {
     expect(redirect).not.toHaveBeenCalled();
   });
 
+  it("currentUserOrNull returns null on a 500 so login pages still render", async () => {
+    jar.get.mockReturnValue({ value: "tok" });
+    fetchMock.mockResolvedValue(jsonResponse(500, {}));
+    expect(await api.currentUserOrNull()).toBeNull();
+  });
+
+  it("currentUserOrNull returns null when the API is unreachable", async () => {
+    jar.get.mockReturnValue({ value: "tok" });
+    fetchMock.mockRejectedValue(new TypeError("fetch failed"));
+    expect(await api.currentUserOrNull()).toBeNull();
+  });
+
   it("currentUserOrNull returns null without calling the API when there is no cookie", async () => {
     jar.get.mockReturnValue(undefined);
     expect(await api.currentUserOrNull()).toBeNull();

@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { Logo } from "./logo";
+import { PaymentToast } from "./payment-toast";
 
 type AuthCardProps = {
   title: string;
@@ -13,7 +14,15 @@ type AuthCardProps = {
 export function AuthCard({ title, subtitle, children, footer }: AuthCardProps) {
   return (
     <div className="w-full max-w-md">
-      <div className="rounded-[22px] bg-white p-6 shadow-[0_14px_40px_rgba(19,42,32,0.12)] sm:p-8">
+      <div className="relative rounded-[22px] bg-white p-6 shadow-[0_14px_40px_rgba(19,42,32,0.12)] sm:p-8">
+        {/* Decorative example card (approved layout B). Hidden on phones, where it would
+            overflow a 360px screen; sample numbers, not a real payment. */}
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute -top-5 -right-6 hidden rotate-3 sm:block lg:-right-14"
+        >
+          <PaymentToast amountKobo={600000} code="GB-4821" />
+        </div>
         <div className="flex justify-center">
           <Link
             href="/"

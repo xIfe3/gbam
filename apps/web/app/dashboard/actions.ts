@@ -2,6 +2,7 @@
 
 import { orderStatusSchema } from "@gbam/shared";
 import { refresh } from "next/cache";
+import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
 import { api, ApiError } from "@/lib/api";
 
@@ -23,6 +24,8 @@ export async function updateOrderStatus(
     // The API re-checks the transition against the state machine; the buttons are a hint.
     await api.updateOrderStatus(input.data.orderId, input.data.status);
   } catch (error) {
+    // A session-expired redirect thrown by lib/api must reach Next, not become an error message.
+    unstable_rethrow(error);
     if (error instanceof ApiError && error.status === 409) {
       refresh(); // someone else changed it first; show the current state
       return { error: "This order changed in the meantime. Here's its latest status." };

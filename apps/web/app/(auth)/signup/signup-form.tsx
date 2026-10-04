@@ -23,7 +23,11 @@ function passwordHint(password: string): string {
     return "At least 8 characters.";
   }
   if (password.length < 8) {
-    return `Too short: ${8 - password.length} more character${password.length === 7 ? "" : "s"} needed.`;
+    const missing = 8 - password.length;
+    if (missing === 1) {
+      return "Too short: 1 more character needed.";
+    }
+    return `Too short: ${missing} more characters needed.`;
   }
   const hasMix = /[a-z]/.test(password) && /[A-Z0-9]/.test(password);
   if (password.length >= 12 && hasMix) {

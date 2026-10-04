@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import type { ZodError } from "zod";
 import { ApiError } from "@/lib/api";
 
@@ -45,6 +46,9 @@ function bodyMessage(body: unknown): string | null {
 
 /** A message safe to show for an API failure. Logs only the status, never request data. */
 export function failureMessage(error: unknown, action: string): string {
+  // lib/api throws a Next redirect (session expired, email not verified) from inside API
+  // calls. It must reach Next, not be turned into an error message.
+  unstable_rethrow(error);
   if (error instanceof ApiError) {
     const message = bodyMessage(error.body);
     // 401 (wrong credentials) and 429 (try again in N minutes) carry a message written for users.

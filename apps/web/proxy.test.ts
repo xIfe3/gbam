@@ -30,6 +30,34 @@ describe("proxy", () => {
     expect(res.status).toBe(307);
   });
 
+  it("re-sets gbam_session with the same attributes and a fresh 30-day maxAge", () => {
+    const res = proxy(
+      new NextRequest("http://localhost:3000/dashboard", {
+        headers: { cookie: "gbam_session=abc" },
+      }),
+    );
+    const cookie = res.cookies.get("gbam_session");
+    expect(cookie?.value).toBe("abc");
+    expect(cookie?.httpOnly).toBe(true);
+    expect(cookie?.sameSite).toBe("lax");
+    expect(cookie?.path).toBe("/");
+    expect(cookie?.maxAge).toBe(60 * 60 * 24 * 30);
+  });
+
+  it("sets no cookie when redirecting to login", () => {
+    const res = proxy(new NextRequest("http://localhost:3000/dashboard"));
+    expect(res.cookies.get("gbam_session")).toBeUndefined();
+  });
+
+  it("overwrites a client-sent x-gbam-path", () => {
+    const res = proxy(
+      new NextRequest("http://localhost:3000/dashboard/orders/1", {
+        headers: { cookie: "gbam_session=abc", "x-gbam-path": "//evil.com" },
+      }),
+    );
+    expect(res.headers.get("x-middleware-request-x-gbam-path")).toBe("/dashboard/orders/1");
+  });
+
   it("passes through when the cookie is present", () => {
     const res = proxy(
       new NextRequest("http://localhost:3000/dashboard/orders/1", {

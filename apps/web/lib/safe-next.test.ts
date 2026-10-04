@@ -23,6 +23,24 @@ describe("safeNextPath", () => {
     }
   });
 
+  it("rejects dot-segment tricks that normalise to //host", () => {
+    const bad = [
+      "/..//evil.com",
+      "/.//evil.com",
+      "/dashboard/..//evil.com",
+      "/a/..//evil.com",
+      "/%2e%2e//evil.com",
+      "/%2E%2E//evil.com",
+    ];
+    for (const value of bad) {
+      expect(safeNextPath(value)).toBeNull();
+    }
+  });
+
+  it("keeps a valid path with a query", () => {
+    expect(safeNextPath("/dashboard/orders/1?x=1")).toBe("/dashboard/orders/1?x=1");
+  });
+
   it("rejects non-strings", () => {
     expect(safeNextPath(undefined)).toBeNull();
     expect(safeNextPath(["/dashboard"])).toBeNull();

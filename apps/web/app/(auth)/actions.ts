@@ -1,7 +1,7 @@
 "use server";
 
 import { forgotPasswordSchema, loginSchema, resetPasswordSchema } from "@gbam/shared";
-import { redirect } from "next/navigation";
+import { redirect, unstable_rethrow } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { safeNextPath } from "@/lib/safe-next";
 import { clearSessionCookie, setSessionCookie } from "@/lib/session";
@@ -103,6 +103,7 @@ export async function logoutAction(): Promise<void> {
     // Ends the session on the API side too, so a copied token stops working.
     await api.logout();
   } catch (error) {
+    unstable_rethrow(error);
     // Even if the API is unreachable, still sign this browser out.
     console.error("logout API call failed", error instanceof ApiError ? error.status : "error");
   }
