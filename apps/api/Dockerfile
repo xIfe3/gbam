@@ -2,6 +2,7 @@
 #   node dist/main.js                          HTTP API
 #   node dist/worker.js                        BullMQ worker
 #   node node_modules/@gbam/db/dist/migrate.js one-off migrations (run before the others)
+#   node node_modules/@gbam/db/dist/sync-content.js  help/FAQ/blog/legal pages (after migrate)
 #
 # Build from the repo root:  docker build -f apps/api/Dockerfile -t gbam-api .
 

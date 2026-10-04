@@ -14,6 +14,22 @@ const optional = z
     return value;
   });
 
+/**
+ * Settings the API refuses to start without when NODE_ENV=production. Exported so a test
+ * can check docker/docker-compose.prod.yml and .env.production.example list every one.
+ */
+export const PRODUCTION_REQUIRED_KEYS = [
+  "PAYSTACK_SECRET_KEY",
+  "WHATSAPP_ACCESS_TOKEN",
+  "WHATSAPP_PHONE_NUMBER_ID",
+  "WHATSAPP_APP_SECRET",
+  "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
+  "RESEND_API_KEY",
+  "INTERNAL_API_SECRET",
+] as const;
+
+const MIN_INTERNAL_SECRET_LENGTH = 32;
+
 const envSchema = z
   .object({
     NODE_ENV: z.enum(["development", "test", "production"]).default("development"),
@@ -49,17 +65,19 @@ const envSchema = z
   .superRefine((env, ctx) => {
     if (env.NODE_ENV !== "production") return;
     // Production must never silently run on fakes.
-    for (const key of [
-      "PAYSTACK_SECRET_KEY",
-      "WHATSAPP_ACCESS_TOKEN",
-      "WHATSAPP_PHONE_NUMBER_ID",
-      "WHATSAPP_APP_SECRET",
-      "WHATSAPP_WEBHOOK_VERIFY_TOKEN",
-      "RESEND_API_KEY",
-      "INTERNAL_API_SECRET",
-    ] as const) {
+    for (const key of PRODUCTION_REQUIRED_KEYS) {
       if (!env[key])
         ctx.addIssue({ code: "custom", path: [key], message: "Required in production" });
+    }
+    // A short shared secret could be guessed, letting anyone fake the visitor IP that rate
+    // limits are keyed on.
+    const secret = env.INTERNAL_API_SECRET;
+    if (secret !== undefined && secret.length < MIN_INTERNAL_SECRET_LENGTH) {
+      ctx.addIssue({
+        code: "custom",
+        path: ["INTERNAL_API_SECRET"],
+        message: `Must be at least ${MIN_INTERNAL_SECRET_LENGTH} characters in production`,
+      });
     }
   });
 

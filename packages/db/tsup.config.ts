@@ -12,8 +12,9 @@ export default defineConfig((options) => [
     clean: !options.watch,
   },
   {
-    // Standalone script run by the deploy's migrate step. ESM only (uses import.meta.url).
-    entry: ["src/migrate.ts"],
+    // Standalone scripts run by the deploy's migrate step: migrations, then content.
+    // ESM only (they use import.meta.url to find ../migrations and ../content).
+    entry: ["src/migrate.ts", "src/sync-content.ts"],
     format: ["esm"],
     sourcemap: true,
   },

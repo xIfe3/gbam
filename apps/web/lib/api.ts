@@ -3,6 +3,7 @@ import "server-only";
 import type { OrderStatus } from "@gbam/shared";
 import { headers } from "next/headers";
 import { redirect, unstable_rethrow } from "next/navigation";
+import { pickVisitorIp, trustedProxyHops } from "./client-ip";
 import { PATH_HEADER } from "./path-header";
 import { safeNextPath } from "./safe-next";
 import { clearSessionCookie, getSessionToken } from "./session";
@@ -78,23 +79,19 @@ async function redirectToLogin(): Promise<never> {
 /**
  * The visitor's IP, from the proxy headers on the request to the Next server. The API only
  * ever sees this server's address, so we pass the visitor's along (for rate limits).
- * Returns undefined when neither header is present (e.g. local dev without a proxy).
+ * See lib/client-ip.ts for which header entry we trust and why.
+ * Returns undefined when the headers don't tell us (e.g. local dev without a proxy).
  */
 async function visitorIp(): Promise<string | undefined> {
+  // Outside the try below on purpose: a bad TRUSTED_PROXY_HOPS should fail loudly.
+  const hops = trustedProxyHops(process.env.TRUSTED_PROXY_HOPS);
   try {
     const incoming = await headers();
-    const forwarded = incoming.get("x-forwarded-for");
-    if (forwarded) {
-      // "client, proxy1, proxy2": the first entry is the original client.
-      const first = (forwarded.split(",")[0] ?? "").trim();
-      if (first !== "") {
-        return first;
-      }
-    }
-    const real = incoming.get("x-real-ip");
-    if (real && real.trim() !== "") {
-      return real.trim();
-    }
+    return pickVisitorIp({
+      realIp: incoming.get("x-real-ip"),
+      forwardedFor: incoming.get("x-forwarded-for"),
+      hops,
+    });
   } catch (error) {
     // headers() is a Dynamic API: during prerendering it throws an internal Next.js signal
     // that must reach Next (it marks the page as dynamic). Re-throw those; anything left is

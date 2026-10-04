@@ -1,11 +1,19 @@
 # Production-shaped stack. Shows the deploy order your host must follow:
-#   migrate runs once and exits → only then api + worker start.
+#   migrate runs once and exits (migrations, then content sync) → only then api + worker start.
 #
 #   cp .env.production.example .env.production   # fill in real keys
 #   docker compose -f docker/docker-compose.prod.yml --env-file .env.production up --build
 #
 # On a real host (Railway, Fly, Render, a VPS…) replicate the same three roles from the
 # one gbam-api image, and use managed Postgres/Redis instead of the two below.
+#
+# HTTPS reverse proxy (required): gbam.app must be served over HTTPS, so put EXACTLY ONE
+# reverse proxy (Caddy, nginx, your host's load balancer…) in front of the web service.
+# It must terminate HTTPS and APPEND the visitor's address to X-Forwarded-For (or set
+# X-Real-IP). The web app reads the visitor IP from there for per-IP rate limits, counting
+# TRUSTED_PROXY_HOPS entries from the right. Never expose the web port to the internet
+# directly: anyone could then send a fake X-Forwarded-For. That is why it is bound to
+# 127.0.0.1 below; only the proxy on this machine can reach it.
 name: gbam-prod
 
 x-api: &api
@@ -16,13 +24,16 @@ x-api: &api
     DATABASE_URL: postgres://gbam:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}@postgres:5432/gbam
     REDIS_URL: redis://redis:6379
     WEB_URL: ${WEB_URL:?set WEB_URL}
-    PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:-}
-    WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:-}
-    WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:-}
+    # Required in production: the API refuses to start without these (apps/api/src/env.ts).
+    PAYSTACK_SECRET_KEY: ${PAYSTACK_SECRET_KEY:?set PAYSTACK_SECRET_KEY}
+    WHATSAPP_ACCESS_TOKEN: ${WHATSAPP_ACCESS_TOKEN:?set WHATSAPP_ACCESS_TOKEN}
+    WHATSAPP_PHONE_NUMBER_ID: ${WHATSAPP_PHONE_NUMBER_ID:?set WHATSAPP_PHONE_NUMBER_ID}
+    WHATSAPP_APP_SECRET: ${WHATSAPP_APP_SECRET:?set WHATSAPP_APP_SECRET}
+    WHATSAPP_WEBHOOK_VERIFY_TOKEN: ${WHATSAPP_WEBHOOK_VERIFY_TOKEN:?set WHATSAPP_WEBHOOK_VERIFY_TOKEN}
     WHATSAPP_API_VERSION: ${WHATSAPP_API_VERSION:-v25.0}
-    RESEND_API_KEY: ${RESEND_API_KEY:-}
+    RESEND_API_KEY: ${RESEND_API_KEY:?set RESEND_API_KEY}
     EMAIL_FROM: ${EMAIL_FROM:-Gbam <no-reply@gbam.app>}
-    # Long random string; same value for api and web (see .env.production.example).
+    # Random string of at least 32 characters; same value for api and web.
     INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
 
 services:
@@ -49,14 +60,22 @@ services:
 
   migrate:
     <<: *api
-    command: ["node", "node_modules/@gbam/db/dist/migrate.js"]
+    # 1. Apply database migrations. 2. Write the help, FAQ, blog, changelog and legal pages
+    # (packages/db/content) into the database. Both are safe to re-run on every deploy.
+    command:
+      [
+        "sh",
+        "-c",
+        "node node_modules/@gbam/db/dist/migrate.js && node node_modules/@gbam/db/dist/sync-content.js",
+      ]
     restart: "no"
     depends_on:
       postgres: { condition: service_healthy }
 
   api:
     <<: *api
-    ports: ["4000:4000"]
+    # Only reachable from this machine: Paystack and Meta webhooks go through the proxy.
+    ports: ["127.0.0.1:4000:4000"]
     restart: unless-stopped
     depends_on:
       migrate: { condition: service_completed_successfully }
@@ -75,9 +94,14 @@ services:
     build: { context: .., dockerfile: apps/web/Dockerfile }
     environment:
       API_URL: http://api:4000
-      # Long random string; same value for api and web.
+      # Random string of at least 32 characters; same value for api and web.
       INTERNAL_API_SECRET: ${INTERNAL_API_SECRET:?set INTERNAL_API_SECRET}
-    ports: ["3000:3000"]
+      # How many reverse proxies sit in front of the web app (see the note at the top).
+      TRUSTED_PROXY_HOPS: ${TRUSTED_PROXY_HOPS:-1}
+      # Optional: digits only, e.g. 2348012345678. Shows the WhatsApp link on /contact.
+      GBAM_WHATSAPP_NUMBER: ${GBAM_WHATSAPP_NUMBER:-}
+    # Bound to 127.0.0.1: the public reaches it ONLY through the HTTPS reverse proxy.
+    ports: ["127.0.0.1:3000:3000"]
     restart: unless-stopped
     depends_on: [api]
 

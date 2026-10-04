@@ -151,3 +151,14 @@ export async function upsertContent(db: Db, files: ContentFile[]): Promise<numbe
   }
   return files.length;
 }
+
+/**
+ * Loads every Markdown file under `rootDir` and upserts it. Used by both the production
+ * `sync-content` deploy step and the dev seed, so they always write the same rows.
+ * Returns how many files were written.
+ */
+export async function syncContent(db: Db, rootDir: string): Promise<number> {
+  const files = await loadContentFiles(rootDir);
+  const count = await upsertContent(db, files);
+  return count;
+}
