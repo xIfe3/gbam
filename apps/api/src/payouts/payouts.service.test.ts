@@ -10,6 +10,7 @@ import {
   BadRequestException,
   ConflictException,
   HttpException,
+  Logger,
   ServiceUnavailableException,
 } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
@@ -364,5 +365,111 @@ describe("PayoutsService (integration)", () => {
       expect(await redis.ttl(`payouts:create:seller:${sellerId}`)).toBeGreaterThan(23 * 60 * 60);
       expect((await sellerRow(sellerId)).paystackSubaccountCode).toBeNull();
     });
+
+    it("never overwrites a code saved meanwhile: keeps it, logs the orphan, answers 409", async () => {
+      const { sellerId } = await freshSeller();
+      const errorLog = vi.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+      // Between Paystack creating our subaccount and us saving it, something else saves one
+      // (the Redis lock is not involved: this checks the database guard on its own).
+      vi.spyOn(paystack, "createSubaccount").mockImplementationOnce(async () => {
+        await db
+          .update(sellers)
+          .set({ paystackSubaccountCode: "ACCT_saved_meanwhile" })
+          .where(eq(sellers.id, sellerId));
+        return { subaccountCode: "ACCT_orphan_one" };
+      });
+
+      const error = await errorFrom(
+        service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(bodyOf(error).code).toBe("PAYOUT_ACCOUNT_EXISTS");
+      const row = await sellerRow(sellerId);
+      expect(row.paystackSubaccountCode).toBe("ACCT_saved_meanwhile");
+      expect(row.accountLast4).toBeNull();
+      expect(row.bankAccountName).toBeNull();
+      expect(JSON.stringify(errorLog.mock.calls)).toContain("ACCT_orphan_one");
+    });
+
+    it("saves nothing and answers 503 when the database fails after Paystack created the subaccount", async () => {
+      const { sellerId } = await freshSeller();
+      const before = await sellerRow(sellerId);
+      const errorLog = vi.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+      vi.spyOn(paystack, "createSubaccount").mockResolvedValueOnce({
+        subaccountCode: "ACCT_orphan_two",
+      });
+      vi.spyOn(db, "update").mockImplementationOnce(() => {
+        throw new Error("database went away");
+      });
+
+      const error = await errorFrom(
+        service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(await sellerRow(sellerId)).toEqual(before);
+      expect(JSON.stringify(errorLog.mock.calls)).toContain("ACCT_orphan_two");
+      expect(JSON.stringify(errorLog.mock.calls)).not.toContain(GOOD_ACCOUNT);
+    });
+
+    it("loads the bank list before taking the lock, so slow bank pages can't outlast it", async () => {
+      const { sellerId } = await freshSeller();
+      await redis.del(BANKS_CACHE_KEY); // force a fetch from Paystack
+      const banks = await new FakePaystackClient(async () => undefined).listBanks();
+      const lockHeld: boolean[] = [];
+      vi.spyOn(paystack, "listBanks").mockImplementation(async () => {
+        lockHeld.push((await redis.exists(`payouts:create-lock:${sellerId}`)) === 1);
+        return banks;
+      });
+
+      await service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+
+      expect(lockHeld).toEqual([false]);
+    });
+
+    it("treats Paystack 401/403 (our key is wrong) as retryable 503, not as the seller's mistake", async () => {
+      for (const status of [401, 403]) {
+        const { sellerId } = await freshSeller();
+        vi.spyOn(paystack, "createSubaccount").mockRejectedValueOnce(
+          new PaystackError("Invalid key", status),
+        );
+
+        const error = await errorFrom(
+          service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+        );
+
+        expect(error).toBeInstanceOf(ServiceUnavailableException);
+        expect((await sellerRow(sellerId)).paystackSubaccountCode).toBeNull();
+      }
+    });
+
+    it("still reports a Paystack 400 on create as a problem with the details (400)", async () => {
+      const { sellerId } = await freshSeller();
+      vi.spyOn(paystack, "createSubaccount").mockRejectedValueOnce(
+        new PaystackError("Account details invalid", 400),
+      );
+
+      const error = await errorFrom(
+        service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+    });
+  });
+
+  it("treats Paystack 401/403 on resolve as retryable 503, not a wrong account number", async () => {
+    for (const status of [401, 403]) {
+      const { sellerId, ip } = await freshSeller();
+      vi.spyOn(paystack, "resolveAccount").mockRejectedValueOnce(
+        new PaystackError("Invalid key", status),
+      );
+
+      const error = await errorFrom(
+        service.resolveAccount(sellerId, ip, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+    }
   });
 });

@@ -135,6 +135,17 @@ describe("createPayoutAccountAction", () => {
     ).rejects.toThrow("NEXT_REDIRECT:/dashboard");
   });
 
+  it("says setup is already under way when another request holds the lock", async () => {
+    apiMock.createPayoutAccount.mockRejectedValue(
+      new FakeApiError(409, { code: "PAYOUT_SETUP_IN_PROGRESS", message: "In progress" }),
+    );
+    const state = await createPayoutAccountAction(
+      {},
+      form({ bankCode: "058", accountNumber: ACCOUNT }),
+    );
+    expect(state.error).toBe("We're already setting this up. Refresh in a minute.");
+  });
+
   it("shows a field error and keeps the details when the account no longer resolves", async () => {
     apiMock.createPayoutAccount.mockRejectedValue(
       new FakeApiError(400, { field: "accountNumber", message: "We couldn't find this account" }),

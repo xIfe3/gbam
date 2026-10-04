@@ -4,8 +4,16 @@ import { describe, expect, it } from "vitest";
 import { config, proxy } from "./proxy";
 
 describe("proxy", () => {
-  it("only runs on the dashboard", () => {
-    expect(config.matcher).toEqual(["/dashboard/:path*"]);
+  it("only runs on the dashboard and the get-paid step", () => {
+    expect(config.matcher).toEqual(["/dashboard/:path*", "/signup/get-paid"]);
+  });
+
+  it("sends a logged-out visitor on get-paid to /login with next=/signup/get-paid", () => {
+    const res = proxy(new NextRequest("http://localhost:3000/signup/get-paid"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe(
+      "http://localhost:3000/login?next=%2Fsignup%2Fget-paid",
+    );
   });
 
   it("redirects to /login with the original path when there is no session cookie", () => {

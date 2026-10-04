@@ -25,4 +25,5 @@ export function proxy(request: NextRequest) {
   return response;
 }
 
-export const config = { matcher: ["/dashboard/:path*"] };
+// Sign-up step 3 needs a session too, so a logged-out visitor comes back to it after login.
+export const config = { matcher: ["/dashboard/:path*", "/signup/get-paid"] };

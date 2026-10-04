@@ -26,11 +26,18 @@ const RESOLVE_LIMIT = 10;
 const RESOLVE_WINDOW_SECONDS = 10 * 60;
 const CREATE_LIMIT = 5;
 const CREATE_WINDOW_SECONDS = 24 * 60 * 60;
-// Longer than the two Paystack calls inside it can take (15 seconds each, at most).
+// How long the create lock lives. While locked we make exactly two Paystack calls
+// (resolve, then create), each cut off after 15 seconds by the Paystack client, plus two
+// quick database queries: worst case about 2 × 15 = 30 seconds. 60 leaves 30 seconds of
+// headroom. The bank list (which can take several slow pages) is loaded BEFORE locking.
 const CREATE_LOCK_SECONDS = 60;
 
 // Paystack answers these statuses when the account number doesn't exist at that bank.
+// 401/403 are NOT here: they mean our secret key is wrong, which is our problem to fix,
+// not the seller's, so they get the "try again" answer.
 const ACCOUNT_NOT_FOUND_STATUSES = new Set([400, 404, 422]);
+// Paystack's answers when it refuses the subaccount details themselves.
+const DETAILS_REJECTED_STATUSES = new Set([400, 422]);
 
 // What we expect to find in the bank-list cache. Anything else is ignored and refetched.
 const cachedBanksSchema = z.array(z.object({ name: z.string(), code: z.string() })).min(1);
@@ -116,6 +123,10 @@ export class PayoutsService {
       CREATE_WINDOW_SECONDS,
     );
 
+    // Before locking: the bank list may need several slow Paystack pages on a cache miss,
+    // and that must not eat into the lock's time (see CREATE_LOCK_SECONDS).
+    const bankName = await this.bankNameFor(input.bankCode);
+
     // A lock in Redis, so a double click can't create two subaccounts at Paystack.
     // SET ... NX only sets the key if it doesn't exist yet; EX makes it expire on its own
     // if this process dies before releasing it.
@@ -131,7 +142,7 @@ export class PayoutsService {
     }
 
     try {
-      return await this.createAccountWhileLocked(sellerId, input);
+      return await this.createAccountWhileLocked(sellerId, input, bankName);
     } finally {
       // Release the lock, but only if it is still ours (it may have expired and been
       // taken by another request in the meantime).
@@ -142,9 +153,11 @@ export class PayoutsService {
     }
   }
 
+  /** The locked part: two database queries and two Paystack calls, nothing else. */
   private async createAccountWhileLocked(
     sellerId: string,
     input: PayoutAccountInput,
+    bankName: string,
   ): Promise<SavedPayoutAccount> {
     const sellerRows = await this.db
       .select({
@@ -163,7 +176,6 @@ export class PayoutsService {
       throw accountExists();
     }
 
-    const bankName = await this.bankNameFor(input.bankCode);
     const accountName = await this.resolveWithPaystack(sellerId, input, bankName);
 
     let subaccountCode: string;
@@ -176,7 +188,13 @@ export class PayoutsService {
       subaccountCode = created.subaccountCode;
     } catch (error) {
       this.logPaystackFailure(`createSubaccount for seller ${sellerId}`, error);
-      if (error instanceof PaystackError && isClientError(error.status)) {
+      // Only "these details are wrong" is the seller's to fix. Anything else (our key
+      // refused with 401/403, Paystack down, timeout) gets the retryable answer.
+      if (
+        error instanceof PaystackError &&
+        error.status !== undefined &&
+        DETAILS_REJECTED_STATUSES.has(error.status)
+      ) {
         throw new BadRequestException({
           statusCode: 400,
           message:
@@ -314,6 +332,11 @@ export class PayoutsService {
       if (error.status !== undefined) {
         status = `status ${error.status}`;
       }
+      // 401/403 = Paystack refused our secret key: a setup problem someone must fix.
+      if (error.status === 401 || error.status === 403) {
+        this.logger.error(`Paystack ${what} failed (${status}): check PAYSTACK_SECRET_KEY`);
+        return;
+      }
       this.logger.warn(`Paystack ${what} failed (${status})`);
       return;
     }
@@ -327,11 +350,4 @@ function accountExists() {
     code: "PAYOUT_ACCOUNT_EXISTS",
     message: "Your shop already has a payout account. To change it, email support@gbam.app.",
   });
-}
-
-function isClientError(status: number | undefined): boolean {
-  if (status === undefined) {
-    return false;
-  }
-  return status >= 400 && status < 500;
 }

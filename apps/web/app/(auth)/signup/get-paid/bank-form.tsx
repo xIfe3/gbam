@@ -8,6 +8,11 @@ import { createPayoutAccountAction, resolveAccountAction, type ResolveState } fr
 
 type Bank = { name: string; code: string };
 
+/** "0123 456-789" → "0123456789" (people paste account numbers with spaces or dashes). */
+function onlyDigits(value: string): string {
+  return value.replace(/\D/g, "");
+}
+
 const selectClasses =
   "min-h-11 w-full rounded-xl border-2 border-brand-tint bg-white px-4 text-base text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand aria-[invalid=true]:border-coral-deep";
 
@@ -142,9 +147,10 @@ export function BankForm({ banks }: { banks: Bank[] }) {
           name="accountNumber"
           inputMode="numeric"
           autoComplete="off"
-          maxLength={10}
+          // No maxLength on purpose: it would cut a pasted "0123 456 789" before the spaces
+          // are removed. We keep the digits only, then stop at 10.
           value={accountNumber}
-          onChange={(event) => setAccountNumber(event.target.value.replace(/\D/g, ""))}
+          onChange={(event) => setAccountNumber(onlyDigits(event.target.value).slice(0, 10))}
           hint="10 digits. We check it with your bank before saving anything."
           error={resolveState.fieldErrors?.accountNumber}
         />

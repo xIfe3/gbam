@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 // The real actions need the server; the form only needs something to point at.
@@ -29,12 +29,26 @@ describe("BankForm", () => {
 
     const number = screen.getByRole("textbox", { name: "Account number" });
     expect(number).toHaveAttribute("inputmode", "numeric");
-    expect(number).toHaveAttribute("maxlength", "10");
 
     expect(screen.getByRole("button", { name: "Check account" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "Skip for now" })).toHaveAttribute(
       "href",
       "/dashboard",
     );
+  });
+
+  it("keeps all 10 digits of a pasted number with spaces, and stops at 10 digits", () => {
+    render(<BankForm banks={BANKS} />);
+    const number = screen.getByRole("textbox", { name: "Account number" });
+
+    // No maxLength: the browser would cut "0123 456 789" to "0123 456 7" before we could
+    // remove the spaces.
+    expect(number).not.toHaveAttribute("maxlength");
+
+    fireEvent.change(number, { target: { value: "0123 456 789" } });
+    expect(number).toHaveValue("0123456789");
+
+    fireEvent.change(number, { target: { value: "0123-456-789-99" } });
+    expect(number).toHaveValue("0123456789");
   });
 });

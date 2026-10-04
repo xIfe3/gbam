@@ -50,17 +50,13 @@ function payoutFailure(error: unknown, values: Record<string, string>, action: s
   return { error: failureMessage(error, action), values };
 }
 
-function isAccountExists(error: unknown): boolean {
+/** True for an API 409 whose body has this `code` (e.g. "PAYOUT_ACCOUNT_EXISTS"). */
+function isConflict(error: unknown, code: string): boolean {
   if (!(error instanceof ApiError) || error.status !== 409) {
     return false;
   }
   const body = error.body;
-  return (
-    typeof body === "object" &&
-    body !== null &&
-    "code" in body &&
-    body.code === "PAYOUT_ACCOUNT_EXISTS"
-  );
+  return typeof body === "object" && body !== null && "code" in body && body.code === code;
 }
 
 /** "Check account": asks the API (and so Paystack) whose account this is. Saves nothing. */
@@ -108,8 +104,12 @@ export async function createPayoutAccountAction(
   } catch (error) {
     unstable_rethrow(error);
     // Already set up (e.g. a second tab finished first): nothing left to do here.
-    if (isAccountExists(error)) {
+    if (isConflict(error, "PAYOUT_ACCOUNT_EXISTS")) {
       redirect("/dashboard");
+    }
+    // Another request (e.g. a double click) is creating the account right now.
+    if (isConflict(error, "PAYOUT_SETUP_IN_PROGRESS")) {
+      return { error: "We're already setting this up. Refresh in a minute.", values };
     }
     return payoutFailure(error, values, "create payout account");
   }
