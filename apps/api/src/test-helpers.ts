@@ -21,8 +21,7 @@ type TestProductInput = {
 
 /**
  * Creates a product with a random slug and its one default variant (no options).
- * Until the old products.price_kobo / stock / is_active columns are removed, those are
- * filled too so older code keeps working.
+ * Price and stock go on the variant.
  */
 export async function createTestProduct(
   db: Db,
@@ -46,9 +45,6 @@ export async function createTestProduct(
         name,
         slug: `test-${randomUUID().slice(0, 8)}`,
         status,
-        priceKobo,
-        stock,
-        isActive: status === "active",
       })
       .returning();
     const product = productRows[0];

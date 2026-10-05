@@ -272,7 +272,7 @@ describe("Photo endpoints over HTTP (integration)", () => {
 
     const productRows = await db
       .insert(products)
-      .values({ sellerId: seller.sellerId, name: "Cleanup product", priceKobo: 20_000 })
+      .values({ sellerId: seller.sellerId, name: "Cleanup product", slug: `cleanup-${Date.now()}` })
       .returning();
     const product = productRows[0];
     if (!product) {

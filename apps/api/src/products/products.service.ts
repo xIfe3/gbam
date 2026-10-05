@@ -243,8 +243,6 @@ export class ProductsService {
         throw new BadRequestException("A product needs at least one variant");
       }
 
-      // priceKobo / stock / isActive are the old single-price columns, still read by
-      // older code until they are removed. They mirror the first variant.
       const inserted = await tx
         .insert(products)
         .values({
@@ -253,9 +251,6 @@ export class ProductsService {
           slug,
           description: descriptionOf(input),
           status: "active",
-          priceKobo: firstVariant.priceKobo,
-          stock: firstVariant.stock,
-          isActive: true,
         })
         .returning({ id: products.id });
       const row = inserted[0];
@@ -313,8 +308,6 @@ export class ProductsService {
         .set({
           name: input.name,
           description: descriptionOf(input),
-          priceKobo: firstVariant.priceKobo,
-          stock: firstVariant.stock,
           version: product.version + 1,
           updatedAt: new Date(),
         })
@@ -344,7 +337,7 @@ export class ProductsService {
   ): Promise<void> {
     const updated = await this.db
       .update(products)
-      .set({ status, isActive: status === "active", updatedAt: new Date() })
+      .set({ status, updatedAt: new Date() })
       .where(
         and(
           eq(products.id, productId),
@@ -379,7 +372,7 @@ export class ProductsService {
         // instead of deleted.
         await tx
           .update(products)
-          .set({ status: "archived", isActive: false, updatedAt: new Date() })
+          .set({ status: "archived", updatedAt: new Date() })
           .where(eq(products.id, productId));
         const noKeys: string[] = [];
         return { archived: true, keys: noKeys };

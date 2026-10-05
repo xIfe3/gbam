@@ -82,8 +82,6 @@ if (existing === 0) {
           sellerId: seller.id,
           name: demo.name,
           slug: demo.slug,
-          priceKobo: demo.priceKobo,
-          stock: demo.stock,
         })
         .returning();
       if (!product) throw new Error("Expected the demo product");

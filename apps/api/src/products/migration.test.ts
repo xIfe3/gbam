@@ -193,6 +193,13 @@ describe("createTestProduct (dev database)", () => {
     await handle.close();
   });
 
+  it("products no longer has price_kobo, stock or is_active", async () => {
+    const rows = await handle.db.execute(sql`
+      SELECT column_name FROM information_schema.columns
+      WHERE table_name = 'products' AND column_name IN ('price_kobo', 'stock', 'is_active')`);
+    expect(rows).toHaveLength(0);
+  });
+
   it("createTestProduct makes a product with one default variant", async () => {
     const { product, variant } = await createTestProduct(handle.db, sellerId, {
       name: "Zobo",

@@ -187,22 +187,12 @@ export const products = pgTable(
     name: text("name").notNull(),
     /**
      * Set once when the product is created, never changed. Unique within a shop.
-     * (The default below is temporary: it lets older code that inserts without a slug
-     * keep working. Task 8 removes it and every insert passes a real slug.)
      */
-    slug: text("slug")
-      .notNull()
-      .$defaultFn(() => globalThis.crypto.randomUUID()),
+    slug: text("slug").notNull(),
     description: text("description"),
     status: productStatusEnum("status").notNull().default("active"),
     /** Optimistic-lock counter: bumped on every save so a stale editor is detected. */
     version: integer("version").notNull().default(1),
-    // The next three columns are the old single-price model. Task 8 removes them
-    // (price and stock now live on product_variants).
-    priceKobo: kobo("price_kobo"),
-    /** null = untracked stock. */
-    stock: integer("stock"),
-    isActive: boolean("is_active").notNull().default(true),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
