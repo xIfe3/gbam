@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
+import { PendingButton } from "@/components/brand/form-bits";
 import { Logo } from "@/components/brand/logo";
 import { api, type TourStates } from "@/lib/api";
 import { DashboardNav } from "./dashboard-nav";
@@ -51,12 +52,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
           <div className="flex items-center gap-2">
             <HelpButton />
             <form action={logoutAction}>
-              <button
-                type="submit"
-                className="text-ink focus-visible:outline-brand hover:bg-brand-tint min-h-11 rounded-full border-2 border-brand-tint px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+              <PendingButton
+                pendingLabel="Logging out…"
+                className="text-ink focus-visible:outline-brand hover:bg-brand-tint min-h-11 rounded-full border-2 border-brand-tint px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
               >
                 Log out
-              </button>
+              </PendingButton>
             </form>
           </div>
         </header>

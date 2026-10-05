@@ -3,7 +3,12 @@
 import { useActionState } from "react";
 import { CodeInput } from "@/components/brand/fields";
 import { Button } from "@/components/brand/button";
-import { FormError, FormNotice, SubmitButton } from "@/components/brand/form-bits";
+import {
+  FormError,
+  FormNotice,
+  PendingButton,
+  SubmitButton,
+} from "@/components/brand/form-bits";
 import { logoutAction } from "../../actions";
 import { resendCodeAction, verifyEmailAction } from "../actions";
 
@@ -33,9 +38,12 @@ export function VerifyForm({ email }: { email: string }) {
       {/* Wrong email, or an account that is not yours: let them leave without verifying. */}
       <form action={logoutAction} className="border-brand-tint border-t pt-4">
         <p className="text-ink-muted mb-2 text-sm">Wrong email address?</p>
-        <Button variant="ghost" type="submit">
+        <PendingButton
+          pendingLabel="Logging out…"
+          className="text-brand hover:bg-coral-wash focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
+        >
           Log out and use a different email
-        </Button>
+        </PendingButton>
       </form>
     </div>
   );

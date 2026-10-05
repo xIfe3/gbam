@@ -20,6 +20,26 @@ export function SubmitButton({
   );
 }
 
+// The same idea for buttons that keep their own look (e.g. "Log out" in a header): while the
+// form is sending, show `pendingLabel` and disable the button so it can't be tapped twice.
+export function PendingButton({
+  children,
+  pendingLabel,
+  className,
+}: {
+  children: React.ReactNode;
+  pendingLabel: string;
+  className: string;
+}) {
+  // useFormStatus: React tells us whether the <form> around this button is still sending.
+  const { pending } = useFormStatus();
+  return (
+    <button type="submit" disabled={pending} aria-busy={pending} className={className}>
+      {pending ? pendingLabel : children}
+    </button>
+  );
+}
+
 // The form-level error ("wrong password", "try again in 15 minutes"). Ink text on a coral
 // wash keeps contrast above 4.5:1 (coral-deep text on that wash would not).
 export function FormError({ message }: { message?: string }) {
