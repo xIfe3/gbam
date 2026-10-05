@@ -90,13 +90,42 @@ describe("products page", () => {
     expect(screen.queryByText("Visible one")).not.toBeInTheDocument();
   });
 
-  it("shows the empty state with an add button", async () => {
+  it("shows the first-product empty state with the three steps and an add button", async () => {
     vi.mocked(api.listProducts).mockResolvedValue([]);
     render(await ProductsPage(props()));
-    expect(screen.getByText("No products yet")).toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Add your first product" })).toHaveAttribute(
+    expect(screen.getByRole("heading", { name: "Add your first product" })).toBeInTheDocument();
+    expect(
+      screen.getByText("Snap a photo, set a price, then share the link on WhatsApp."),
+    ).toBeInTheDocument();
+    const steps = screen.getByRole("list", { name: "How it works" });
+    expect(steps).toHaveTextContent("Photo");
+    expect(steps).toHaveTextContent("Price & options");
+    expect(steps).toHaveTextContent("Share");
+    // Both the header button and the empty-state button go to the new-product page.
+    const addLinks = screen.getAllByRole("link", { name: /Add product/ });
+    expect(addLinks.length).toBe(2);
+    for (const link of addLinks) {
+      expect(link).toHaveAttribute("href", "/dashboard/products/new");
+    }
+  });
+
+  it("explains an empty filter and links back to all products", async () => {
+    vi.mocked(api.listProducts).mockResolvedValue([item({ status: "active" })] as never);
+    render(await ProductsPage(props("hidden")));
+    expect(
+      screen.getByRole("heading", { name: "No hidden products right now" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Show all products" })).toHaveAttribute(
       "href",
-      "/dashboard/products/new",
+      "/dashboard/products",
     );
+  });
+
+  it("explains an empty Showing filter", async () => {
+    vi.mocked(api.listProducts).mockResolvedValue([item({ status: "hidden" })] as never);
+    render(await ProductsPage(props("showing")));
+    expect(
+      screen.getByRole("heading", { name: "No products showing on your shop" }),
+    ).toBeInTheDocument();
   });
 });

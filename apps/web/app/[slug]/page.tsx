@@ -2,6 +2,7 @@ import { formatNaira, RESERVED_SLUGS } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { EmptyState } from "@/components/brand/empty-state";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
 import { BasketBar } from "./basket-bar";
@@ -58,9 +59,15 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         </p>
       </header>
       {products.length === 0 ? (
-        <p className="border-brand-tint text-ink-muted rounded-2xl border-2 border-dashed p-6 text-center">
-          No products yet.
-        </p>
+        <EmptyState
+          art={
+            <span aria-hidden="true" className="text-4xl">
+              🛍️
+            </span>
+          }
+          title="This shop is still setting up"
+          description="Check back soon, or message the seller on WhatsApp."
+        />
       ) : (
         <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
           {products.map((product) => {

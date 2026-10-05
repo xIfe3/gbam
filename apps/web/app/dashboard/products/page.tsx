@@ -2,7 +2,9 @@
 import { formatNaira } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EmptyState, ProductsArt } from "@/components/brand/empty-state";
 import { api, type ProductListItem } from "@/lib/api";
+import { AddProductLink } from "./add-product-link";
 
 export const metadata: Metadata = {
   title: "Products",
@@ -58,6 +60,19 @@ function isLowStock(product: ProductListItem): boolean {
 
 const PILL = "rounded-full px-2.5 py-0.5 text-xs font-medium";
 
+/** The three steps shown to a seller who has no products yet. */
+const FIRST_PRODUCT_STEPS = ["📷 Photo", "₦ Price & options", "🔗 Share"];
+
+/** What to say when a filter tab has nothing in it. */
+const EMPTY_FILTER_TITLE: Record<"showing" | "hidden", string> = {
+  showing: "No products showing on your shop",
+  hidden: "No hidden products right now",
+};
+const EMPTY_FILTER_HELP: Record<"showing" | "hidden", string> = {
+  showing: "Customers can't see anything yet. Open a product and tap Show to put it on your shop.",
+  hidden: "Products you hide stay saved here, off your shop.",
+};
+
 /** /dashboard/products: the seller's product list (server component, reads the API directly). */
 export default async function ProductsPage(props: PageProps<"/dashboard/products">) {
   const searchParams = await props.searchParams;
@@ -81,12 +96,7 @@ export default async function ProductsPage(props: PageProps<"/dashboard/products
     <main>
       <div className="mb-4 flex items-center justify-between gap-3">
         <h1 className="text-ink text-xl font-bold">Products</h1>
-        <Link
-          href="/dashboard/products/new"
-          className="bg-brand text-ink focus-visible:outline-brand flex min-h-11 items-center rounded-full px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
-        >
-          Add product
-        </Link>
+        <AddProductLink>Add product</AddProductLink>
       </div>
 
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter products">
@@ -103,21 +113,31 @@ export default async function ProductsPage(props: PageProps<"/dashboard/products
       </nav>
 
       {products.length === 0 && show === "all" && (
-        <div className="border-brand-tint rounded-xl border-2 border-dashed p-8 text-center">
-          <p className="text-ink mb-4 font-bold">No products yet</p>
-          <Link
-            href="/dashboard/products/new"
-            className="bg-brand text-ink focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
-            Add your first product
-          </Link>
-        </div>
+        <EmptyState
+          art={<ProductsArt />}
+          title="Add your first product"
+          description="Snap a photo, set a price, then share the link on WhatsApp."
+        >
+          <ol aria-label="How it works" className="flex flex-wrap justify-center gap-2 text-xs">
+            {FIRST_PRODUCT_STEPS.map((step) => (
+              <li key={step} className="bg-brand-tint text-ink rounded-full px-3 py-1 font-bold">
+                {step}
+              </li>
+            ))}
+          </ol>
+          <AddProductLink>+ Add product</AddProductLink>
+        </EmptyState>
       )}
 
       {products.length === 0 && show !== "all" && (
-        <p className="border-brand-tint text-ink-muted rounded-xl border-2 border-dashed p-8 text-center">
-          No products in this view.
-        </p>
+        <EmptyState title={EMPTY_FILTER_TITLE[show]} description={EMPTY_FILTER_HELP[show]}>
+          <Link
+            href="/dashboard/products"
+            className="border-brand-tint text-ink focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full border-2 bg-white px-5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Show all products
+          </Link>
+        </EmptyState>
       )}
 
       {products.length > 0 && (

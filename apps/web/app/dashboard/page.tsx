@@ -1,8 +1,11 @@
 import { formatNaira, orderStatusSchema, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { EmptyState, OrdersArt } from "@/components/brand/empty-state";
 import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
+import { SITE_URL } from "@/lib/site";
+import { CopyLinkButton } from "./copy-link-button";
 import { StatusBadge } from "./status-badge";
 
 export const metadata: Metadata = {
@@ -43,6 +46,16 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
     emptyMessage = `No orders with status "${STATUS_LABEL[status]}".`;
   }
 
+  // With no orders at all, help the seller get their first one: show their shop link.
+  // (currentUser is cached per request, so this doesn't call the API a second time.)
+  let shopSlug: string | null = null;
+  if (orders.length === 0 && !status) {
+    const user = await api.currentUser();
+    if (user.seller) {
+      shopSlug = user.seller.slug;
+    }
+  }
+
   return (
     <main>
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter by status">
@@ -59,7 +72,20 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
         ))}
       </nav>
 
-      {orders.length === 0 && (
+      {orders.length === 0 && shopSlug !== null && (
+        <EmptyState
+          art={<OrdersArt />}
+          title="No orders yet"
+          description="Share your shop link on WhatsApp or your Status to get your first order."
+        >
+          <p className="border-coral-tint bg-blush text-ink w-full max-w-xs rounded-lg border border-dashed px-3 py-2 text-sm break-all select-all">
+            {shopLinkText(shopSlug)}
+          </p>
+          <CopyLinkButton url={`${SITE_URL}/${shopSlug}`} />
+        </EmptyState>
+      )}
+
+      {orders.length === 0 && shopSlug === null && (
         <p className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-zinc-500">
           {emptyMessage}
         </p>
@@ -90,6 +116,12 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
       )}
     </main>
   );
+}
+
+/** "gbam.app/mama-ngozi": the shop address without "https://", easier to read. */
+function shopLinkText(slug: string): string {
+  const host = new URL(SITE_URL).host;
+  return `${host}/${slug}`;
 }
 
 /** "just now", "5m ago", "3h ago", or a date like "2 Oct". */

@@ -2,6 +2,7 @@
 import "server-only";
 import type { OrderStatus } from "@gbam/shared";
 import { headers } from "next/headers";
+import { cache } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { pickVisitorIp, trustedProxyHops } from "./client-ip";
 import { PATH_HEADER } from "./path-header";
@@ -480,10 +481,14 @@ async function logout() {
   return request<{ ok: true }>("/auth/logout", { method: "POST", auth: "token" });
 }
 
-/** The logged-in user. A missing/expired session redirects to /login. */
-async function currentUser() {
+/**
+ * The logged-in user. A missing/expired session redirects to /login.
+ * React's cache() remembers the answer for the rest of this one page render, so the
+ * dashboard layout and the page can both ask without calling the API twice.
+ */
+const currentUser = cache(async function currentUser() {
   return request<PublicUser>("/auth/me", { auth: "session" });
-}
+});
 
 /** The logged-in user, or null (no cookie, dead session, or API trouble). Never redirects. */
 async function currentUserOrNull(): Promise<PublicUser | null> {

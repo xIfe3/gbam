@@ -52,7 +52,8 @@ describe("PhotoPicker", () => {
 
     await waitFor(() => expect(screen.getByRole("img", { name: "Photo 1" })).toBeInTheDocument());
     expect(actions.uploadPhotoAction).toHaveBeenCalledTimes(2);
-    expect(latest.map((p) => p.id)).toEqual(["new"]);
+    // The tile can appear a moment before the parent's list updates, so wait for both.
+    await waitFor(() => expect(latest.map((p) => p.id)).toEqual(["new"]));
     expect(screen.queryByText("We can't read this photo. Try a JPEG or PNG.")).toBeNull();
   });
 
