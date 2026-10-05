@@ -20,3 +20,12 @@
 body {
   @apply bg-blush text-ink antialiased;
 }
+
+/* The element a guided-tour step is talking about (set by app/dashboard/tours/tour-card.tsx). */
+[data-tour-active] {
+  outline: 3px solid var(--color-brand);
+  outline-offset: 4px;
+  box-shadow: 0 0 0 8px var(--color-brand-tint);
+  border-radius: 12px;
+  transition: box-shadow 200ms ease;
+}

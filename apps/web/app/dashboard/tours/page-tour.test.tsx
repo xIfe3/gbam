@@ -1,0 +1,124 @@
+import { act, fireEvent, render, screen } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("./actions", () => ({
+  saveTourStepAction: vi.fn().mockResolvedValue({ ok: true }),
+  finishTourAction: vi.fn().mockResolvedValue({ ok: true }),
+}));
+
+import { finishTourAction, saveTourStepAction } from "./actions";
+import { PageTourWith } from "./page-tour";
+import { ToursProvider, useTours } from "./tours-provider";
+
+const save = vi.mocked(saveTourStepAction);
+const finish = vi.mocked(finishTourAction);
+
+/** A pretend "?" button that replays the page's tour through the provider. */
+function ReplayButton() {
+  const tours = useTours();
+  return (
+    <button type="button" onClick={() => tours?.replayCurrent()}>
+      replay
+    </button>
+  );
+}
+
+describe("PageTour", () => {
+  beforeEach(() => {
+    save.mockClear();
+    finish.mockClear();
+    save.mockResolvedValue({ ok: true });
+  });
+
+  it("opens on step 1 for a tour never started", () => {
+    render(<PageTourWith tour="editor" saved={undefined} />);
+    expect(screen.getByRole("dialog")).toHaveTextContent("1 of 5");
+    expect(screen.getByRole("heading", { name: "Add 1 to 4 photos" })).toBeInTheDocument();
+  });
+
+  it("resumes on the saved step", () => {
+    render(<PageTourWith tour="editor" saved={{ step: 3, outcome: null }} />);
+    expect(screen.getByRole("dialog")).toHaveTextContent("3 of 5");
+  });
+
+  it("resumes on the last step when the saved step is past the end of a shorter tour", () => {
+    render(<PageTourWith tour="order" saved={{ step: 9, outcome: null }} />);
+    expect(screen.getByRole("dialog")).toHaveTextContent("3 of 3");
+  });
+
+  it("saves the step going forward and back", () => {
+    render(<PageTourWith tour="editor" saved={{ step: 2, outcome: null }} />);
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(save).toHaveBeenLastCalledWith("editor", 3);
+    fireEvent.click(screen.getByRole("button", { name: "Back" }));
+    expect(save).toHaveBeenLastCalledWith("editor", 2);
+    expect(screen.getByRole("dialog")).toHaveTextContent("2 of 5");
+  });
+
+  it("keeps going when saving fails (offline)", async () => {
+    save.mockRejectedValue(new Error("offline"));
+    render(<PageTourWith tour="editor" saved={undefined} />);
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    });
+    expect(screen.getByRole("dialog")).toHaveTextContent("2 of 5");
+  });
+
+  it("Skip records skipped and closes; Esc does the same", () => {
+    const { unmount } = render(<PageTourWith tour="dashboard" saved={undefined} />);
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    expect(finish).toHaveBeenCalledWith("dashboard", "skipped");
+    expect(screen.queryByRole("dialog")).toBeNull();
+    unmount();
+
+    render(<PageTourWith tour="dashboard" saved={undefined} />);
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(finish).toHaveBeenCalledTimes(2);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("Done on the last step records completed", () => {
+    render(<PageTourWith tour="order" saved={{ step: 3, outcome: null }} />);
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(finish).toHaveBeenCalledWith("order", "completed");
+  });
+
+  it("never opens by itself once completed or skipped", () => {
+    const { unmount } = render(
+      <PageTourWith tour="editor" saved={{ step: 5, outcome: "completed" }} />,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    unmount();
+    render(<PageTourWith tour="editor" saved={{ step: 2, outcome: "skipped" }} />);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("the ? replay starts from step 1 and saves nothing", () => {
+    render(
+      <ToursProvider states={{}}>
+        <PageTourWith tour="order" saved={{ step: 2, outcome: "completed" }} />
+        <ReplayButton />
+      </ToursProvider>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "replay" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("1 of 3");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    expect(save).not.toHaveBeenCalled();
+    expect(finish).not.toHaveBeenCalled();
+  });
+
+  it("makes the element of the current step glow", () => {
+    render(
+      <>
+        <div data-tour="photos">photos area</div>
+        <PageTourWith tour="editor" saved={undefined} />
+      </>,
+    );
+    expect(screen.getByText("photos area")).toHaveAttribute("data-tour-active");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(screen.getByText("photos area")).not.toHaveAttribute("data-tour-active");
+  });
+});

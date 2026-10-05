@@ -560,8 +560,36 @@ async function createPayoutAccount(body: PayoutAccountBody) {
   });
 }
 
+/** How far the seller got in one guided tour. outcome is null while it's unfinished. */
+export type TourState = { step: number; outcome: "completed" | "skipped" | null };
+export type TourStates = Partial<Record<"dashboard" | "editor" | "order", TourState>>;
+
+/** Every tour this seller has started. Cached per render like currentUser. */
+const getTours = cache(async function getTours() {
+  return request<TourStates>("/tours", { auth: "session" });
+});
+
+async function saveTourStep(tour: string, step: number) {
+  return request<TourState>(`/tours/${encodeURIComponent(tour)}/step`, {
+    method: "PUT",
+    body: JSON.stringify({ step }),
+    auth: "session",
+  });
+}
+
+async function finishTour(tour: string, outcome: "completed" | "skipped") {
+  return request<TourState>(`/tours/${encodeURIComponent(tour)}/finish`, {
+    method: "POST",
+    body: JSON.stringify({ outcome }),
+    auth: "session",
+  });
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  getTours,
+  saveTourStep,
+  finishTour,
   listBanks,
   resolvePayoutAccount,
   createPayoutAccount,
