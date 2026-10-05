@@ -165,9 +165,45 @@ function isUnverifiedBody(body: unknown): boolean {
 
 // ---- Response shapes (mirror the API until we share response types) ----
 
+/** One product card on the shop grid. */
+export type StorefrontProductCard = {
+  slug: string;
+  name: string;
+  photoUrl: string | null;
+  minPriceKobo: number;
+  maxPriceKobo: number;
+  soldOut: boolean;
+};
+
 export type Storefront = {
   store: { slug: string; businessName: string };
-  products: { id: string; name: string; description: string | null; priceKobo: number }[];
+  products: StorefrontProductCard[];
+};
+
+export type StorefrontVariant = {
+  id: string;
+  /** Aligned with the product options order; [] for a product with no options. */
+  optionValues: string[];
+  title: string;
+  priceKobo: number;
+  /** null = the seller does not track stock for this variant. */
+  stock: number | null;
+  imageId: string | null;
+};
+
+export type StorefrontProduct = {
+  slug: string;
+  name: string;
+  description: string | null;
+  /** In display order; the first is the main photo. */
+  images: { id: string; largeUrl: string; smallUrl: string }[];
+  options: { name: string; values: string[] }[];
+  variants: StorefrontVariant[];
+};
+
+export type StorefrontProductPage = {
+  store: { slug: string; businessName: string };
+  product: StorefrontProduct;
 };
 
 export type Order = {
@@ -235,6 +271,12 @@ export type ContentEntryDto = ContentSummary & {
 
 async function storefront(slug: string) {
   return request<Storefront>(`/storefront/${encodeURIComponent(slug)}`);
+}
+
+async function storefrontProduct(slug: string, productSlug: string) {
+  return request<StorefrontProductPage>(
+    `/storefront/${encodeURIComponent(slug)}/products/${encodeURIComponent(productSlug)}`,
+  );
 }
 
 async function placeOrder(slug: string, body: unknown) {
@@ -421,6 +463,7 @@ export const api = {
   resetPassword,
   sendContactMessage,
   storefront,
+  storefrontProduct,
   placeOrder,
   listOrders,
   getOrder,
