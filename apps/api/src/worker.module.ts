@@ -6,6 +6,8 @@ import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { NotificationsProcessor } from "./notifications/notifications.processor.js";
 import { PaymentsModule } from "./payments/payments.module.js";
+import { PhotoCleanupProcessor } from "./products/photo-cleanup.processor.js";
+import { ProductsModule } from "./products/products.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { PaymentsProcessor } from "./payments/payments.processor.js";
 
@@ -17,8 +19,9 @@ import { PaymentsProcessor } from "./payments/payments.processor.js";
     EmailModule,
     NotificationsModule,
     PaymentsModule,
+    ProductsModule,
     WhatsAppModule,
   ],
-  providers: [NotificationsProcessor, PaymentsProcessor, EmailProcessor],
+  providers: [NotificationsProcessor, PaymentsProcessor, EmailProcessor, PhotoCleanupProcessor],
 })
 export class WorkerModule {}

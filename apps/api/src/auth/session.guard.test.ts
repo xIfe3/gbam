@@ -13,6 +13,7 @@ import { DomainErrorsFilter } from "../common/domain-errors.filter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import type { EmailJob } from "../email/templates.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
+import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { ProductsModule } from "../products/products.module.js";
@@ -41,7 +42,8 @@ describe("SessionGuard over HTTP (integration)", () => {
   beforeAll(async () => {
     const fakeQueue = { send: async (_jobId: string, _job: EmailJob) => {} };
     moduleRef = await Test.createTestingModule({
-      imports: [InfraModule, AuthModule, OrdersModule, ProductsModule],
+      // IntegrationsModule is global and provides the photo storage ProductsModule needs.
+      imports: [InfraModule, IntegrationsModule, AuthModule, OrdersModule, ProductsModule],
     })
       .overrideProvider(EmailQueue)
       .useValue(fakeQueue)

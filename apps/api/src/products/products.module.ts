@@ -11,12 +11,17 @@ import {
   Post,
   UseGuards,
 } from "@nestjs/common";
+import { BullModule } from "@nestjs/bullmq";
 import { and, asc, eq } from "drizzle-orm";
 import { AuthModule } from "../auth/auth.module.js";
 import { CurrentSellerId } from "../auth/current-user.js";
 import { SessionGuard } from "../auth/session.guard.js";
+import { RateLimiterModule } from "../common/rate-limiter.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { PHOTO_CLEANUP_QUEUE, PhotoCleanupQueue } from "./photo-cleanup.queue.js";
+import { PhotosController } from "./photos.controller.js";
+import { PhotosService } from "./photos.service.js";
 
 @Injectable()
 export class ProductsService {
@@ -90,8 +95,13 @@ export class StorefrontController {
 }
 
 @Module({
-  imports: [AuthModule],
-  controllers: [ProductsController, StorefrontController],
-  providers: [ProductsService],
+  imports: [
+    AuthModule,
+    RateLimiterModule,
+    BullModule.registerQueue({ name: PHOTO_CLEANUP_QUEUE }),
+  ],
+  controllers: [ProductsController, StorefrontController, PhotosController],
+  providers: [ProductsService, PhotosService, PhotoCleanupQueue],
+  exports: [PhotosService],
 })
 export class ProductsModule {}
