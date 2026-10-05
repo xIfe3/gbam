@@ -2,6 +2,7 @@ import { formatNaira, nextStatuses } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { FormError } from "@/components/brand/form-bits";
 import { api, ApiError } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "../../status-badge";
@@ -83,19 +84,28 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
         )}
       </section>
 
+      {order.stockShortfall && <FormError message="Stock ran out: refund needed" />}
+
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="mb-2 font-semibold">Items</h2>
         <ul className="divide-y divide-zinc-100">
-          {order.items.map((item) => (
-            <li key={item.id} className="flex justify-between py-2">
-              <span>
-                {item.quantity} × {item.productName}
-              </span>
-              <span className="tabular-nums">
-                {formatNaira(item.unitPriceKobo * item.quantity)}
-              </span>
-            </li>
-          ))}
+          {order.items.map((item) => {
+            // Products without options have an empty variant title: show the name alone.
+            let label = item.productName;
+            if (item.variantTitle !== "") {
+              label = `${item.productName} – ${item.variantTitle}`;
+            }
+            return (
+              <li key={item.id} className="flex justify-between gap-4 py-2">
+                <span>
+                  {item.quantity} × {label}
+                </span>
+                <span className="tabular-nums">
+                  {formatNaira(item.unitPriceKobo * item.quantity)}
+                </span>
+              </li>
+            );
+          })}
         </ul>
         <p className="mt-2 flex justify-between border-t border-zinc-200 pt-2 font-semibold">
           <span>Total</span>

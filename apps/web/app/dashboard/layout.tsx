@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
 import { Logo } from "@/components/brand/logo";
 import { api } from "@/lib/api";
+import { DashboardNav } from "./dashboard-nav";
 import { PayoutBanner } from "./payout-banner";
 
 // Keep private pages out of search results even if someone links to them.
@@ -43,6 +44,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </button>
         </form>
       </header>
+      <DashboardNav />
       {needsPayoutAccount && <PayoutBanner />}
       {children}
     </div>

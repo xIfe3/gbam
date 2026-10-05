@@ -40,7 +40,8 @@ function messageFromBody(body: unknown, status: number): string {
 
 type RequestOptions = {
   method?: string;
-  body?: string;
+  /** A JSON string, or FormData for file uploads. */
+  body?: string | FormData;
   /**
    * "none" (default): public route, no token.
    * "session": needs a logged-in user. No cookie or a 401 clears the cookie and redirects to
@@ -103,7 +104,9 @@ async function visitorIp(): Promise<string | undefined> {
 /** `<T>` is the shape of the JSON we expect back, e.g. request<Order>(...). */
 async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const requestHeaders = new Headers();
-  if (options.body) {
+  // For FormData we set NO content-type: fetch adds "multipart/form-data" together with the
+  // boundary text that separates the fields. Setting it by hand would leave the boundary out.
+  if (typeof options.body === "string") {
     requestHeaders.set("content-type", "application/json");
   }
   const auth = options.auth ?? "none";
@@ -131,6 +134,7 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     cache: "no-store", // always fetch fresh data, never a cached copy
   });
 
+  // 204 means "done, nothing to send back", so there is no JSON to read.
   let body: unknown = null;
   if (res.status !== 204) {
     try {
@@ -222,7 +226,16 @@ export type OrderListItem = Pick<Order, "id" | "code" | "status" | "totalKobo" |
 
 export type OrderDetail = Order & {
   customer: { name: string; phone: string };
-  items: { id: string; productName: string; unitPriceKobo: number; quantity: number }[];
+  items: {
+    id: string;
+    productName: string;
+    /** "" for a product with no options. */
+    variantTitle: string;
+    unitPriceKobo: number;
+    quantity: number;
+  }[];
+  /** True when stock ran out after the customer paid, so the seller must refund. */
+  stockShortfall: boolean;
   events: {
     id: string;
     fromStatus: OrderStatus | null;
@@ -247,6 +260,45 @@ export type OrderDetail = Order & {
     errorCode: number | null;
     errorMessage: string | null;
     createdAt: string;
+  }[];
+};
+
+// ---- Seller product management ----
+
+export type ProductStatus = "active" | "hidden";
+
+/** One row on the seller's products list (archived products are not included). */
+export type ProductListItem = {
+  id: string;
+  slug: string;
+  name: string;
+  status: ProductStatus;
+  mainPhotoUrl: string | null;
+  minPriceKobo: number;
+  maxPriceKobo: number;
+  variantCount: number;
+  /** null = stock is not tracked. */
+  totalStock: number | null;
+};
+
+export type ProductDetail = {
+  id: string;
+  slug: string;
+  name: string;
+  description: string | null;
+  status: ProductStatus;
+  /** Sent back on save so the API can spot an edit made somewhere else in between. */
+  version: number;
+  images: { id: string; position: number; largeUrl: string; smallUrl: string }[];
+  options: { name: string; values: string[] }[];
+  variants: {
+    id: string;
+    optionValues: string[];
+    title: string;
+    priceKobo: number;
+    stock: number | null;
+    imageId: string | null;
+    isEnabled: boolean;
   }[];
 };
 
@@ -302,6 +354,63 @@ async function updateOrderStatus(id: string, status: OrderStatus) {
   return request<Order>(`/orders/${id}/status`, {
     method: "PATCH",
     body: JSON.stringify({ status }),
+    auth: "session",
+  });
+}
+
+async function listProducts() {
+  return request<ProductListItem[]>("/products", { auth: "session" });
+}
+
+async function getProduct(id: string) {
+  return request<ProductDetail>(`/products/${encodeURIComponent(id)}`, { auth: "session" });
+}
+
+async function createProduct(body: unknown) {
+  return request<ProductDetail>("/products", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+/** `body` includes the `version` the form was loaded with. */
+async function updateProduct(id: string, body: unknown) {
+  return request<ProductDetail>(`/products/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function setProductStatus(id: string, status: ProductStatus) {
+  // The API answers 204 with no body.
+  await request<null>(`/products/${encodeURIComponent(id)}/status`, {
+    method: "PATCH",
+    body: JSON.stringify({ status }),
+    auth: "session",
+  });
+}
+
+async function deleteProduct(id: string) {
+  return request<{ archived: boolean }>(`/products/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    auth: "session",
+  });
+}
+
+/** `formData` holds the file in a field called "photo". */
+async function uploadProductPhoto(formData: FormData) {
+  return request<{ id: string; smallUrl: string }>("/products/images", {
+    method: "POST",
+    body: formData,
+    auth: "session",
+  });
+}
+
+async function deleteProductPhoto(id: string) {
+  await request<null>(`/products/images/${encodeURIComponent(id)}`, {
+    method: "DELETE",
     auth: "session",
   });
 }
@@ -468,6 +577,14 @@ export const api = {
   listOrders,
   getOrder,
   updateOrderStatus,
+  listProducts,
+  getProduct,
+  createProduct,
+  updateProduct,
+  setProductStatus,
+  deleteProduct,
+  uploadProductPhoto,
+  deleteProductPhoto,
   listContent,
   getContent,
 };
