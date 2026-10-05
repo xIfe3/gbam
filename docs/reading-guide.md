@@ -105,6 +105,7 @@ in the terminal. You've now traced the whole journey.
 - [ ] `payments.service.ts` again: now read `confirm`.
 - [ ] `apps/api/src/scripts/simulate-payment.ts`: how we fake a payment locally.
 - [ ] `docs/integrations-setup.md`
+- [ ] `docs/deploy-railway.md`: putting it all online on Railway.
 
 **Try it:** request payment on an order, run `pnpm simulate:payment GB-XXXX`, and watch
 the order turn **Paid** in the dashboard.

@@ -1,3 +1,7 @@
+# For ONE server you manage yourself (e.g. a Hetzner VPS). Deploying on Railway? Use
+# docs/deploy-railway.md instead: Railway runs these parts as separate services and its
+# edge proxy replaces the reverse proxy described below.
+#
 # Production-shaped stack. Shows the deploy order your host must follow:
 #   migrate runs once and exits (migrations, then content sync) → only then api + worker start.
 #
