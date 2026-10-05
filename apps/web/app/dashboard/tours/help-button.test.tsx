@@ -1,5 +1,5 @@
 import { fireEvent, render, screen } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("./actions", () => ({
   saveTourStepAction: vi.fn().mockResolvedValue({ ok: true }),
@@ -8,9 +8,13 @@ vi.mock("./actions", () => ({
 
 import { HelpButton } from "./help-button";
 import { PageTour } from "./page-tour";
-import { ToursProvider } from "./tours-provider";
+import { forgetToursForTests, ToursProvider } from "./tours-provider";
 
 describe("HelpButton", () => {
+  beforeEach(() => {
+    forgetToursForTests();
+  });
+
   it("links to the help centre on a page without a tour", () => {
     render(
       <ToursProvider states={{}}>

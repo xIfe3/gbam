@@ -25,21 +25,39 @@ export function TourCard({ steps, step, onNext, onBack, onSkip, onDone }: TourCa
   const current = steps[step - 1];
   const isLast = step === steps.length;
 
-  // Glow the element this step talks about and bring it into view.
+  // Glow the element this step talks about and bring it into view. The element may not be on
+  // the page yet (e.g. the next step of the add-product form), so we also watch the page with a
+  // MutationObserver (the browser tells us when elements are added) and glow it when it appears.
   useEffect(() => {
     if (!current) {
       return;
     }
-    const target = document.querySelector(`[data-tour="${current.target}"]`);
-    if (!target) {
-      return;
+    const selector = `[data-tour="${current.target}"]`;
+    let glowing: Element | null = null;
+
+    function glow() {
+      const target = document.querySelector(selector);
+      if (target === null || target === glowing) {
+        return;
+      }
+      if (glowing) {
+        glowing.removeAttribute("data-tour-active");
+      }
+      glowing = target;
+      target.setAttribute("data-tour-active", "");
+      if (typeof target.scrollIntoView === "function") {
+        target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
     }
-    target.setAttribute("data-tour-active", "");
-    if (typeof target.scrollIntoView === "function") {
-      target.scrollIntoView({ block: "center", behavior: "smooth" });
-    }
+
+    glow();
+    const observer = new MutationObserver(glow);
+    observer.observe(document.body, { childList: true, subtree: true });
     return () => {
-      target.removeAttribute("data-tour-active");
+      observer.disconnect();
+      if (glowing) {
+        glowing.removeAttribute("data-tour-active");
+      }
     };
   }, [current]);
 
@@ -48,10 +66,22 @@ export function TourCard({ steps, step, onNext, onBack, onSkip, onDone }: TourCa
     cardRef.current?.focus();
   }, [step]);
 
-  // Esc skips the tour, like closing any dialog.
+  // Esc skips the tour, like closing a dialog. Skipping is permanent, so only when the card
+  // (or nothing in particular) has focus: an Esc typed in a form field or another dialog is not
+  // meant for us.
   useEffect(() => {
     function onKey(event: KeyboardEvent) {
-      if (event.key === "Escape") {
+      if (event.key !== "Escape" || event.defaultPrevented) {
+        return;
+      }
+      const active = document.activeElement;
+      const card = cardRef.current;
+      let insideCard = false;
+      if (card && active && card.contains(active)) {
+        insideCard = true;
+      }
+      const nothingFocused = active === null || active === document.body;
+      if (insideCard || nothingFocused) {
         onSkip();
       }
     }

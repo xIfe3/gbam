@@ -28,7 +28,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
     tourStates = await api.getTours();
   } catch (error) {
     unstable_rethrow(error);
-    console.error("loading tours failed", error instanceof Error ? error.message : "error");
+    let reason = "error";
+    if (error instanceof Error) {
+      reason = error.message;
+    }
+    console.error("loading tours failed", reason);
   }
 
   let shopName = user.email;
@@ -40,7 +44,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToursProvider states={tourStates}>
-      <div className="mx-auto max-w-3xl px-4 py-6 pb-56">
+      <div className="mx-auto max-w-3xl px-4 py-6">
         <header className="mb-6 flex items-center justify-between gap-3">
           <Link
             href="/dashboard"

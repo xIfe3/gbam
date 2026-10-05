@@ -26,6 +26,5 @@ body {
   outline: 3px solid var(--color-brand);
   outline-offset: 4px;
   box-shadow: 0 0 0 8px var(--color-brand-tint);
-  border-radius: 12px;
   transition: box-shadow 200ms ease;
 }

@@ -1,6 +1,7 @@
 "use server";
 
 import { tourNameSchema, tourOutcomeSchema, tourStepSchema } from "@gbam/shared";
+import { revalidatePath } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { api } from "@/lib/api";
 
@@ -24,7 +25,11 @@ export async function saveTourStepAction(tour: string, step: number): Promise<To
     return { ok: true };
   } catch (error) {
     unstable_rethrow(error);
-    console.error("saving tour step failed", error instanceof Error ? error.message : "error");
+    let reason = "error";
+    if (error instanceof Error) {
+      reason = error.message;
+    }
+    console.error("saving tour step failed", reason);
     return { ok: false };
   }
 }
@@ -37,10 +42,16 @@ export async function finishTourAction(tour: string, outcome: string): Promise<T
   }
   try {
     await api.finishTour(name.data, parsedOutcome.data);
+    // Drop Next's cached dashboard layout, so it reloads tour progress next time.
+    revalidatePath("/dashboard", "layout");
     return { ok: true };
   } catch (error) {
     unstable_rethrow(error);
-    console.error("finishing tour failed", error instanceof Error ? error.message : "error");
+    let reason = "error";
+    if (error instanceof Error) {
+      reason = error.message;
+    }
+    console.error("finishing tour failed", reason);
     return { ok: false };
   }
 }

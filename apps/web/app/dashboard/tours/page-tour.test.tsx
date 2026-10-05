@@ -8,7 +8,7 @@ vi.mock("./actions", () => ({
 
 import { finishTourAction, saveTourStepAction } from "./actions";
 import { PageTour, PageTourWith } from "./page-tour";
-import { ToursProvider, useTours } from "./tours-provider";
+import { forgetToursForTests, ToursProvider, useTours } from "./tours-provider";
 
 const save = vi.mocked(saveTourStepAction);
 const finish = vi.mocked(finishTourAction);
@@ -25,6 +25,7 @@ function ReplayButton() {
 
 describe("PageTour", () => {
   beforeEach(() => {
+    forgetToursForTests();
     save.mockClear();
     finish.mockClear();
     save.mockResolvedValue({ ok: true });
@@ -163,5 +164,64 @@ describe("PageTour", () => {
       </ToursProvider>,
     );
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("stays finished when the whole layout is rebuilt from Next's stale cache", () => {
+    const first = render(
+      <ToursProvider states={{}}>
+        <PageTour tour="dashboard" />
+      </ToursProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    first.unmount();
+    // Back/Forward restores the layout with the progress it loaded the first time.
+    render(
+      <ToursProvider states={{}}>
+        <PageTour tour="dashboard" />
+      </ToursProvider>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("? during an unfinished tour restarts it and still saves and finishes", () => {
+    render(
+      <ToursProvider states={{}}>
+        <PageTour tour="order" />
+        <ReplayButton />
+      </ToursProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    save.mockClear();
+    fireEvent.click(screen.getByRole("button", { name: "replay" }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("1 of 3");
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    expect(save).toHaveBeenLastCalledWith("order", 2);
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    expect(finish).toHaveBeenCalledWith("order", "skipped");
+  });
+
+  it("Esc typed inside a form field does not skip the tour", () => {
+    render(
+      <>
+        <input aria-label="Product name" />
+        <PageTourWith tour="editor" saved={undefined} />
+      </>,
+    );
+    const field = screen.getByRole("textbox", { name: "Product name" });
+    field.focus();
+    fireEvent.keyDown(field, { key: "Escape" });
+    expect(finish).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+  });
+
+  it("glows a target that appears after the step opened (e.g. the next wizard step)", async () => {
+    render(<PageTourWith tour="editor" saved={{ step: 3, outcome: null }} />);
+    const later = document.createElement("fieldset");
+    later.setAttribute("data-tour", "options");
+    await act(async () => {
+      document.body.appendChild(later);
+    });
+    expect(later).toHaveAttribute("data-tour-active");
+    later.remove();
   });
 });

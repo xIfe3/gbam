@@ -43,6 +43,8 @@ export function useTour(
   const [open, setOpen] = useState(!finishedBefore);
   const [step, setStep] = useState(startingStep(saved, stepCount));
   const [replaying, setReplaying] = useState(false);
+  // Finished means completed or skipped, before this visit or during it.
+  const [finished, setFinished] = useState(finishedBefore);
 
   function goTo(newStep: number) {
     setStep(newStep);
@@ -69,6 +71,7 @@ export function useTour(
   function end(outcome: "completed" | "skipped") {
     setOpen(false);
     if (!replaying) {
+      setFinished(true);
       inBackground(finishTourAction(tour, outcome));
       if (onChange) {
         onChange({ step, outcome });
@@ -76,10 +79,23 @@ export function useTour(
     }
   }
 
+  /**
+   * The "?" button. A finished tour replays from step 1 and saves nothing (the "done" record
+   * stays). A tour still in progress simply restarts at step 1 and keeps saving as normal,
+   * so finishing it this time counts.
+   */
   function replay() {
-    setReplaying(true);
     setStep(1);
     setOpen(true);
+    if (finished) {
+      setReplaying(true);
+      return;
+    }
+    setReplaying(false);
+    inBackground(saveTourStepAction(tour, 1));
+    if (onChange) {
+      onChange({ step: 1, outcome: null });
+    }
   }
 
   return {
