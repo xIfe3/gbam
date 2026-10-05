@@ -11,6 +11,7 @@ import { PaymentsModule } from "./payments/payments.module.js";
 import { PayoutsModule } from "./payouts/payouts.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { ProductsModule } from "./products/products.module.js";
+import { ToursModule } from "./tours/tours.module.js";
 
 /** HTTP process. Enqueues jobs but never processes them. */
 @Module({
@@ -25,6 +26,7 @@ import { ProductsModule } from "./products/products.module.js";
     PaymentsModule,
     PayoutsModule,
     ProductsModule,
+    ToursModule,
     WhatsAppModule,
   ],
   controllers: [HealthController],
