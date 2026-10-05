@@ -82,14 +82,6 @@ export const slugSchema = z
 
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
-export const createProductSchema = z.object({
-  name: z.string().trim().min(1).max(120),
-  description: z.string().trim().max(2000).optional(),
-  priceKobo: koboSchema,
-  stock: z.number().int().nonnegative().nullable().default(null),
-});
-export type CreateProductInput = z.infer<typeof createProductSchema>;
-
 export const createOrderSchema = z.object({
   customer: z.object({
     name: z.string().trim().min(1).max(120),
