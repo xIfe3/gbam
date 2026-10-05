@@ -18,7 +18,7 @@ export type PlaceOrderState =
     }
   | { status: "success"; code: string; totalKobo: number };
 
-/** The basket arrives as JSON text like {"<productId>": 2}. This checks its shape. */
+/** The basket arrives as JSON text like {"<variantId>": 2}. This checks its shape. */
 const basketSchema = z.record(z.string(), z.coerce.number().int().min(0));
 
 /** Reads a form field as text ("" if it's missing). */
@@ -58,10 +58,12 @@ export async function placeOrder(
   }
 
   const items = [];
-  for (const productId of Object.keys(quantities)) {
-    const quantity = quantities[productId];
+  // The API orders by variant. Until the storefront is rebuilt (Task 10), the basket
+  // keys are still product ids, so ordering from this page won't work yet.
+  for (const variantId of Object.keys(quantities)) {
+    const quantity = quantities[variantId];
     if (quantity !== undefined && quantity > 0) {
-      items.push({ productId, quantity });
+      items.push({ variantId, quantity });
     }
   }
 

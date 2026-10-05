@@ -3,7 +3,7 @@
  * Each run creates its own seller, so it never collides with seed data.
  */
 import "reflect-metadata";
-import { orderEvents, products, sellers } from "@gbam/db";
+import { orderEvents, productVariants, sellers } from "@gbam/db";
 import { InvalidOrderTransitionError } from "@gbam/shared";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
@@ -11,7 +11,7 @@ import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -23,7 +23,7 @@ describe("OrdersService (integration)", () => {
   let db: Db;
   let sellerId: string;
   let slug: string;
-  let productId: string;
+  let variantId: string;
 
   beforeAll(async () => {
     moduleRef = await Test.createTestingModule({ imports: [InfraModule, OrdersModule] }).compile();
@@ -39,11 +39,8 @@ describe("OrdersService (integration)", () => {
       .update(sellers)
       .set({ paystackSubaccountCode: "ACCT_test123" })
       .where(eq(sellers.id, sellerId));
-    const [product] = await db
-      .insert(products)
-      .values({ sellerId, name: "Suya", priceKobo: 150_000 })
-      .returning();
-    productId = product!.id;
+    const created = await createTestProduct(db, sellerId, { name: "Suya", priceKobo: 150_000 });
+    variantId = created.variant.id;
   });
 
   afterAll(async () => {
@@ -55,8 +52,8 @@ describe("OrdersService (integration)", () => {
     service.createFromStorefront(slug, {
       customer: { name: "Ada", phone: "2348011112222" },
       items: [
-        { productId, quantity: 2 },
-        { productId, quantity: 1 }, // duplicate line gets merged
+        { variantId, quantity: 2 },
+        { variantId, quantity: 1 }, // duplicate line gets merged
       ],
     });
 
@@ -156,12 +153,84 @@ describe("OrdersService (integration)", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
-  it("rejects products from another store", async () => {
+  it("rejects variants that do not exist", async () => {
     await expect(
       service.createFromStorefront(slug, {
         customer: { name: "Ada", phone: "2348011112222" },
-        items: [{ productId: randomUUID(), quantity: 1 }],
+        items: [{ variantId: randomUUID(), quantity: 1 }],
       }),
     ).rejects.toThrow("unavailable");
+  });
+
+  const customer = { name: "Ada", phone: "2348011112222" };
+
+  async function expectRejected(variant: string, quantity: number, text: string) {
+    await expect(
+      service.createFromStorefront(slug, { customer, items: [{ variantId: variant, quantity }] }),
+    ).rejects.toThrow(text);
+  }
+
+  it("rejects disabled, archived, hidden-product and other-shop variants", async () => {
+    const disabled = await createTestProduct(db, sellerId);
+    await db
+      .update(productVariants)
+      .set({ isEnabled: false })
+      .where(eq(productVariants.id, disabled.variant.id));
+    await expectRejected(disabled.variant.id, 1, "unavailable");
+
+    const archived = await createTestProduct(db, sellerId);
+    await db
+      .update(productVariants)
+      .set({ archivedAt: new Date() })
+      .where(eq(productVariants.id, archived.variant.id));
+    await expectRejected(archived.variant.id, 1, "unavailable");
+
+    const hidden = await createTestProduct(db, sellerId, { status: "hidden" });
+    await expectRejected(hidden.variant.id, 1, "unavailable");
+
+    const otherSeller = await createTestSeller(db, "other");
+    try {
+      const theirs = await createTestProduct(db, otherSeller.id);
+      await expectRejected(theirs.variant.id, 1, "unavailable");
+    } finally {
+      await db.delete(sellers).where(eq(sellers.id, otherSeller.id));
+    }
+  });
+
+  it("rejects more than the tracked stock, and says sold out at 0", async () => {
+    const some = await createTestProduct(db, sellerId, { name: "Zobo", stock: 2 });
+    await expectRejected(some.variant.id, 3, "Zobo has only 2 left");
+
+    const none = await createTestProduct(db, sellerId, { name: "Chapman", stock: 0 });
+    await expectRejected(none.variant.id, 1, "Chapman is sold out");
+  });
+
+  it("names the variant after an en dash when it has a title", async () => {
+    const made = await createTestProduct(db, sellerId, { name: "Tee", stock: 1 });
+    await db
+      .update(productVariants)
+      .set({ title: "Large" })
+      .where(eq(productVariants.id, made.variant.id));
+    await expectRejected(made.variant.id, 2, "Tee – Large has only 1 left");
+  });
+
+  it("stores the variant title and the variant's price on the item", async () => {
+    const made = await createTestProduct(db, sellerId, { name: "Hat", priceKobo: 77_000 });
+    await db
+      .update(productVariants)
+      .set({ title: "Red" })
+      .where(eq(productVariants.id, made.variant.id));
+    const order = await service.createFromStorefront(slug, {
+      customer,
+      items: [{ variantId: made.variant.id, quantity: 2 }],
+    });
+    const detail = await service.getForSeller(sellerId, order.id);
+    const item = detail.items[0];
+    expect(item?.variantTitle).toBe("Red");
+    expect(item?.unitPriceKobo).toBe(77_000);
+    expect(item?.productId).toBe(made.product.id);
+    expect(item?.variantId).toBe(made.variant.id);
+    expect(item?.productName).toBe("Hat");
+    expect(detail.stockShortfall).toBe(false);
   });
 });

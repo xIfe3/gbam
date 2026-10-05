@@ -3,7 +3,7 @@
  * whose verify() result each test controls.
  */
 import "reflect-metadata";
-import { orders, payments, products, sellers } from "@gbam/db";
+import { orders, payments, sellers } from "@gbam/db";
 import type {
   Bank,
   InitializeTransactionInput,
@@ -14,7 +14,7 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller } from "../test-helpers.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { PaymentsModule } from "./payments.module.js";
@@ -71,7 +71,7 @@ describe("PaymentsService (integration)", () => {
   let paystack: StubPaystack;
   let sellerId: string;
   let slug: string;
-  let productId: string;
+  let variantId: string;
 
   beforeAll(async () => {
     paystack = new StubPaystack();
@@ -94,11 +94,8 @@ describe("PaymentsService (integration)", () => {
       .update(sellers)
       .set({ paystackSubaccountCode: SUBACCOUNT })
       .where(eq(sellers.id, sellerId));
-    const [product] = await db
-      .insert(products)
-      .values({ sellerId, name: "Puff-puff", priceKobo: 50_000 })
-      .returning();
-    productId = product!.id;
+    const created = await createTestProduct(db, sellerId, { name: "Puff-puff", priceKobo: 50_000 });
+    variantId = created.variant.id;
   });
 
   afterAll(async () => {
@@ -110,7 +107,7 @@ describe("PaymentsService (integration)", () => {
   async function orderMovedToAwaitingPayment() {
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Bisi", phone: "2348022223333" },
-      items: [{ productId, quantity: 2 }],
+      items: [{ variantId, quantity: 2 }],
     });
     await ordersService.transition({
       orderId: order.id,
@@ -144,7 +141,7 @@ describe("PaymentsService (integration)", () => {
   it("creates only one link when two calls race", async () => {
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Bisi", phone: "2348022223333" },
-      items: [{ productId, quantity: 1 }],
+      items: [{ variantId, quantity: 1 }],
     });
     const before = paystack.initialized;
     const [a, b] = await Promise.all([

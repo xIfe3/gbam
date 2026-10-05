@@ -4,7 +4,7 @@
  * Covers spec 8: signup → verify → bank → subaccount (stubbed Paystack).
  */
 import "reflect-metadata";
-import { products, sellers, users } from "@gbam/db";
+import { sellers, users } from "@gbam/db";
 import { FakePaystackClient } from "@gbam/integrations";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
@@ -21,6 +21,7 @@ import { DB, InfraModule, REDIS, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
+import { createTestProduct } from "../test-helpers.js";
 import { PayoutsModule } from "./payouts.module.js";
 
 process.loadEnvFile?.("../../.env");
@@ -148,17 +149,13 @@ describe("Payout endpoints over HTTP (integration)", () => {
 
   /** A pending order in the seller's shop. */
   async function pendingOrder(sellerId: string, slug: string) {
-    const productRows = await db
-      .insert(products)
-      .values({ sellerId, name: "Chin chin", priceKobo: 20_000 })
-      .returning();
-    const product = productRows[0];
-    if (!product) {
-      throw new Error("No product");
-    }
+    const { variant } = await createTestProduct(db, sellerId, {
+      name: "Chin chin",
+      priceKobo: 20_000,
+    });
     return orders.createFromStorefront(slug, {
       customer: { name: "Tolu", phone: "2348033334444" },
-      items: [{ productId: product.id, quantity: 1 }],
+      items: [{ variantId: variant.id, quantity: 1 }],
     });
   }
 

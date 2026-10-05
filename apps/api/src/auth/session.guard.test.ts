@@ -3,7 +3,7 @@
  * Redis db 1, and plain fetch() calls. The email queue is a recorder.
  */
 import "reflect-metadata";
-import { products, sellers, sessions, users } from "@gbam/db";
+import { sellers, sessions, users } from "@gbam/db";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomInt, randomUUID } from "node:crypto";
@@ -17,6 +17,7 @@ import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { ProductsModule } from "../products/products.module.js";
+import { createTestProduct } from "../test-helpers.js";
 import { AuthModule } from "./auth.module.js";
 import { AuthService } from "./auth.service.js";
 import { hashToken, newSessionToken } from "./crypto.js";
@@ -209,16 +210,10 @@ describe("SessionGuard over HTTP (integration)", () => {
     if (!bSeller) {
       throw new Error("Expected seller B");
     }
-    const [product] = await db
-      .insert(products)
-      .values({ sellerId: bSeller.id, name: "Suya", priceKobo: 150_000 })
-      .returning();
-    if (!product) {
-      throw new Error("Expected a product");
-    }
+    const { variant } = await createTestProduct(db, bSeller.id, { name: "Suya" });
     const order = await orders.createFromStorefront(bSeller.slug, {
       customer: { name: "Ada", phone: "2348011112222" },
-      items: [{ productId: product.id, quantity: 1 }],
+      items: [{ variantId: variant.id, quantity: 1 }],
     });
 
     const asA = await call("GET", `/orders/${order.id}`, {

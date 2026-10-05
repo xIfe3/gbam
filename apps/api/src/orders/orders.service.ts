@@ -5,6 +5,7 @@ import {
   payments,
   whatsappMessages,
   orders,
+  productVariants,
   products,
   sellers,
   type DbTransaction,
@@ -23,11 +24,12 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { generateOrderCode } from "./order-code.js";
+import { reduceStockForPaidOrder, variantDisplayName } from "./stock.js";
 
 // Order codes are random, so two orders could (rarely) get the same one. If that
 // happens we try again with a new code, up to this many times.
@@ -204,12 +206,32 @@ export class OrdersService {
         .values({ orderId, fromStatus: current.status, toStatus: to, actor })
         .returning({ id: orderEvents.id });
 
+      // Stock comes off only here, when payment is confirmed. A duplicate "paid" webhook
+      // never gets this far: assertTransition above refuses paid -> paid.
+      let shortfall = false;
+      if (to === "paid") {
+        const stockResult = await reduceStockForPaidOrder(tx, orderId);
+        shortfall = stockResult.shortfall;
+      }
+
       return {
         order: firstRow(updatedRows, "updated order"),
         eventId: firstRow(eventRows, "order event").id,
         from: current.status,
+        shortfall,
       };
     });
+
+    if (result.shortfall) {
+      const sellerRows = await this.db
+        .select({ slug: sellers.slug })
+        .from(sellers)
+        .where(eq(sellers.id, result.order.sellerId));
+      const storeSlug = sellerRows[0]?.slug ?? "unknown";
+      this.logger.error(
+        `STOCK SHORTFALL on order ${result.order.code} (store ${storeSlug}). NEEDS REFUND.`,
+      );
+    }
 
     // Only after the transaction has committed: queue the WhatsApp message.
     await this.notify(result.eventId, { orderId, from: result.from, to });
@@ -227,39 +249,71 @@ export class OrdersService {
       throw new NotFoundException("Store not found");
     }
 
-    // Add up quantities per product, in case the same product appears on two lines.
-    const quantityByProductId = new Map<string, number>();
+    // Add up quantities per variant, in case the same variant appears on two lines.
+    const quantityByVariantId = new Map<string, number>();
     for (const item of input.items) {
-      const quantitySoFar = quantityByProductId.get(item.productId) ?? 0;
-      quantityByProductId.set(item.productId, quantitySoFar + item.quantity);
+      const quantitySoFar = quantityByVariantId.get(item.variantId) ?? 0;
+      quantityByVariantId.set(item.variantId, quantitySoFar + item.quantity);
     }
-    const productIds = Array.from(quantityByProductId.keys());
+    const variantIds = Array.from(quantityByVariantId.keys());
 
-    // Only this seller's active products. Someone could send another store's product ids.
-    const foundProducts = await tx
-      .select({ id: products.id, name: products.name, priceKobo: products.priceKobo })
-      .from(products)
+    // Only this seller's variants that can be bought right now: the product is active and
+    // the variant is enabled and not archived. Someone could send another store's ids.
+    //
+    // `.for("share")` = SELECT ... FOR SHARE: other orders can read these rows at the same
+    // time, but nobody can change or delete them until our transaction ends. Without it, a
+    // seller saving their product could remove a variant after we checked it but before our
+    // order item pointed at it.
+    // Ordering by id keeps the lock order the same for everyone.
+    const foundVariants = await tx
+      .select({
+        variantId: productVariants.id,
+        variantTitle: productVariants.title,
+        priceKobo: productVariants.priceKobo,
+        stock: productVariants.stock,
+        productId: products.id,
+        productName: products.name,
+      })
+      .from(productVariants)
+      .innerJoin(products, eq(products.id, productVariants.productId))
       .where(
         and(
+          inArray(productVariants.id, variantIds),
           eq(products.sellerId, seller.id),
-          eq(products.isActive, true),
-          inArray(products.id, productIds),
+          eq(products.status, "active"),
+          eq(productVariants.isEnabled, true),
+          isNull(productVariants.archivedAt),
         ),
-      );
-    if (foundProducts.length !== productIds.length) {
+      )
+      .orderBy(asc(productVariants.id))
+      .for("share", { of: productVariants });
+    if (foundVariants.length !== variantIds.length) {
       throw new BadRequestException("One or more products are unavailable");
     }
 
     // Prices ALWAYS come from our database, never from what the browser sent.
     let totalKobo = 0;
     const lines = [];
-    for (const product of foundProducts) {
-      const quantity = quantityByProductId.get(product.id) ?? 0;
-      totalKobo = totalKobo + product.priceKobo * quantity;
+    for (const found of foundVariants) {
+      const quantity = quantityByVariantId.get(found.variantId) ?? 0;
+      const name = variantDisplayName(found.productName, found.variantTitle);
+
+      // stock null = untracked, so any quantity is fine.
+      if (found.stock !== null && found.stock < quantity) {
+        let message = `${name} has only ${found.stock} left`;
+        if (found.stock === 0) {
+          message = `${name} is sold out`;
+        }
+        throw new BadRequestException({ statusCode: 400, message, field: "items" });
+      }
+
+      totalKobo = totalKobo + found.priceKobo * quantity;
       lines.push({
-        productId: product.id,
-        productName: product.name,
-        unitPriceKobo: product.priceKobo,
+        productId: found.productId,
+        variantId: found.variantId,
+        productName: found.productName,
+        variantTitle: found.variantTitle,
+        unitPriceKobo: found.priceKobo,
         quantity,
       });
     }
