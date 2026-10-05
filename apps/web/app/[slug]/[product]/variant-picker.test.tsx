@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import type { StorefrontProduct } from "@/lib/api";
+import type { StorefrontProduct, StorefrontVariant } from "@/lib/api";
 import { VariantPicker } from "./variant-picker";
 
 const IMAGES = [
@@ -18,11 +18,48 @@ const TEE: StorefrontProduct = {
     { name: "Colour", values: ["Red", "Blue"] },
   ],
   variants: [
-    { id: "v1", optionValues: ["S", "Red"], title: "S / Red", priceKobo: 500000, stock: 10, imageId: null },
-    { id: "v2", optionValues: ["S", "Blue"], title: "S / Blue", priceKobo: 500000, stock: 0, imageId: null },
-    { id: "v3", optionValues: ["M", "Red"], title: "M / Red", priceKobo: 600000, stock: 3, imageId: "img2" },
-    { id: "v4", optionValues: ["M", "Blue"], title: "M / Blue", priceKobo: 600000, stock: null, imageId: null },
+    {
+      id: "v1",
+      optionValues: ["S", "Red"],
+      title: "S / Red",
+      priceKobo: 500000,
+      stock: 10,
+      imageId: null,
+    },
+    {
+      id: "v2",
+      optionValues: ["S", "Blue"],
+      title: "S / Blue",
+      priceKobo: 500000,
+      stock: 0,
+      imageId: null,
+    },
+    {
+      id: "v3",
+      optionValues: ["M", "Red"],
+      title: "M / Red",
+      priceKobo: 600000,
+      stock: 3,
+      imageId: "img2",
+    },
+    {
+      id: "v4",
+      optionValues: ["M", "Blue"],
+      title: "M / Blue",
+      priceKobo: 600000,
+      stock: null,
+      imageId: null,
+    },
   ],
+};
+
+const MUG_VARIANT: StorefrontVariant = {
+  id: "m1",
+  optionValues: [],
+  title: "Mug",
+  priceKobo: 250000,
+  stock: null,
+  imageId: null,
 };
 
 const MUG: StorefrontProduct = {
@@ -52,7 +89,7 @@ describe("VariantPicker", () => {
   it("disables a value whose combination is sold out", () => {
     render(<VariantPicker product={TEE} onAdd={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "S" }));
-    expect(screen.getByRole("button", { name: "Blue" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Blue, sold out" })).toBeDisabled();
     expect(screen.getByRole("button", { name: "Red" })).toBeEnabled();
   });
 
@@ -94,5 +131,50 @@ describe("VariantPicker", () => {
     fireEvent.click(more);
     expect(screen.getByTestId("quantity")).toHaveTextContent("3");
     expect(more).toBeDisabled();
+  });
+
+  it("lets a tapped thumbnail override the variant photo", () => {
+    render(<VariantPicker product={TEE} onAdd={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "M" }));
+    fireEvent.click(screen.getByRole("button", { name: "Red" }));
+    expect(screen.getByRole("img", { name: "Tee" })).toHaveAttribute("src", IMAGES[1]?.largeUrl);
+    fireEvent.click(screen.getByRole("button", { name: "Show photo 1" }));
+    expect(screen.getByRole("img", { name: "Tee" })).toHaveAttribute("src", IMAGES[0]?.largeUrl);
+  });
+
+  it("shows N left at 5 but not at 6", () => {
+    const five = { ...MUG, variants: [{ ...MUG_VARIANT, stock: 5 }] };
+    const { unmount } = render(<VariantPicker product={five} onAdd={vi.fn()} />);
+    expect(screen.getByText("5 left")).toBeInTheDocument();
+    unmount();
+    const six = { ...MUG, variants: [{ ...MUG_VARIANT, stock: 6 }] };
+    render(<VariantPicker product={six} onAdd={vi.fn()} />);
+    expect(screen.queryByText(/left/)).not.toBeInTheDocument();
+  });
+
+  it("caps the quantity at 99 when stock is not tracked", () => {
+    render(<VariantPicker product={MUG} onAdd={vi.fn()} />);
+    const more = screen.getByRole("button", { name: "More" });
+    for (let i = 0; i < 120; i++) {
+      if (!(more as HTMLButtonElement).disabled) {
+        fireEvent.click(more);
+      }
+    }
+    expect(screen.getByTestId("quantity")).toHaveTextContent("99");
+    expect(more).toBeDisabled();
+  });
+
+  it("keeps Add to order disabled for a sold-out product with no options", () => {
+    const soldOut = { ...MUG, variants: [{ ...MUG_VARIANT, stock: 0 }] };
+    render(<VariantPicker product={soldOut} onAdd={vi.fn()} />);
+    expect(screen.getByRole("button", { name: "Add to order" })).toBeDisabled();
+  });
+
+  it("never blocks untracked stock, and labels sold-out values", () => {
+    render(<VariantPicker product={TEE} onAdd={vi.fn()} />);
+    fireEvent.click(screen.getByRole("button", { name: "M" }));
+    expect(screen.getByRole("button", { name: "Blue" })).toBeEnabled();
+    fireEvent.click(screen.getByRole("button", { name: "S" }));
+    expect(screen.getByRole("button", { name: "Blue, sold out" })).toBeDisabled();
   });
 });

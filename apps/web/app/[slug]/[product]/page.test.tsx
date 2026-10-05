@@ -26,7 +26,11 @@ const PAGE = {
     name: "Cake",
     description: "Moist.",
     images: [
-      { id: "i1", largeUrl: "https://cdn/cake-large.webp", smallUrl: "https://cdn/cake-small.webp" },
+      {
+        id: "i1",
+        largeUrl: "https://cdn/cake-large.webp",
+        smallUrl: "https://cdn/cake-small.webp",
+      },
     ],
     options: [],
     variants: [
@@ -60,5 +64,27 @@ describe("product page", () => {
     render(await ProductPage(props));
     expect(screen.getByRole("heading", { name: "Cake" })).toBeInTheDocument();
     expect(screen.getByText("Moist.")).toBeInTheDocument();
+  });
+
+  it("calls notFound for a reserved slug without asking the API", async () => {
+    const reserved = { params: Promise.resolve({ slug: "login", product: "cake" }) } as never;
+    await expect(ProductPage(reserved)).rejects.toThrow("NEXT_NOT_FOUND");
+    expect(api.storefrontProduct).not.toHaveBeenCalled();
+  });
+
+  it("rethrows an API error that is not a 404", async () => {
+    vi.mocked(api.storefrontProduct).mockRejectedValue(new ApiError(500, null));
+    await expect(ProductPage(props)).rejects.toThrow("api error");
+  });
+
+  it("repeats title and description in openGraph and omits a price with no variants", async () => {
+    vi.mocked(api.storefrontProduct).mockResolvedValue({
+      ...PAGE,
+      product: { ...PAGE.product, variants: [] },
+    });
+    const meta = await generateMetadata(props);
+    expect(meta.description).not.toContain("₦");
+    expect(meta.openGraph?.title).toBe("Cake · Ada Bakes");
+    expect(meta.openGraph?.description).toBe(meta.description);
   });
 });

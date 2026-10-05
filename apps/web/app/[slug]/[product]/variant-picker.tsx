@@ -44,7 +44,7 @@ function valueIsAvailable(
     let matchesOthers = true;
     for (let i = 0; i < chosen.length; i++) {
       const pick = chosen[i];
-      if (i === optionIndex || pick === null || pick === undefined) {
+      if (i === optionIndex || pick === null) {
         continue;
       }
       if (variant.optionValues[i] !== pick) {
@@ -108,7 +108,7 @@ export function VariantPicker({ product, onAdd }: Props) {
   let priceText = "";
   if (variant !== null) {
     priceText = formatNaira(variant.priceKobo);
-  } else {
+  } else if (product.variants.length > 0) {
     let lowest = product.variants[0]?.priceKobo ?? 0;
     let highest = lowest;
     for (const candidate of product.variants) {
@@ -117,7 +117,7 @@ export function VariantPicker({ product, onAdd }: Props) {
     }
     priceText = formatNaira(lowest);
     if (lowest !== highest) {
-      priceText = `From ${priceText}`;
+      priceText = `from ${priceText}`;
     }
   }
 
@@ -139,6 +139,22 @@ export function VariantPicker({ product, onAdd }: Props) {
     if (variant.stock <= LOW_STOCK_AT) {
       lowStockText = `${variant.stock} left`;
     }
+  }
+
+  // Plain <img>: the URLs are absolute and aspect-square stops layout shift.
+  // The main photo is not lazy: it is the first thing the visitor sees.
+  let mainImage = <div className="bg-blush aspect-square w-full rounded-2xl md:flex-1" />;
+  if (shownImage !== undefined) {
+    mainImage = (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={shownImage.largeUrl}
+        alt={product.name}
+        width={800}
+        height={800}
+        className="bg-blush aspect-square w-full rounded-2xl object-cover md:flex-1"
+      />
+    );
   }
 
   function choose(optionIndex: number, value: string) {
@@ -169,22 +185,10 @@ export function VariantPicker({ product, onAdd }: Props) {
   }
 
   return (
-    <div className="grid gap-6 md:grid-cols-2 md:gap-10">
-      <div className="flex flex-col gap-3 md:flex-row-reverse md:items-start">
-        {shownImage ? (
-          // Plain <img>: the URLs are absolute and aspect-square stops layout shift.
-          // The main photo is not lazy: it is the first thing the visitor sees.
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={shownImage.largeUrl}
-            alt={product.name}
-            width={800}
-            height={800}
-            className="bg-blush aspect-square w-full rounded-2xl object-cover md:flex-1"
-          />
-        ) : (
-          <div className="bg-blush aspect-square w-full rounded-2xl md:flex-1" />
-        )}
+    <div className="grid grid-cols-1 gap-6 md:grid-cols-2 md:gap-10">
+      {/* min-w-0: lets the thumbnail row scroll inside itself instead of widening the page. */}
+      <div className="flex min-w-0 flex-col gap-3 md:flex-row-reverse md:items-start">
+        {mainImage}
         {product.images.length > 1 && (
           // Swipe sideways on phones (scroll-snap); a column down the left on wider screens.
           <ul className="flex snap-x snap-mandatory gap-2 overflow-x-auto md:w-20 md:flex-col md:overflow-visible">
@@ -213,11 +217,14 @@ export function VariantPicker({ product, onAdd }: Props) {
         )}
       </div>
 
-      <div>
+      <div className="min-w-0">
         <h1 className="font-display text-ink text-3xl leading-tight font-black">{product.name}</h1>
-        <p className="text-ink mt-2 text-2xl font-bold">{priceText}</p>
-        {lowStockText && <p className="text-ink-muted mt-1 text-sm">{lowStockText}</p>}
-        {soldOut && <p className="text-ink-muted mt-1 text-sm">Sold out</p>}
+        {/* aria-live: screen readers hear the price and stock change when options are picked. */}
+        <div aria-live="polite">
+          <p className="text-ink mt-2 text-2xl font-bold">{priceText}</p>
+          {lowStockText && <p className="text-ink-muted mt-1 text-sm">{lowStockText}</p>}
+          {soldOut && <p className="text-ink-muted mt-1 text-sm">Sold out</p>}
+        </div>
         {product.description && (
           <p className="text-ink-muted mt-4 whitespace-pre-line">{product.description}</p>
         )}
@@ -233,6 +240,7 @@ export function VariantPicker({ product, onAdd }: Props) {
                     key={value}
                     type="button"
                     aria-pressed={chosen[optionIndex] === value}
+                    aria-label={available ? value : `${value}, sold out`}
                     disabled={!available}
                     onClick={() => choose(optionIndex, value)}
                     className="text-ink border-brand-tint hover:bg-coral-wash focus-visible:outline-brand aria-pressed:border-brand aria-pressed:bg-brand-tint min-h-11 min-w-11 rounded-full border-2 bg-white px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2 disabled:line-through disabled:opacity-40"

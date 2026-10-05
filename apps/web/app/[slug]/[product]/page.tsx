@@ -20,24 +20,30 @@ export async function generateMetadata(props: PageProps<"/[slug]/[product]">): P
   const { slug, product: productSlug } = await props.params;
   const { store, product } = await loadProduct(slug, productSlug);
 
-  let lowest = product.variants[0]?.priceKobo ?? 0;
-  let highest = lowest;
-  for (const variant of product.variants) {
-    if (variant.priceKobo < lowest) lowest = variant.priceKobo;
-    if (variant.priceKobo > highest) highest = variant.priceKobo;
-  }
-  let price = formatNaira(lowest);
-  if (lowest !== highest) {
-    price = `from ${price}`;
+  const title = `${product.name} · ${store.businessName}`;
+  const orderLine = `Order from ${store.businessName} and get updates on WhatsApp.`;
+  // A product with no variants has no price; leave it out rather than say "₦0".
+  let description = `${product.name}. ${orderLine}`;
+  const firstVariant = product.variants[0];
+  if (firstVariant !== undefined) {
+    let lowest = firstVariant.priceKobo;
+    let highest = lowest;
+    for (const variant of product.variants) {
+      if (variant.priceKobo < lowest) lowest = variant.priceKobo;
+      if (variant.priceKobo > highest) highest = variant.priceKobo;
+    }
+    let price = formatNaira(lowest);
+    if (lowest !== highest) {
+      price = `from ${price}`;
+    }
+    description = `${product.name} at ${price}. ${orderLine}`;
   }
 
-  const metadata: Metadata = {
-    title: `${product.name} · ${store.businessName}`,
-    description: `${product.name} at ${price}. Order from ${store.businessName} and get updates on WhatsApp.`,
-  };
+  const metadata: Metadata = { title, description };
   const mainImage = product.images[0];
   if (mainImage) {
-    metadata.openGraph = { images: [mainImage.largeUrl] };
+    // Setting openGraph replaces the parent's, so title and description are repeated here.
+    metadata.openGraph = { title, description, images: [mainImage.largeUrl] };
   }
   return metadata;
 }

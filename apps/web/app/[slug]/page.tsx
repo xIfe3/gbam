@@ -1,10 +1,9 @@
-import { RESERVED_SLUGS } from "@gbam/shared";
+import { formatNaira, RESERVED_SLUGS } from "@gbam/shared";
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
-import { formatNaira } from "@gbam/shared";
-import Link from "next/link";
 
 async function loadStore(slug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -53,7 +52,9 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         <h1 className="font-display text-ink mt-6 text-4xl leading-tight font-black">
           {store.businessName}
         </h1>
-        <p className="text-ink-muted mt-2">Pick something you like. You&apos;ll get updates on WhatsApp.</p>
+        <p className="text-ink-muted mt-2">
+          Pick something you like. You&apos;ll get updates on WhatsApp.
+        </p>
       </header>
       {products.length === 0 ? (
         <p className="border-brand-tint text-ink-muted rounded-2xl border-2 border-dashed p-6 text-center">
