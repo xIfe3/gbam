@@ -132,3 +132,22 @@ describe("api session handling", () => {
     expect(fetchMock).not.toHaveBeenCalled();
   });
 });
+
+describe("api photo upload", () => {
+  it("sends the FormData as the body with no hand-set content-type, so fetch adds the boundary", async () => {
+    jar.get.mockReturnValue({ value: "tok" });
+    fetchMock.mockResolvedValue(jsonResponse(201, { id: "img-1", smallUrl: "/s.webp" }));
+    const form = new FormData();
+    form.set("photo", new File(["x"], "dress.png", { type: "image/png" }));
+
+    const result = await api.uploadProductPhoto(form);
+
+    expect(result).toEqual({ id: "img-1", smallUrl: "/s.webp" });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toMatch(/\/products\/images$/);
+    expect(init.method).toBe("POST");
+    expect(init.body).toBe(form);
+    expect(sentHeaders().get("content-type")).toBeNull();
+    expect(sentHeaders().get("authorization")).toBe("Bearer tok");
+  });
+});

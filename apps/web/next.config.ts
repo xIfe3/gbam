@@ -15,6 +15,11 @@ const nextConfig: NextConfig = {
   // Needed for the Docker image in Phase 5 (copies only what `next start` needs).
   output: "standalone",
   outputFileTracingRoot: path.resolve(import.meta.dirname, "../.."),
+  experimental: {
+    // Server Actions refuse request bodies over 1 MB by default. Product photos go through
+    // one (max 10 MB each), and the limit counts multipart overhead too, so allow 11 MB.
+    serverActions: { bodySizeLimit: "11mb" },
+  },
 };
 
 export default nextConfig;
