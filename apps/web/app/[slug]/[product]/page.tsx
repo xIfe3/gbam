@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
+import { BasketBar } from "../basket-bar";
 import { ProductView } from "./product-view";
 
 async function loadProduct(slug: string, productSlug: string) {
@@ -64,11 +65,12 @@ export default async function ProductPage(props: PageProps<"/[slug]/[product]">)
           ← {store.businessName}
         </Link>
       </header>
-      <ProductView product={product} />
-      <footer className="text-ink-muted mt-10 text-sm">
+      <ProductView shopSlug={store.slug} product={product} />
+      <footer className="text-ink-muted mt-10 pb-20 text-sm">
         Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
         Paystack.
       </footer>
+      <BasketBar shopSlug={store.slug} />
     </main>
   );
 }

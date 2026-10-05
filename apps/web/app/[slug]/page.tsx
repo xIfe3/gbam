@@ -4,6 +4,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
+import { BasketBar } from "./basket-bar";
 
 async function loadStore(slug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -99,10 +100,11 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           })}
         </ul>
       )}
-      <footer className="text-ink-muted mt-10 text-sm">
+      <footer className="text-ink-muted mt-10 pb-20 text-sm">
         Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
         Paystack.
       </footer>
+      <BasketBar shopSlug={store.slug} clearOnMount={paidCode !== null} />
     </main>
   );
 }

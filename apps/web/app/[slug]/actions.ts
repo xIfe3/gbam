@@ -4,7 +4,7 @@
 
 import { createOrderSchema } from "@gbam/shared";
 import { z } from "zod";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type StorefrontProduct } from "@/lib/api";
 
 /** What placeOrder returns; the checkout form shows a different screen for each. */
 export type PlaceOrderState =
@@ -18,8 +18,10 @@ export type PlaceOrderState =
     }
   | { status: "success"; code: string; totalKobo: number };
 
-/** The basket arrives as JSON text like {"<variantId>": 2}. This checks its shape. */
-const basketSchema = z.record(z.string(), z.coerce.number().int().min(0));
+/** The basket arrives as JSON text like [{"variantId":"…","quantity":2}]. This checks its shape. */
+const basketSchema = z.array(
+  z.object({ variantId: z.string().min(1), quantity: z.coerce.number().int().min(1).max(99) }),
+);
 
 /** Reads a form field as text ("" if it's missing). */
 function readField(formData: FormData, name: string): string {
@@ -28,6 +30,38 @@ function readField(formData: FormData, name: string): string {
     return "";
   }
   return String(value);
+}
+
+/**
+ * Fresh product data for the order page. The basket is saved in the customer's browser
+ * and may be days old, so the page asks again for current stock and prices.
+ */
+export async function checkBasketAction(
+  shopSlug: string,
+  productSlugs: string[],
+): Promise<StorefrontProduct[]> {
+  // The same product can be in the basket as several variants; fetch it only once.
+  const uniqueSlugs: string[] = [];
+  for (const productSlug of productSlugs) {
+    if (!uniqueSlugs.includes(productSlug)) {
+      uniqueSlugs.push(productSlug);
+    }
+  }
+
+  const products: StorefrontProduct[] = [];
+  for (const productSlug of uniqueSlugs) {
+    try {
+      const page = await api.storefrontProduct(shopSlug, productSlug);
+      products.push(page.product);
+    } catch (error) {
+      // 404 = the seller deleted or hid it. Leaving it out lets checkBasket call it "gone".
+      if (error instanceof ApiError && error.status === 404) {
+        continue;
+      }
+      throw error;
+    }
+  }
+  return products;
 }
 
 export async function placeOrder(
@@ -41,30 +75,20 @@ export async function placeOrder(
     note: readField(formData, "note"),
   };
 
-  // 1. Read the basket (a hidden form field filled in by checkout.tsx).
-  let quantities: Record<string, number>;
+  // 1. Read the basket lines (a hidden form field filled in by basket-view.tsx).
+  let items: { variantId: string; quantity: number }[];
   try {
     let basketJson = readField(formData, "items");
     if (basketJson === "") {
-      basketJson = "{}";
+      basketJson = "[]";
     }
-    quantities = basketSchema.parse(JSON.parse(basketJson));
+    items = basketSchema.parse(JSON.parse(basketJson));
   } catch {
     return {
       status: "error",
       message: "Something went wrong with your basket. Please retry.",
       values,
     };
-  }
-
-  const items = [];
-  // The API orders by variant. Until the storefront is rebuilt (Task 10), the basket
-  // keys are still product ids, so ordering from this page won't work yet.
-  for (const variantId of Object.keys(quantities)) {
-    const quantity = quantities[variantId];
-    if (quantity !== undefined && quantity > 0) {
-      items.push({ variantId, quantity });
-    }
   }
 
   let note: string | undefined = values.note.trim();
