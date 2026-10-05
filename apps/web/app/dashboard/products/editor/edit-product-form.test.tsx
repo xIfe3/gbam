@@ -12,6 +12,9 @@ const { actions } = vi.hoisted(() => ({
 }));
 vi.mock("../actions", () => actions);
 
+const refresh = vi.fn();
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 import type { ProductDetail } from "@/lib/api";
 import { EditProductForm } from "./edit-product-form";
 
@@ -67,6 +70,10 @@ describe("EditProductForm", () => {
     expect(call?.[1].variants[0].id).toBe(VARIANT);
     expect(call?.[1].variants[0].priceKobo).toBe(1200000);
     expect(call?.[2]).toBe(4);
+
+    // "Reload" re-reads the product from the server.
+    fireEvent.click(screen.getByRole("button", { name: "Reload" }));
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 
   it("asks before deleting", () => {

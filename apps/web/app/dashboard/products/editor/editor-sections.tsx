@@ -4,7 +4,8 @@ import { useId, useState } from "react";
 import { TextField } from "@/components/brand/fields";
 import {
   clearMissingImages,
-  rebuildVariants,
+  withHasOptions,
+  withOptions,
   type EditorOption,
   type EditorState,
   type EditorVariant,
@@ -38,38 +39,28 @@ export function useEditorState(initial: EditorState) {
       } else {
         images = change;
       }
-      return {
+      const next: EditorState = {
         ...current,
         images,
         variants: clearMissingImages(current.variants, images),
       };
+      // Parked variants must not point at a photo that was just removed either.
+      if (current.stash) {
+        next.stash = {
+          options: current.stash.options,
+          variants: clearMissingImages(current.stash.variants, images),
+        };
+      }
+      return next;
     });
   }
 
   function setOptions(options: EditorOption[]) {
-    setState((current) => ({
-      ...current,
-      options,
-      variants: rebuildVariants(current.variants, current.options, options),
-    }));
+    setState((current) => withOptions(current, options));
   }
 
   function setHasOptions(hasOptions: boolean) {
-    setState((current) => {
-      if (hasOptions === current.hasOptions) {
-        return current;
-      }
-      let options: EditorOption[] = [];
-      if (hasOptions) {
-        options = [{ name: "", values: [] }];
-      }
-      return {
-        ...current,
-        hasOptions,
-        options,
-        variants: rebuildVariants(current.variants, current.options, options),
-      };
-    });
+    setState((current) => withHasOptions(current, hasOptions));
   }
 
   function setVariants(variants: EditorVariant[]) {

@@ -114,6 +114,23 @@ describe("NewProductSteps", () => {
     });
   });
 
+  it("jumps to the step with the problem when the server sends field errors back", async () => {
+    actions.createProductAction.mockResolvedValue({
+      fieldErrors: { name: "Enter a product name" },
+    });
+    render(<NewProductSteps />);
+    await fillStep1();
+    clickNext();
+    fireEvent.click(screen.getByLabelText("No"));
+    fireEvent.change(screen.getByLabelText("Price (₦)"), { target: { value: "12000" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save product" }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: /step 1 of 3/i })).toBeInTheDocument(),
+    );
+    expect(screen.getByText("Enter a product name")).toBeInTheDocument();
+  });
+
   it("jumps back to the step with the problem when saving fails", async () => {
     render(<NewProductSteps />);
     await fillStep1();

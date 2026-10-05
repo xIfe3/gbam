@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { cache } from "react";
 import { api, ApiError } from "@/lib/api";
 import { EditProductForm } from "../editor/edit-product-form";
 
-async function loadProduct(id: string) {
+// cache() remembers the result for the rest of this request, so generateMetadata and the
+// page share one API call instead of making two.
+const loadProduct = cache(async (id: string) => {
   try {
     return await api.getProduct(id);
   } catch (error) {
@@ -14,7 +17,7 @@ async function loadProduct(id: string) {
     }
     throw error;
   }
-}
+});
 
 export async function generateMetadata(
   props: PageProps<"/dashboard/products/[id]">,

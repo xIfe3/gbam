@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/brand/button";
 import { FormError, FormNotice } from "@/components/brand/form-bits";
@@ -13,6 +14,7 @@ const STALE_MESSAGE = "This product changed since you opened it. Reload to see t
 
 /** Edit product: every section on one page, plus Show/Hide and Delete. */
 export function EditProductForm({ product }: { product: ProductDetail }) {
+  const router = useRouter();
   const editor = useEditorState(stateFromProduct(product));
   const { state } = editor;
   // The version we opened the product at. Sent back so the API can refuse a stale save.
@@ -136,7 +138,8 @@ export function EditProductForm({ product }: { product: ProductDetail }) {
         <FormError message={formError} />
         {formError === STALE_MESSAGE && (
           <div>
-            <Button variant="secondary" onClick={() => window.location.reload()}>
+            {/* refresh() re-reads the product; the page's key={version} then restarts the form. */}
+            <Button variant="secondary" onClick={() => router.refresh()}>
               Reload
             </Button>
           </div>

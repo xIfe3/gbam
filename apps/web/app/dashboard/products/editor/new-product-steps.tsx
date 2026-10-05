@@ -40,7 +40,20 @@ export function NewProductSteps() {
   const [formError, setFormError] = useState<string | undefined>(undefined);
   const [saving, setSaving] = useState(false);
 
-  /** Builds the product and returns the errors that belong to `onlySteps` (or all). */
+  /** Shows the errors and jumps to the earliest step that has one. */
+  function showErrors(found: Record<string, string>) {
+    setErrors(found);
+    let target: Step = 3;
+    for (const key of Object.keys(found)) {
+      const candidate = stepForKey(key, state.hasOptions);
+      if (candidate < target) {
+        target = candidate;
+      }
+    }
+    setStep(target);
+  }
+
+  /** Builds the product and returns the errors found on `forStep` and the steps before it. */
   function errorsForStep(forStep: Step): Record<string, string> {
     const built = toProductInput(state);
     if (built.ok) {
@@ -85,16 +98,7 @@ export function NewProductSteps() {
     setFormError(undefined);
     const built = toProductInput(state);
     if (!built.ok) {
-      setErrors(built.errors);
-      // Jump to the earliest step that has an error.
-      let target: Step = 3;
-      for (const key of Object.keys(built.errors)) {
-        const candidate = stepForKey(key, state.hasOptions);
-        if (candidate < target) {
-          target = candidate;
-        }
-      }
-      setStep(target);
+      showErrors(built.errors);
       return;
     }
     setErrors({});
@@ -103,7 +107,7 @@ export function NewProductSteps() {
       // On success the action redirects to the list, so we only get here on a failure.
       const result = await createProductAction(built.input);
       if (result.fieldErrors) {
-        setErrors(result.fieldErrors);
+        showErrors(result.fieldErrors);
       }
       if (result.error) {
         setFormError(result.error);

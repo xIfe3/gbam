@@ -28,6 +28,12 @@ export type EditorState = {
   hasOptions: boolean;
   options: EditorOption[];
   variants: EditorVariant[];
+  /**
+   * While an option has no values there are no combinations, so the variant list is empty.
+   * The variants (and the options they belonged to) are kept here so their ids, prices and
+   * stock come back once values exist again.
+   */
+  stash?: { options: EditorOption[]; variants: EditorVariant[] };
 };
 
 /** A new product: no photos yet, no options, one blank variant. */
@@ -227,6 +233,49 @@ export function rebuildVariants(
     }
   }
   return result;
+}
+
+function anyOptionEmpty(options: EditorOption[]): boolean {
+  for (const option of options) {
+    if (option.values.length === 0) {
+      return true;
+    }
+  }
+  return false;
+}
+
+/**
+ * Changes the options and keeps the variants in step. While an option has no values the
+ * variants are parked in `stash` (not thrown away); once every option has a value the
+ * variants are rebuilt from whatever is current, or from the stash.
+ */
+export function withOptions(state: EditorState, options: EditorOption[]): EditorState {
+  let source = { options: state.options, variants: state.variants };
+  if (state.variants.length === 0 && state.stash) {
+    source = state.stash;
+  }
+
+  if (anyOptionEmpty(options)) {
+    if (source.variants.length === 0) {
+      return { ...state, options, variants: [] };
+    }
+    return { ...state, options, variants: [], stash: source };
+  }
+
+  const variants = rebuildVariants(source.variants, source.options, options);
+  return { ...state, options, variants, stash: undefined };
+}
+
+/** Switches "Does it come in options?". Going back to No restores the single variant. */
+export function withHasOptions(state: EditorState, hasOptions: boolean): EditorState {
+  if (hasOptions === state.hasOptions) {
+    return state;
+  }
+  let options: EditorOption[] = [];
+  if (hasOptions) {
+    options = [{ name: "", values: [] }];
+  }
+  return { ...withOptions(state, options), hasOptions };
 }
 
 export function setAllPrices(variants: EditorVariant[], priceText: string): EditorVariant[] {

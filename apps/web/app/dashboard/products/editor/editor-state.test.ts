@@ -4,6 +4,8 @@ import {
   setAllPrices,
   setAllStock,
   toProductInput,
+  withHasOptions,
+  withOptions,
   type EditorState,
   type EditorVariant,
 } from "./editor-state";
@@ -178,5 +180,63 @@ describe("toProductInput", () => {
       expect(result.input.variants).toHaveLength(1);
       expect(result.input.variants[0]?.id).toBe(VARIANT_ID);
     }
+  });
+});
+
+function singleVariantState(): EditorState {
+  return {
+    name: "Bag",
+    description: "",
+    images: [{ id: IMG, smallUrl: "/s.webp" }],
+    hasOptions: false,
+    options: [],
+    variants: [variant([], { id: VARIANT_ID, priceText: "5000", stockText: "7", imageId: IMG })],
+  };
+}
+
+describe("switching options on and off", () => {
+  it("No, then Yes, then No keeps the original variant's id, price and stock", () => {
+    const yes = withHasOptions(singleVariantState(), true);
+    expect(yes.hasOptions).toBe(true);
+    expect(yes.variants).toEqual([]);
+
+    const no = withHasOptions(yes, false);
+    expect(no.variants).toHaveLength(1);
+    expect(no.variants[0]?.id).toBe(VARIANT_ID);
+    expect(no.variants[0]?.priceText).toBe("5000");
+    expect(no.variants[0]?.stockText).toBe("7");
+    expect(no.options).toEqual([]);
+  });
+
+  it("gives the first value added the stashed variant's id, price, stock and image", () => {
+    const yes = withHasOptions(singleVariantState(), true);
+    const withName = withOptions(yes, [{ name: "Size", values: [] }]);
+    const withS = withOptions(withName, [{ name: "Size", values: ["S"] }]);
+
+    expect(withS.variants).toHaveLength(1);
+    expect(withS.variants[0]).toEqual({
+      id: VARIANT_ID,
+      optionValues: ["S"],
+      priceText: "5000",
+      stockText: "7",
+      imageId: IMG,
+      isEnabled: true,
+    });
+    expect(withS.stash).toBeUndefined();
+  });
+
+  it("keeps ids when the last value is deleted and added again", () => {
+    const start: EditorState = {
+      ...singleVariantState(),
+      hasOptions: true,
+      options: [{ name: "Size", values: ["S"] }],
+      variants: [variant(["S"], { id: VARIANT_ID, priceText: "5000" })],
+    };
+    const emptied = withOptions(start, [{ name: "Size", values: [] }]);
+    expect(emptied.variants).toEqual([]);
+
+    const back = withOptions(emptied, [{ name: "Size", values: ["S"] }]);
+    expect(back.variants[0]?.id).toBe(VARIANT_ID);
+    expect(back.variants[0]?.priceText).toBe("5000");
   });
 });
