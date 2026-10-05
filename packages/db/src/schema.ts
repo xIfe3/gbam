@@ -1,4 +1,4 @@
-import { ORDER_STATUSES } from "@gbam/shared";
+import { ORDER_STATUSES, TOUR_NAMES } from "@gbam/shared";
 import { relations, sql } from "drizzle-orm";
 import {
   bigint,
@@ -17,6 +17,8 @@ import {
 // The enum values come from @gbam/shared, so the DB and the state machine can't drift.
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
 export const orderActorEnum = pgEnum("order_actor", ["seller", "system"]);
+export const tourNameEnum = pgEnum("tour_name", TOUR_NAMES);
+export const tourOutcomeEnum = pgEnum("tour_outcome", ["completed", "skipped"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
 /** accepted = Meta took our request; the rest come from the WhatsApp webhook. */
 export const whatsappStatusEnum = pgEnum("whatsapp_status", [
@@ -377,6 +379,27 @@ export const orderEvents = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("order_events_order_idx").on(t.orderId)],
+);
+
+/**
+ * How far a seller got in each guided tour. One row per seller per tour.
+ * `outcome` stays null while the tour is in progress; once it is set (completed or
+ * skipped) the API never changes it again, so the tour never shows by itself again.
+ */
+export const sellerTours = pgTable(
+  "seller_tours",
+  {
+    id: id(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellers.id, { onDelete: "cascade" }),
+    tour: tourNameEnum("tour").notNull(),
+    currentStep: integer("current_step").notNull().default(1),
+    outcome: tourOutcomeEnum("outcome"),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [uniqueIndex("seller_tours_seller_tour_idx").on(t.sellerId, t.tour)],
 );
 
 export const usersRelations = relations(users, ({ one, many }) => ({
