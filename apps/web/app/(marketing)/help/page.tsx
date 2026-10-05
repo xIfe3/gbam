@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ContentUnavailable } from "../content-unavailable";
+import { EmptyState } from "@/components/brand/empty-state";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
 import { api } from "@/lib/api";
@@ -33,7 +34,20 @@ export default async function HelpPage() {
       />
       <div className="mx-auto max-w-5xl px-4 pb-8">
         {failed && <ContentUnavailable what="Help articles" />}
-        {!failed && <HelpSearch articles={articles} />}
+        {!failed && articles.length === 0 && (
+          <EmptyState
+            title="No articles here yet"
+            description="Email us and we'll help you directly, usually the same day."
+          >
+            <a
+              href="mailto:support@gbam.app"
+              className="text-brand focus-visible:outline-brand inline-flex min-h-11 items-center font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              support@gbam.app
+            </a>
+          </EmptyState>
+        )}
+        {!failed && articles.length > 0 && <HelpSearch articles={articles} />}
       </div>
       <CtaBand />
     </>

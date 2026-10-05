@@ -10,10 +10,9 @@ const textareaClasses =
 
 /** The contact form. The server action keeps what was typed when something goes wrong. */
 export function ContactForm() {
-  const [state, formAction, pending] = useActionState<ContactState, FormData>(
-    sendContactMessage,
-    { status: "idle" },
-  );
+  const [state, formAction, pending] = useActionState<ContactState, FormData>(sendContactMessage, {
+    status: "idle",
+  });
 
   if (state.status === "success") {
     return (
@@ -96,11 +95,7 @@ export function ContactForm() {
             className={textareaClasses}
           />
           {messageError && (
-            <p
-              id="contact-message-error"
-              role="alert"
-              className="text-ink text-sm font-medium"
-            >
+            <p id="contact-message-error" role="alert" className="text-ink text-sm font-medium">
               {messageError}
             </p>
           )}
@@ -108,7 +103,10 @@ export function ContactForm() {
       </fieldset>
 
       {state.status === "error" && (
-        <p role="alert" className="bg-coral-wash text-ink border-coral-tint rounded-lg border px-4 py-3 text-sm">
+        <p
+          role="alert"
+          className="bg-coral-wash text-ink border-coral-tint rounded-lg border px-4 py-3 text-sm"
+        >
           {state.message}
         </p>
       )}

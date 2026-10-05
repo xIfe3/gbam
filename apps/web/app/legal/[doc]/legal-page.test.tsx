@@ -9,7 +9,8 @@ const { getContent, notFound } = vi.hoisted(() => ({
   }),
 }));
 
-vi.mock("next/navigation", () => ({ notFound }));
+// useRouter: the "Try again" button on the error card asks for it.
+vi.mock("next/navigation", () => ({ notFound, useRouter: () => ({ refresh: () => {} }) }));
 vi.mock("@/lib/api", () => {
   class ApiError extends Error {
     constructor(

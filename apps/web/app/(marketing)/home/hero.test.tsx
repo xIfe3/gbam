@@ -12,8 +12,14 @@ describe("Hero", () => {
 
   it("links to signup and how-it-works", () => {
     render(<Hero />);
-    expect(screen.getByRole("link", { name: "Start selling free" })).toHaveAttribute("href", "/signup");
-    expect(screen.getByRole("link", { name: /See how it works/ })).toHaveAttribute("href", "/how-it-works");
+    expect(screen.getByRole("link", { name: "Start selling free" })).toHaveAttribute(
+      "href",
+      "/signup",
+    );
+    expect(screen.getByRole("link", { name: /See how it works/ })).toHaveAttribute(
+      "href",
+      "/how-it-works",
+    );
   });
 
   it("shows the payment toast and the trust line", () => {

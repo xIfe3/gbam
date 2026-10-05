@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { ContentUnavailable, formatDate } from "../content-unavailable";
+import { EmptyState } from "@/components/brand/empty-state";
 import { PageHeader } from "@/components/brand/page-header";
 import { Prose } from "@/components/brand/prose";
 import { api } from "@/lib/api";
@@ -32,6 +33,12 @@ export default async function ChangelogPage() {
       />
       <div className="mx-auto max-w-3xl px-4 pb-16">
         {failed && <ContentUnavailable what="The changelog" />}
+        {!failed && entries.length === 0 && (
+          <EmptyState
+            title="Nothing new yet"
+            description="Updates will show up here as we ship them."
+          />
+        )}
         <ol className="flex flex-col gap-6">
           {entries.map((entry) => (
             <li key={entry.slug} className="rounded-2xl bg-white p-6">

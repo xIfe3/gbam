@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContentUnavailable, formatDate } from "../content-unavailable";
+import { EmptyState } from "@/components/brand/empty-state";
 import { PageHeader } from "@/components/brand/page-header";
 import { api } from "@/lib/api";
 import type { ContentSummary } from "@/lib/api";
@@ -31,7 +32,19 @@ export default async function BlogPage() {
       />
       <div className="mx-auto max-w-3xl px-4 pb-16">
         {failed && <ContentUnavailable what="Blog posts" />}
-        {!failed && posts.length === 0 && <p className="text-ink-muted">No posts yet.</p>}
+        {!failed && posts.length === 0 && (
+          <EmptyState
+            title="No posts yet"
+            description="We're writing our first stories for WhatsApp sellers. Check back soon."
+          >
+            <Link
+              href="/how-it-works"
+              className="text-brand focus-visible:outline-brand inline-flex min-h-11 items-center font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Meanwhile, see how gbam works →
+            </Link>
+          </EmptyState>
+        )}
         <ul className="flex flex-col gap-4">
           {posts.map((post) => (
             <li key={post.slug}>

@@ -1,11 +1,14 @@
+import { TryAgainButton } from "./try-again-button";
+
 // Shown when the content API cannot be reached, instead of crashing the page.
 export function ContentUnavailable({ what }: { what: string }) {
   return (
-    <div role="alert" className="bg-coral-wash text-ink rounded-2xl p-6">
-      <p className="font-bold">{what} couldn&apos;t load, please try again.</p>
+    <div role="alert" className="border-coral-tint bg-coral-wash text-ink rounded-2xl border p-6">
+      <p className="font-bold">{what} couldn&apos;t load right now.</p>
       <p className="text-ink-muted mt-1 text-sm">
-        If it keeps happening, email support@gbam.app.
+        Please try again. If it keeps happening, email support@gbam.app.
       </p>
+      <TryAgainButton />
     </div>
   );
 }

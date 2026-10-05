@@ -62,3 +62,46 @@ export function ProductFormSkeleton() {
     </div>
   );
 }
+
+/** A public content page loading: the page header, then a column of paragraph lines. */
+export function ArticleSkeleton({ label }: { label: string }) {
+  return (
+    <LoadingScreen label={label}>
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <Skeleton className="mb-3 h-4 w-24" />
+        <Skeleton className="mb-4 h-10 w-3/4" />
+        <Skeleton className="mb-10 h-5 w-2/3" />
+        <Skeleton className="mb-3 h-4" />
+        <Skeleton className="mb-3 h-4" />
+        <Skeleton className="mb-3 h-4 w-5/6" />
+        <Skeleton className="mb-8 h-4 w-2/3" />
+        <Skeleton className="mb-3 h-4" />
+        <Skeleton className="mb-3 h-4 w-4/5" />
+      </div>
+    </LoadingScreen>
+  );
+}
+
+const LIST_ROWS = [1, 2, 3, 4];
+
+/** A public list page loading (blog, FAQ, changelog, help): header, then cards. */
+export function ListSkeleton({ label }: { label: string }) {
+  return (
+    <LoadingScreen label={label}>
+      <div className="mx-auto max-w-3xl px-4 py-12">
+        <Skeleton className="mb-3 h-4 w-24" />
+        <Skeleton className="mb-4 h-10 w-2/3" />
+        <Skeleton className="mb-10 h-5 w-1/2" />
+        <div className="flex flex-col gap-4">
+          {LIST_ROWS.map((row) => (
+            <div key={row} className="rounded-2xl bg-white p-5">
+              <Skeleton className="mb-2 h-3 w-24" />
+              <Skeleton className="mb-2 h-6 w-2/3" />
+              <Skeleton className="h-4 w-5/6" />
+            </div>
+          ))}
+        </div>
+      </div>
+    </LoadingScreen>
+  );
+}

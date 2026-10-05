@@ -41,8 +41,7 @@ function OrderChat() {
           <div className="text-ink-subtle text-right text-[8px]">12:05</div>
         </div>
         <div className="bg-brand max-w-[80%] self-end rounded-[10px_10px_3px_10px] px-2 py-1.5 text-white">
-          Done ✅
-          <div className="text-right text-[8px] text-white/80">12:07 ✓✓</div>
+          Done ✅<div className="text-right text-[8px] text-white/80">12:07 ✓✓</div>
         </div>
         <div className="text-ink max-w-[88%] rounded-[10px_10px_10px_3px] bg-white px-2 py-1.5">
           Payment received. Thank you! Your order is being prepared 🍲
