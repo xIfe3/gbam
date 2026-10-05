@@ -140,6 +140,45 @@ describe("BasketView", () => {
     expect(formData.get("name")).toBe("Bola");
   });
 
+  it("keeps Place order disabled when a re-check fails after a good check", async () => {
+    vi.mocked(checkBasketAction).mockResolvedValueOnce(HEALTHY);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    const order = await screen.findByRole("button", { name: /Place order/ });
+    await waitFor(() => expect(order).toBeEnabled());
+
+    // Removing a line changes the product list, which triggers a second check.
+    vi.mocked(checkBasketAction).mockRejectedValue(new Error("network down"));
+    fireEvent.click(screen.getByRole("button", { name: "Remove Tee – M" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("alert")).toHaveTextContent(/could not check your basket/i);
+    });
+    expect(screen.getByRole("button", { name: /check your basket/i })).toBeDisabled();
+  });
+
+  it("empties the saved basket after the order succeeds", async () => {
+    vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
+    vi.mocked(placeOrder).mockResolvedValue({
+      status: "success",
+      code: "GB-ABCD",
+      totalKobo: 1300000,
+    });
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+
+    const order = await screen.findByRole("button", { name: /Place order/ });
+    await waitFor(() => expect(order).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Bola" } });
+    fireEvent.change(screen.getByLabelText("WhatsApp number"), {
+      target: { value: "08031234567" },
+    });
+    fireEvent.submit(order.closest("form") as HTMLFormElement);
+
+    expect(await screen.findByText("GB-ABCD")).toBeInTheDocument();
+    await waitFor(() => {
+      expect(localStorage.getItem(STORAGE_KEY)).toBe("[]");
+    });
+  });
+
   it("says the basket is empty when there are no lines", async () => {
     localStorage.clear();
     render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);

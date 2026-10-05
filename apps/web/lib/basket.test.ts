@@ -87,6 +87,20 @@ describe("readBasket", () => {
     expect(readBasket("broken-shop")).toEqual([]);
   });
 
+  it("drops stored lines with an impossible quantity or price", () => {
+    const stored = [
+      makeLine({ variantId: "ok" }),
+      makeLine({ variantId: "zero", quantity: 0 }),
+      makeLine({ variantId: "huge", quantity: 100 }),
+      makeLine({ variantId: "fraction", quantity: 1.5 }),
+      makeLine({ variantId: "negative", priceKobo: -1 }),
+    ];
+    vi.stubGlobal("localStorage", { getItem: () => JSON.stringify(stored) });
+    const lines = readBasket("tampered-shop");
+    expect(lines).toHaveLength(1);
+    expect(lines[0]?.variantId).toBe("ok");
+  });
+
   it("returns an empty basket when the stored text is not a basket", () => {
     vi.stubGlobal("localStorage", { getItem: () => "{not json" });
     expect(readBasket("junk-shop")).toEqual([]);

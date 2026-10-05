@@ -23,6 +23,12 @@ const basketSchema = z.array(
   z.object({ variantId: z.string().min(1), quantity: z.coerce.number().int().min(1).max(99) }),
 );
 
+/** What checkBasketAction accepts: one shop slug and at most 50 product slugs. */
+const checkBasketArgumentsSchema = z.object({
+  shopSlug: z.string().min(1).max(100),
+  productSlugs: z.array(z.string().min(1).max(200)).max(50),
+});
+
 /** Reads a form field as text ("" if it's missing). */
 function readField(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -40,9 +46,16 @@ export async function checkBasketAction(
   shopSlug: string,
   productSlugs: string[],
 ): Promise<StorefrontProduct[]> {
+  // A server action is a public endpoint: anyone can call it with any values, whatever
+  // the TypeScript types say. Check the shape and cap the size before doing any work.
+  const parsedArguments = checkBasketArgumentsSchema.safeParse({ shopSlug, productSlugs });
+  if (!parsedArguments.success) {
+    throw new Error("Invalid basket check request");
+  }
+
   // The same product can be in the basket as several variants; fetch it only once.
   const uniqueSlugs: string[] = [];
-  for (const productSlug of productSlugs) {
+  for (const productSlug of parsedArguments.data.productSlugs) {
     if (!uniqueSlugs.includes(productSlug)) {
       uniqueSlugs.push(productSlug);
     }
@@ -51,7 +64,7 @@ export async function checkBasketAction(
   const products: StorefrontProduct[] = [];
   for (const productSlug of uniqueSlugs) {
     try {
-      const page = await api.storefrontProduct(shopSlug, productSlug);
+      const page = await api.storefrontProduct(parsedArguments.data.shopSlug, productSlug);
       products.push(page.product);
     } catch (error) {
       // 404 = the seller deleted or hid it. Leaving it out lets checkBasket call it "gone".

@@ -124,6 +124,16 @@ export function BasketView({ shopSlug, businessName }: Props) {
     );
   }
 
+  // Before the page is hydrated the browser's storage has not been read yet, so an empty
+  // basket here would be a lie. Show a neutral message instead.
+  if (!basket.ready) {
+    return (
+      <p role="status" className="text-ink-muted">
+        Loading your basket…
+      </p>
+    );
+  }
+
   if (lines.length === 0) {
     return (
       <section className="border-brand-tint rounded-2xl border-2 border-dashed p-6 text-center">
@@ -177,41 +187,56 @@ export function BasketView({ shopSlug, businessName }: Props) {
   if (pending) {
     submitLabel = "Placing order…";
   }
-  const canOrder = products !== null && problems.length === 0 && !pending;
+  // A failed re-check leaves old product data behind, so it must block ordering too.
+  const canOrder = products !== null && !checkFailed && problems.length === 0 && !pending;
+
+  // Read out by screen readers when it changes (the button label alone is not announced).
+  let statusText = "";
+  if (pending) {
+    statusText = "Placing order…";
+  } else if (products === null && !checkFailed) {
+    statusText = "Checking your basket…";
+  }
 
   return (
     <form action={formAction} className="space-y-6">
-      {problems.length > 0 && (
-        <ul className="space-y-2">
-          {problems.map((item) => {
-            let fix: React.ReactNode = null;
-            if (item.problem === "only_n_left" && item.left !== undefined) {
-              const left = item.left;
-              fix = (
-                <button
-                  type="button"
-                  className={smallButtonClasses}
-                  onClick={() => basket.setQuantity(item.line.variantId, left)}
+      <p role="status" className="sr-only">
+        {statusText}
+      </p>
+      {/* aria-live: screen readers announce problems as they appear or go away. */}
+      <div aria-live="polite" className="space-y-2">
+        {problems.length > 0 && (
+          <ul className="space-y-2">
+            {problems.map((item) => {
+              let fix: React.ReactNode = null;
+              if (item.problem === "only_n_left" && item.left !== undefined) {
+                const left = item.left;
+                fix = (
+                  <button
+                    type="button"
+                    className={smallButtonClasses}
+                    onClick={() => basket.setQuantity(item.line.variantId, left)}
+                  >
+                    Change to {left}
+                  </button>
+                );
+              }
+              return (
+                <li
+                  key={item.line.variantId}
+                  className="bg-coral-wash text-ink border-coral-tint rounded-lg border px-4 py-3 text-sm font-medium"
                 >
-                  Change to {left}
-                </button>
+                  <p>{problemMessage(item)}</p>
+                  {fix}
+                </li>
               );
-            }
-            return (
-              <li
-                key={item.line.variantId}
-                className="bg-coral-wash text-ink border-coral-tint rounded-lg border px-4 py-3 text-sm font-medium"
-              >
-                <p>{problemMessage(item)}</p>
-                {fix}
-              </li>
-            );
-          })}
-        </ul>
-      )}
-      {checkFailed && (
-        <FormError message="We could not check your basket just now. Refresh the page to try again." />
-      )}
+            })}
+          </ul>
+        )}
+        {checkFailed && (
+          <FormError message="We could not check your basket just now. Refresh the page to try again." />
+        )}
+      </div>
 
       <ul className="divide-brand-tint border-brand-tint divide-y-2 rounded-2xl border-2 bg-white">
         {lines.map((line) => {

@@ -1,4 +1,4 @@
-import { useMemo, useSyncExternalStore } from "react";
+import { useCallback, useMemo, useSyncExternalStore } from "react";
 import type { StorefrontProduct } from "./api";
 
 /** One line in the customer's basket. */
@@ -162,7 +162,12 @@ function isBasketLine(value: unknown): value is BasketLine {
     typeof line.productName === "string" &&
     typeof line.variantTitle === "string" &&
     typeof line.priceKobo === "number" &&
+    Number.isFinite(line.priceKobo) &&
+    line.priceKobo >= 0 &&
     typeof line.quantity === "number" &&
+    Number.isInteger(line.quantity) &&
+    line.quantity >= 1 &&
+    line.quantity <= MAX_QUANTITY &&
     photoOk
   );
 }
@@ -218,27 +223,45 @@ function serverSnapshot(): string {
   return "";
 }
 
+function noSubscription(): () => void {
+  return () => {};
+}
+
 /**
  * The basket for one shop. useSyncExternalStore is React's way to read data that lives
- * outside React (here: localStorage) and re-draw when it changes. It compares the JSON
- * text, so a new lines array is only built when the text really changed.
+ * outside React (here: localStorage) and re-draw when the saved text changes.
+ * `ready` is false while the server (and the first browser draw) cannot see storage yet.
  */
 export function useBasket(shopSlug: string) {
   const raw = useSyncExternalStore(subscribe, () => readRaw(shopSlug), serverSnapshot);
-  // useMemo keeps the same array until the text changes, so effects that watch it stay calm.
+  const ready = useSyncExternalStore(
+    noSubscription,
+    () => true,
+    () => false,
+  );
+  // useMemo builds a new lines array only when the saved text changes, so effects that
+  // watch `lines` stay calm.
   const lines = useMemo(() => parseBasket(raw), [raw]);
 
+  // useCallback keeps each function the same between draws, so an effect that lists it
+  // as a dependency does not run again every time.
   // Each change re-reads the latest saved basket first, so two quick changes cannot
   // overwrite each other with a stale copy.
-  function add(line: BasketLine) {
-    writeBasket(shopSlug, addLine(readBasket(shopSlug), line));
-  }
-  function changeQuantity(variantId: string, quantity: number) {
-    writeBasket(shopSlug, setQuantity(readBasket(shopSlug), variantId, quantity));
-  }
-  function clear() {
+  const add = useCallback(
+    (line: BasketLine) => {
+      writeBasket(shopSlug, addLine(readBasket(shopSlug), line));
+    },
+    [shopSlug],
+  );
+  const changeQuantity = useCallback(
+    (variantId: string, quantity: number) => {
+      writeBasket(shopSlug, setQuantity(readBasket(shopSlug), variantId, quantity));
+    },
+    [shopSlug],
+  );
+  const clear = useCallback(() => {
     writeBasket(shopSlug, []);
-  }
+  }, [shopSlug]);
 
-  return { lines, add, setQuantity: changeQuantity, clear };
+  return { lines, ready, add, setQuantity: changeQuantity, clear };
 }

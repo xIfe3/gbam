@@ -37,9 +37,7 @@ export default async function OrderPage(props: PageProps<"/[slug]/order">) {
         >
           ← {store.businessName}
         </Link>
-        <h1 className="font-display text-ink mt-2 text-3xl leading-tight font-black">
-          Your order
-        </h1>
+        <h1 className="font-display text-ink mt-2 text-3xl leading-tight font-black">Your order</h1>
       </header>
       <BasketView shopSlug={store.slug} businessName={store.businessName} />
       <footer className="text-ink-muted mt-10 text-sm">
