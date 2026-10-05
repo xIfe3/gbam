@@ -2,6 +2,7 @@
 
 import type { StorefrontProduct } from "@/lib/api";
 import { useBasket } from "@/lib/basket";
+import { OrderingTip } from "./ordering-tip";
 import { VariantPicker } from "./variant-picker";
 
 /**
@@ -16,5 +17,10 @@ export function ProductView({
   product: StorefrontProduct;
 }) {
   const basket = useBasket(shopSlug);
-  return <VariantPicker product={product} onAdd={basket.add} />;
+  return (
+    <>
+      <OrderingTip />
+      <VariantPicker product={product} onAdd={basket.add} />
+    </>
+  );
 }
