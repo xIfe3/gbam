@@ -35,6 +35,9 @@ import { reduceStockForPaidOrder, variantDisplayName } from "./stock.js";
 // happens we try again with a new code, up to this many times.
 const MAX_CODE_ATTEMPTS = 3;
 
+// Same cap as one line in createOrderSchema; checked again after duplicate lines are merged.
+const MAX_QUANTITY_PER_VARIANT = 99;
+
 /**
  * All order logic lives here. Controllers (HTTP) and the worker call these methods;
  * they never touch the orders tables directly.
@@ -223,14 +226,19 @@ export class OrdersService {
     });
 
     if (result.shortfall) {
-      const sellerRows = await this.db
-        .select({ slug: sellers.slug })
-        .from(sellers)
-        .where(eq(sellers.id, result.order.sellerId));
-      const storeSlug = sellerRows[0]?.slug ?? "unknown";
-      this.logger.error(
-        `STOCK SHORTFALL on order ${result.order.code} (store ${storeSlug}). NEEDS REFUND.`,
-      );
+      // Logging must never stop the customer's "paid" message from being queued below.
+      try {
+        const sellerRows = await this.db
+          .select({ slug: sellers.slug })
+          .from(sellers)
+          .where(eq(sellers.id, result.order.sellerId));
+        const storeSlug = sellerRows[0]?.slug ?? "unknown";
+        this.logger.error(
+          `STOCK SHORTFALL on order ${result.order.code} (store ${storeSlug}). NEEDS REFUND.`,
+        );
+      } catch (error) {
+        this.logger.error(`STOCK SHORTFALL on order ${result.order.code}. NEEDS REFUND.`, error);
+      }
     }
 
     // Only after the transaction has committed: queue the WhatsApp message.
@@ -256,15 +264,44 @@ export class OrdersService {
       quantityByVariantId.set(item.variantId, quantitySoFar + item.quantity);
     }
     const variantIds = Array.from(quantityByVariantId.keys());
+    for (const quantity of quantityByVariantId.values()) {
+      if (quantity > MAX_QUANTITY_PER_VARIANT) {
+        throw new BadRequestException({
+          statusCode: 400,
+          message: `You can order at most ${MAX_QUANTITY_PER_VARIANT} of one item`,
+          field: "items",
+        });
+      }
+    }
+
+    // Lock the owning products first. A product save locks the product (FOR UPDATE) and
+    // then edits or deletes its variants. If we only locked variants, our order item
+    // insert (which also checks the product row) could wait on the save while the save
+    // waits on us: a deadlock. And the save could delete a variant this order is about to
+    // use. `.for("share")` = SELECT ... FOR SHARE: orders can run side by side, but we and
+    // a save take turns. Same lock order as the save: products (by id), then variants.
+    const variantOwners = await tx
+      .select({ productId: productVariants.productId })
+      .from(productVariants)
+      .where(inArray(productVariants.id, variantIds));
+    const ownerIds: string[] = [];
+    for (const owner of variantOwners) {
+      if (!ownerIds.includes(owner.productId)) {
+        ownerIds.push(owner.productId);
+      }
+    }
+    if (ownerIds.length > 0) {
+      await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(inArray(products.id, ownerIds))
+        .orderBy(asc(products.id))
+        .for("share");
+    }
 
     // Only this seller's variants that can be bought right now: the product is active and
     // the variant is enabled and not archived. Someone could send another store's ids.
-    //
-    // `.for("share")` = SELECT ... FOR SHARE: other orders can read these rows at the same
-    // time, but nobody can change or delete them until our transaction ends. Without it, a
-    // seller saving their product could remove a variant after we checked it but before our
-    // order item pointed at it.
-    // Ordering by id keeps the lock order the same for everyone.
+    // Read after the product lock, so a save can't change them before we commit.
     const foundVariants = await tx
       .select({
         variantId: productVariants.id,
@@ -285,8 +322,7 @@ export class OrdersService {
           isNull(productVariants.archivedAt),
         ),
       )
-      .orderBy(asc(productVariants.id))
-      .for("share", { of: productVariants });
+      .orderBy(asc(productVariants.id));
     if (foundVariants.length !== variantIds.length) {
       throw new BadRequestException("One or more products are unavailable");
     }

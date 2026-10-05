@@ -3,8 +3,8 @@
  * Each run creates its own seller, so it never collides with seed data.
  */
 import "reflect-metadata";
-import { orderEvents, productVariants, sellers } from "@gbam/db";
-import { InvalidOrderTransitionError } from "@gbam/shared";
+import { orderEvents, productVariants, products, sellers } from "@gbam/db";
+import { createOrderSchema, InvalidOrderTransitionError } from "@gbam/shared";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
@@ -195,6 +195,57 @@ describe("OrdersService (integration)", () => {
     } finally {
       await db.delete(sellers).where(eq(sellers.id, otherSeller.id));
     }
+  });
+
+  it("rejects more than 99 of one variant, including across merged lines", async () => {
+    await expectRejected(variantId, 100, "at most 99");
+    await expect(
+      service.createFromStorefront(slug, {
+        customer,
+        items: [
+          { variantId, quantity: 60 },
+          { variantId, quantity: 60 },
+        ],
+      }),
+    ).rejects.toMatchObject({ response: { field: "items" } });
+    expect(createOrderSchema.safeParse({ customer, items: [{ variantId, quantity: 100 }] }).success).toBe(
+      false,
+    );
+  });
+
+  it("waits for a product save instead of deadlocking, and keeps the variant", async () => {
+    const made = await createTestProduct(db, sellerId, { name: "Locked", stock: 5 });
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let locked: () => void = () => {};
+    const isLocked = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    // Pretend to be a product save: product row locked FOR UPDATE, then variants touched.
+    const save = db.transaction(async (tx) => {
+      await tx.select({ id: products.id }).from(products).where(eq(products.id, made.product.id)).for("update");
+      locked();
+      await released;
+      await tx
+        .update(productVariants)
+        .set({ stock: 4 })
+        .where(eq(productVariants.id, made.variant.id));
+    });
+    await isLocked;
+
+    const placing = service.createFromStorefront(slug, {
+      customer,
+      items: [{ variantId: made.variant.id, quantity: 1 }],
+    });
+    await new Promise((resolve) => setTimeout(resolve, 300)); // placement is now waiting
+    release();
+    await save;
+    const order = await placing;
+
+    const detail = await service.getForSeller(sellerId, order.id);
+    expect(detail.items[0]?.variantId).toBe(made.variant.id);
   });
 
   it("rejects more than the tracked stock, and says sold out at 0", async () => {

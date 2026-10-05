@@ -3,11 +3,12 @@
  * order is paid, and never below zero.
  */
 import "reflect-metadata";
-import { orders, productVariants, sellers } from "@gbam/db";
+import { orders, productVariants, products, sellers } from "@gbam/db";
 import { InvalidOrderTransitionError } from "@gbam/shared";
+import { Logger } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { createTestProduct, createTestSeller } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
@@ -108,11 +109,45 @@ describe("stock reduction on payment (integration)", () => {
     await service.transition({ orderId: first.id, to: "awaiting_payment", actor: "system" });
     await service.transition({ orderId: second.id, to: "awaiting_payment", actor: "system" });
 
-    // Both payments arrive at the same moment.
-    await Promise.all([
-      service.transition({ orderId: first.id, to: "paid", actor: "system" }),
-      service.transition({ orderId: second.id, to: "paid", actor: "system" }),
-    ]);
+    // Hold the variant row locked in a separate transaction so both payments are really
+    // in flight (and waiting) at the same moment, then let them go.
+    let release: () => void = () => {};
+    const released = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    let locked: () => void = () => {};
+    const isLocked = new Promise<void>((resolve) => {
+      locked = resolve;
+    });
+    const holder = db.transaction(async (tx) => {
+      await tx
+        .select({ id: productVariants.id })
+        .from(productVariants)
+        .where(eq(productVariants.id, variant.id))
+        .for("update");
+      locked();
+      await released;
+    });
+    await isLocked;
+
+    const logSpy = vi.spyOn(Logger.prototype, "error").mockImplementation(() => {});
+    try {
+      const payments = Promise.all([
+        service.transition({ orderId: first.id, to: "paid", actor: "system" }),
+        service.transition({ orderId: second.id, to: "paid", actor: "system" }),
+      ]);
+      await new Promise((resolve) => setTimeout(resolve, 500)); // let both reach the lock
+      release();
+      await holder;
+      await payments;
+
+      const messages = logSpy.mock.calls.map((call) => String(call[0]));
+      const shortfallLogs = messages.filter((m) => m.includes("STOCK SHORTFALL"));
+      expect(shortfallLogs).toHaveLength(1);
+      expect(shortfallLogs[0]).toContain("NEEDS REFUND");
+    } finally {
+      logSpy.mockRestore();
+    }
 
     expect(await stockOf(variant.id)).toBe(0);
     const flags = [await shortfallOf(first.id), await shortfallOf(second.id)];
@@ -123,6 +158,26 @@ describe("stock reduction on payment (integration)", () => {
       }
     }
     expect(flagged).toHaveLength(1);
+  });
+
+  it("bumps the product version when stock changes, but not for untracked stock", async () => {
+    const tracked = await createTestProduct(db, sellerId, { stock: 5 });
+    const untracked = await createTestProduct(db, sellerId, { stock: null });
+    const trackedOrder = await placeOrder(tracked.variant.id, 1, "2348011110007");
+    const untrackedOrder = await placeOrder(untracked.variant.id, 1, "2348011110008");
+    await pay(trackedOrder.id);
+    await pay(untrackedOrder.id);
+
+    const trackedRows = await db
+      .select({ version: products.version })
+      .from(products)
+      .where(eq(products.id, tracked.product.id));
+    const untrackedRows = await db
+      .select({ version: products.version })
+      .from(products)
+      .where(eq(products.id, untracked.product.id));
+    expect(trackedRows[0]?.version).toBe(tracked.product.version + 1);
+    expect(untrackedRows[0]?.version).toBe(untracked.product.version);
   });
 
   it("a duplicate paid webhook does not reduce stock twice", async () => {

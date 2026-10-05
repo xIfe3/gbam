@@ -33,6 +33,8 @@ import { EmailQueue } from "../email/email.queue.js";
 import type { EmailJob } from "../email/templates.js";
 import { DB, InfraModule, REDIS, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule, PHOTO_STORAGE } from "../integrations/integrations.module.js";
+import { OrdersModule } from "../orders/orders.module.js";
+import { OrdersService } from "../orders/orders.service.js";
 import { ProductsModule } from "./products.module.js";
 import { ProductsService } from "./products.service.js";
 
@@ -79,7 +81,7 @@ describe("Seller product endpoints over HTTP (integration)", () => {
     const storage = new LocalPhotoStorage(folder, PUBLIC_BASE);
     const fakeQueue = { send: async (_jobId: string, _job: EmailJob) => {} };
     moduleRef = await Test.createTestingModule({
-      imports: [InfraModule, IntegrationsModule, AuthModule, ProductsModule],
+      imports: [InfraModule, IntegrationsModule, AuthModule, ProductsModule, OrdersModule],
     })
       .overrideProvider(EmailQueue)
       .useValue(fakeQueue)
@@ -377,6 +379,41 @@ describe("Seller product endpoints over HTTP (integration)", () => {
     const saved = await call(seller, "PUT", `/products/${created.id}`, asUpdate(created, images));
     expect(saved.status).toBe(200);
     expect((saved.json as Detail).version).toBe(2);
+  });
+
+  it("refuses an editor opened before a payment, so the saved stock isn't undone", async () => {
+    const seller = await newSeller();
+    const images = await uploadPhotos(seller, 1);
+    const input = plainProduct("Paid stock", images);
+    input.variants = [{ ...plainVariant(250_000), stock: 5 }];
+    const created = await createProduct(seller, input);
+    const opened = created.variants[0];
+    if (!opened) {
+      throw new Error("No variant");
+    }
+
+    // A customer orders 2 and pays while the seller has the editor open.
+    const sellerRows = await db
+      .select({ slug: sellers.slug })
+      .from(sellers)
+      .where(eq(sellers.id, seller.sellerId));
+    const slug = sellerRows[0]?.slug;
+    if (!slug) {
+      throw new Error("No slug");
+    }
+    const ordersService = moduleRef.get(OrdersService);
+    const order = await ordersService.createFromStorefront(slug, {
+      customer: { name: "Buyer", phone: "2348011119999" },
+      items: [{ variantId: opened.id, quantity: 2 }],
+    });
+    await ordersService.transition({ orderId: order.id, to: "awaiting_payment", actor: "system" });
+    await ordersService.transition({ orderId: order.id, to: "paid", actor: "system" });
+
+    const res = await call(seller, "PUT", `/products/${created.id}`, asUpdate(created, images));
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({ message: STALE_MESSAGE });
+    const row = await variantRow(opened.id);
+    expect(row?.stock).toBe(3);
   });
 
   it("deletes a dropped variant that was never ordered", async () => {
