@@ -162,7 +162,7 @@ export class ProductsService {
       .from(products)
       .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)));
     const product = productRows[0];
-    if (!product) {
+    if (!product || product.status === "archived") {
       throw new NotFoundException("Product not found");
     }
 
@@ -291,7 +291,7 @@ export class ProductsService {
         .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)))
         .for("update");
       const product = locked[0];
-      if (!product) {
+      if (!product || product.status === "archived") {
         throw new NotFoundException("Product not found");
       }
       // Optimistic version check: the seller opened version N; if the row has moved on,
@@ -335,11 +335,23 @@ export class ProductsService {
     return this.get(sellerId, productId);
   }
 
-  async setStatus(sellerId: string, productId: string, status: ProductStatus): Promise<void> {
+  // Only active/hidden: archiving happens through remove(), and archived products
+  // can't be brought back, so they count as not found here.
+  async setStatus(
+    sellerId: string,
+    productId: string,
+    status: "active" | "hidden",
+  ): Promise<void> {
     const updated = await this.db
       .update(products)
       .set({ status, isActive: status === "active", updatedAt: new Date() })
-      .where(and(eq(products.id, productId), eq(products.sellerId, sellerId)))
+      .where(
+        and(
+          eq(products.id, productId),
+          eq(products.sellerId, sellerId),
+          ne(products.status, "archived"),
+        ),
+      )
       .returning({ id: products.id });
     if (updated.length === 0) {
       throw new NotFoundException("Product not found");
@@ -369,7 +381,8 @@ export class ProductsService {
           .update(products)
           .set({ status: "archived", isActive: false, updatedAt: new Date() })
           .where(eq(products.id, productId));
-        return { archived: true, keys: [] as string[] };
+        const noKeys: string[] = [];
+        return { archived: true, keys: noKeys };
       }
 
       const imageRows = await tx
@@ -478,6 +491,7 @@ export class ProductsService {
     return removedKeys;
   }
 
+
   private async syncVariants(tx: Tx, productId: string, input: VariantInput[]): Promise<void> {
     const existing = await tx
       .select()
@@ -485,41 +499,58 @@ export class ProductsService {
       .where(and(eq(productVariants.productId, productId), isNull(productVariants.archivedAt)));
 
     const byId = new Map<string, (typeof existing)[number]>();
-    const byCombination = new Map<string, (typeof existing)[number]>();
     for (const row of existing) {
       byId.set(row.id, row);
-      byCombination.set(row.optionValues.join("\u0000"), row);
     }
 
-    // Decide which saved row (if any) each submitted variant is. A variant without an
-    // id still matches a saved row with the same combination.
+    // Matching, pass 1: variants that name a saved row by id claim it. Done before
+    // anything else so an id-less variant can never take a row that has an owner.
     const matches: ((typeof existing)[number] | null)[] = [];
     const keptIds = new Set<string>();
     for (const variant of input) {
-      let match: (typeof existing)[number] | undefined;
+      let match: (typeof existing)[number] | null = null;
       if (variant.id !== undefined) {
-        match = byId.get(variant.id);
-        if (!match) {
-          throw new BadRequestException("One of the options no longer exists. Reload to see the latest.");
+        const found = byId.get(variant.id);
+        if (!found || keptIds.has(found.id)) {
+          throw new BadRequestException({
+            message: "Validation failed",
+            issues: {
+              formErrors: [],
+              fieldErrors: {
+                variants: ["One of the options no longer exists. Reload to see the latest."],
+              },
+            },
+          });
         }
-      } else {
-        match = byCombination.get(variant.optionValues.join("\u0000"));
+        keptIds.add(found.id);
+        match = found;
       }
-      if (match && keptIds.has(match.id)) {
-        // Already claimed by an earlier variant; this one is inserted and the unique
-        // index on (product, combination) decides whether that is allowed.
-        match = undefined;
+      matches.push(match);
+    }
+
+    // Pass 2: a variant without an id may still be a saved row with the same
+    // combination, but only one that nobody claimed in pass 1.
+    const unclaimed = new Map<string, (typeof existing)[number]>();
+    for (const row of existing) {
+      if (!keptIds.has(row.id)) {
+        unclaimed.set(row.optionValues.join("\u0000"), row);
       }
-      if (match) {
-        keptIds.add(match.id);
-        matches.push(match);
-      } else {
-        matches.push(null);
+    }
+    for (let i = 0; i < input.length; i++) {
+      const variant = input[i];
+      if (!variant || variant.id !== undefined) {
+        continue;
+      }
+      const key = variant.optionValues.join("\u0000");
+      const found = unclaimed.get(key);
+      if (found) {
+        unclaimed.delete(key);
+        keptIds.add(found.id);
+        matches[i] = found;
       }
     }
 
     // Saved variants that were left out: delete them, unless an order points at them.
-    // Doing this first frees their combinations for the inserts below.
     const dropped: string[] = [];
     for (const row of existing) {
       if (!keptIds.has(row.id)) {
@@ -537,24 +568,36 @@ export class ProductsService {
           ordered.add(row.variantId);
         }
       }
-      for (const row of existing) {
-        if (keptIds.has(row.id)) {
-          continue;
-        }
-        if (ordered.has(row.id)) {
-          // Kept for the order history. A marker on the combination keeps the unique
-          // index from blocking a new variant that reuses the same values.
+      for (const id of dropped) {
+        if (ordered.has(id)) {
+          // Kept for the order history. The unique index only covers live variants,
+          // so its combination is free for a new variant to reuse.
           await tx
             .update(productVariants)
-            .set({
-              archivedAt: new Date(),
-              isEnabled: false,
-              optionValues: [...row.optionValues, `archived:${row.id}`],
-            })
-            .where(eq(productVariants.id, row.id));
+            .set({ archivedAt: new Date(), isEnabled: false })
+            .where(eq(productVariants.id, id));
         } else {
-          await tx.delete(productVariants).where(eq(productVariants.id, row.id));
+          await tx.delete(productVariants).where(eq(productVariants.id, id));
         }
+      }
+    }
+
+    // Two phases. The database checks "no two live variants share a combination" after
+    // every single statement, so renaming S,M to M,L (or swapping them) one row at a
+    // time would clash with a row that hasn't moved yet. Phase 1 parks every row whose
+    // combination changes on a unique temporary value; phase 2 writes the final values.
+    for (let i = 0; i < input.length; i++) {
+      const variant = input[i];
+      const match = matches[i];
+      if (!variant || !match) {
+        continue;
+      }
+      const changed = variant.optionValues.join("\u0000") !== match.optionValues.join("\u0000");
+      if (changed) {
+        await tx
+          .update(productVariants)
+          .set({ optionValues: ["__pending__", match.id] })
+          .where(eq(productVariants.id, match.id));
       }
     }
 

@@ -1,9 +1,7 @@
 import {
-  productStatusSchema,
   productInputSchema,
   updateProductInputSchema,
   type ProductInput,
-  type ProductStatus,
   type UpdateProductInput,
 } from "@gbam/shared";
 import {
@@ -25,8 +23,9 @@ import { SessionGuard } from "../auth/session.guard.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { ProductsService } from "./products.service.js";
 
-const statusBodySchema = z.object({ status: productStatusSchema });
-type StatusBody = { status: ProductStatus };
+// Archiving is not allowed here: it only happens through DELETE.
+const statusBodySchema = z.object({ status: z.enum(["active", "hidden"]) });
+type StatusBody = { status: "active" | "hidden" };
 
 @Controller("products")
 @UseGuards(SessionGuard)

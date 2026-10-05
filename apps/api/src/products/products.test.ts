@@ -52,7 +52,13 @@ type Detail = {
   status: string;
   images: { id: string; position: number; largeUrl: string; smallUrl: string }[];
   options: { name: string; values: string[] }[];
-  variants: { id: string; optionValues: string[]; title: string; priceKobo: number }[];
+  variants: {
+    id: string;
+    optionValues: string[];
+    title: string;
+    priceKobo: number;
+    stock: number | null;
+  }[];
 };
 
 describe("Seller product endpoints over HTTP (integration)", () => {
@@ -98,7 +104,10 @@ describe("Seller product endpoints over HTTP (integration)", () => {
 
   afterAll(async () => {
     const rows = await db.select().from(users).where(inArray(users.email, createdEmails));
-    const ids = rows.map((r) => r.id);
+    const ids: string[] = [];
+    for (const row of rows) {
+      ids.push(row.id);
+    }
     if (ids.length > 0) {
       // Deleting the shop cascades to products, variants, options, images and orders.
       await db.delete(sellers).where(inArray(sellers.ownerUserId, ids));
@@ -581,5 +590,213 @@ describe("Seller product endpoints over HTTP (integration)", () => {
       .from(productOptions)
       .where(eq(productOptions.productId, created.id));
     expect(optionRows).toHaveLength(2);
+  });
+
+  // A one-option product (Size S, M) with different price and stock on each variant.
+  async function sizeProduct(seller: Seller, name: string) {
+    const images = await uploadPhotos(seller, 1);
+    const created = await createProduct(seller, {
+      name,
+      imageIds: images,
+      options: [{ name: "Size", values: ["S", "M"] }],
+      variants: [
+        { optionValues: ["S"], priceKobo: 1_000_000, stock: 3, imageId: null, isEnabled: true },
+        { optionValues: ["M"], priceKobo: 1_200_000, stock: 4, imageId: null, isEnabled: true },
+      ],
+    });
+    return { images, created };
+  }
+
+  // Same variant as saved (id, price, stock kept), with new option values.
+  function renamed(saved: Detail["variants"][number], optionValues: string[]): Variant {
+    return {
+      id: saved.id,
+      optionValues,
+      priceKobo: saved.priceKobo,
+      stock: saved.stock,
+      imageId: null,
+      isEnabled: true,
+    };
+  }
+
+  async function variantRow(id: string) {
+    const rows = await db.select().from(productVariants).where(eq(productVariants.id, id));
+    return rows[0];
+  }
+
+  it("renames values so combinations shift, keeping each variant's id, price and stock", async () => {
+    const seller = await newSeller();
+    const { images, created } = await sizeProduct(seller, "Shift");
+    const a = created.variants[0];
+    const b = created.variants[1];
+    if (!a || !b) {
+      throw new Error("Missing variants");
+    }
+    // S -> M while the other row still holds M, then M -> L.
+    const body = asUpdate(created, images);
+    body.options = [{ name: "Size", values: ["M", "L"] }];
+    body.variants = [renamed(a, ["M"]), renamed(b, ["L"])];
+
+    const res = await call(seller, "PUT", `/products/${created.id}`, body);
+    expect(res.status).toBe(200);
+    const rowA = await variantRow(a.id);
+    const rowB = await variantRow(b.id);
+    expect(rowA).toMatchObject({ optionValues: ["M"], title: "M", priceKobo: 1_000_000, stock: 3 });
+    expect(rowB).toMatchObject({ optionValues: ["L"], title: "L", priceKobo: 1_200_000, stock: 4 });
+  });
+
+  it("swaps two combinations on the same ids", async () => {
+    const seller = await newSeller();
+    const { images, created } = await sizeProduct(seller, "Swap");
+    const a = created.variants[0];
+    const b = created.variants[1];
+    if (!a || !b) {
+      throw new Error("Missing variants");
+    }
+    const body = asUpdate(created, images);
+    body.options = [{ name: "Size", values: ["M", "S"] }];
+    body.variants = [renamed(a, ["M"]), renamed(b, ["S"])];
+
+    const res = await call(seller, "PUT", `/products/${created.id}`, body);
+    expect(res.status).toBe(200);
+    const rowA = await variantRow(a.id);
+    const rowB = await variantRow(b.id);
+    expect(rowA).toMatchObject({ optionValues: ["M"], priceKobo: 1_000_000, stock: 3 });
+    expect(rowB).toMatchObject({ optionValues: ["S"], priceKobo: 1_200_000, stock: 4 });
+  });
+
+  it("lets an archived combination be added again later", async () => {
+    const seller = await newSeller();
+    const { images, created } = await sizeProduct(seller, "Readd");
+    const a = created.variants[0];
+    const b = created.variants[1];
+    if (!a || !b) {
+      throw new Error("Missing variants");
+    }
+    await orderOn(seller.sellerId, created.id, b.id);
+
+    // Drop M (it is on an order, so it is archived).
+    const drop = asUpdate(created, images);
+    drop.options = [{ name: "Size", values: ["S"] }];
+    drop.variants = [renamed(a, ["S"])];
+    const first = await call(seller, "PUT", `/products/${created.id}`, drop);
+    expect(first.status).toBe(200);
+    const archived = await variantRow(b.id);
+    expect(archived?.archivedAt).not.toBeNull();
+    expect(archived?.optionValues).toEqual(["M"]);
+
+    // Add M back with no id: a brand new row.
+    const saved = first.json as Detail;
+    const add = asUpdate(saved, images);
+    add.options = [{ name: "Size", values: ["S", "M"] }];
+    const savedA = saved.variants[0];
+    if (!savedA) {
+      throw new Error("Missing variant");
+    }
+    add.variants = [
+      renamed(savedA, ["S"]),
+      { optionValues: ["M"], priceKobo: 1_500_000, stock: null, imageId: null, isEnabled: true },
+    ];
+    const second = await call(seller, "PUT", `/products/${created.id}`, add);
+    expect(second.status).toBe(200);
+    const detail = second.json as Detail;
+    expect(detail.variants).toHaveLength(2);
+    expect(detail.variants[1]?.id).not.toBe(b.id);
+  });
+
+  it("gives an id-less variant only rows that no other variant claims by id", async () => {
+    const seller = await newSeller();
+    const images = await uploadPhotos(seller, 1);
+    const created = await createProduct(seller, {
+      name: "Claims",
+      imageIds: images,
+      options: [{ name: "Size", values: ["S"] }],
+      variants: [
+        { optionValues: ["S"], priceKobo: 1_000_000, stock: 3, imageId: null, isEnabled: true },
+      ],
+    });
+    const x = created.variants[0];
+    if (!x) {
+      throw new Error("Missing variant");
+    }
+    const body = asUpdate(created, images);
+    body.options = [{ name: "Size", values: ["S", "Small"] }];
+    body.variants = [
+      { optionValues: ["S"], priceKobo: 2_000_000, stock: null, imageId: null, isEnabled: true },
+      renamed(x, ["Small"]),
+    ];
+
+    const res = await call(seller, "PUT", `/products/${created.id}`, body);
+    expect(res.status).toBe(200);
+    const kept = await variantRow(x.id);
+    expect(kept).toMatchObject({ optionValues: ["Small"], priceKobo: 1_000_000, stock: 3 });
+    const detail = res.json as Detail;
+    expect(detail.variants).toHaveLength(2);
+    const fresh = detail.variants[0];
+    expect(fresh?.optionValues).toEqual(["S"]);
+    expect(fresh?.id).not.toBe(x.id);
+  });
+
+  it("allows only active and hidden on PATCH status, and treats archived products as gone", async () => {
+    const seller = await newSeller();
+    const images = await uploadPhotos(seller, 1);
+    const created = await createProduct(seller, plainProduct("Status", images));
+    const url = `/products/${created.id}`;
+
+    const bad = await call(seller, "PATCH", `${url}/status`, { status: "archived" });
+    expect(bad.status).toBe(400);
+
+    const variant = created.variants[0];
+    if (!variant) {
+      throw new Error("No variant");
+    }
+    await orderOn(seller.sellerId, created.id, variant.id);
+    const removed = await call(seller, "DELETE", url);
+    expect(removed.json).toEqual({ archived: true });
+
+    expect((await call(seller, "GET", url)).status).toBe(404);
+    expect((await call(seller, "PUT", url, asUpdate(created, images))).status).toBe(404);
+    expect((await call(seller, "PATCH", `${url}/status`, { status: "active" })).status).toBe(404);
+  });
+
+  it("answers 400 on variants for a variant id from another product or seller", async () => {
+    const seller = await newSeller();
+    const other = await newSeller();
+    const first = await sizeProduct(seller, "First product");
+    const second = await sizeProduct(seller, "Second product");
+    const foreign = await sizeProduct(other, "Foreign product");
+
+    const ids = [first.created.variants[0], foreign.created.variants[0]];
+    for (const stolen of ids) {
+      if (!stolen) {
+        throw new Error("Missing variant");
+      }
+      const body = asUpdate(second.created, second.images);
+      body.name = "Should not stick";
+      body.variants = [{ ...renamed(stolen, ["S"]) }, ...body.variants.slice(1)];
+      const res = await call(seller, "PUT", `/products/${second.created.id}`, body);
+      expect(res.status).toBe(400);
+      expect(JSON.stringify(res.json)).toContain("variants");
+
+      const rows = await db.select().from(products).where(eq(products.id, second.created.id));
+      expect(rows[0]?.name).toBe("Second product");
+      expect(rows[0]?.version).toBe(1);
+      const stolenRow = await variantRow(stolen.id);
+      expect(stolenRow?.productId).not.toBe(second.created.id);
+    }
+  });
+
+  it("gives two concurrent creates with the same name different slugs", async () => {
+    const seller = await newSeller();
+    const imagesA = await uploadPhotos(seller, 1);
+    const imagesB = await uploadPhotos(seller, 1);
+    const results = await Promise.all([
+      call(seller, "POST", "/products", plainProduct("Twin", imagesA)),
+      call(seller, "POST", "/products", plainProduct("Twin", imagesB)),
+    ]);
+    expect(results[0]?.status).toBe(201);
+    expect(results[1]?.status).toBe(201);
+    const slugs = [(results[0]?.json as Detail).slug, (results[1]?.json as Detail).slug];
+    expect(slugs[0]).not.toBe(slugs[1]);
   });
 });

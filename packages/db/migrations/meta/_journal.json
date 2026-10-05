@@ -50,6 +50,13 @@
       "when": 1791133308738,
       "tag": "0006_little_groot",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1791180387174,
+      "tag": "0007_wakeful_silhouette",
+      "breakpoints": true
     }
   ]
 }

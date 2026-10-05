@@ -1,5 +1,5 @@
 import { ORDER_STATUSES } from "@gbam/shared";
-import { relations } from "drizzle-orm";
+import { relations, sql } from "drizzle-orm";
 import {
   bigint,
   boolean,
@@ -275,7 +275,12 @@ export const productVariants = pgTable(
     isEnabled: boolean("is_enabled").notNull().default(true),
     archivedAt: timestamp("archived_at", { withTimezone: true }),
   },
-  (t) => [uniqueIndex("product_variants_product_values_idx").on(t.productId, t.optionValues)],
+  (t) => [
+    // Only live variants must be unique: an archived one keeps its old combination.
+    uniqueIndex("product_variants_product_values_idx")
+      .on(t.productId, t.optionValues)
+      .where(sql`${t.archivedAt} is null`),
+  ],
 );
 
 export type ProductVariant = typeof productVariants.$inferSelect;

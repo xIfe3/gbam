@@ -1,0 +1,2 @@
+DROP INDEX "product_variants_product_values_idx";--> statement-breakpoint
+CREATE UNIQUE INDEX "product_variants_product_values_idx" ON "product_variants" USING btree ("product_id","option_values") WHERE "product_variants"."archived_at" is null;
