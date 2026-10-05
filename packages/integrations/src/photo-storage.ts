@@ -17,12 +17,25 @@ function assertSafeKey(key: string) {
   }
 }
 
+/** "https://x.app/" and "https://x.app" must both give urls without "//" in them. */
+function withoutTrailingSlash(url: string): string {
+  let result = url;
+  while (result.endsWith("/")) {
+    result = result.slice(0, -1);
+  }
+  return result;
+}
+
 /** Dev fallback: writes files under a local folder that the API serves at /photos. */
 export class LocalPhotoStorage implements PhotoStorage {
+  private readonly publicBaseUrl: string;
+
   constructor(
     private readonly folder: string,
-    private readonly publicBaseUrl: string,
-  ) {}
+    publicBaseUrl: string,
+  ) {
+    this.publicBaseUrl = withoutTrailingSlash(publicBaseUrl);
+  }
 
   async put(key: string, body: Buffer, _contentType: string) {
     assertSafeKey(key);
@@ -64,6 +77,10 @@ export class R2PhotoStorage implements PhotoStorage {
         accessKeyId: config.accessKeyId,
         secretAccessKey: config.secretAccessKey,
       },
+      // R2 does not understand the extra checksums newer AWS SDK versions add by default,
+      // so only send or check them when an operation requires it.
+      requestChecksumCalculation: "WHEN_REQUIRED",
+      responseChecksumValidation: "WHEN_REQUIRED",
     });
   }
 
@@ -87,6 +104,6 @@ export class R2PhotoStorage implements PhotoStorage {
   }
 
   publicUrl(key: string) {
-    return `${this.config.publicBaseUrl}/${key}`;
+    return `${withoutTrailingSlash(this.config.publicBaseUrl)}/${key}`;
   }
 }

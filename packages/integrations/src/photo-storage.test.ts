@@ -2,7 +2,7 @@ import { mkdtemp, readFile, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { LocalPhotoStorage } from "./photo-storage";
+import { LocalPhotoStorage, R2PhotoStorage } from "./photo-storage";
 
 let folder = "";
 
@@ -47,5 +47,21 @@ describe("LocalPhotoStorage", () => {
     await expect(storage.put("../evil", Buffer.from("x"), "image/webp")).rejects.toThrow();
     await expect(storage.put("/abs", Buffer.from("x"), "image/webp")).rejects.toThrow();
     await expect(storage.delete("../evil")).rejects.toThrow();
+  });
+});
+
+describe("public urls", () => {
+  it("never has a double slash when the base url ends with one", () => {
+    const local = new LocalPhotoStorage(folder, "http://x/photos/");
+    expect(local.publicUrl("ab/cd.webp")).toBe("http://x/photos/ab/cd.webp");
+
+    const r2 = new R2PhotoStorage({
+      accountId: "acc",
+      accessKeyId: "key",
+      secretAccessKey: "secret",
+      bucket: "bucket",
+      publicBaseUrl: "https://photos.gbam.app/",
+    });
+    expect(r2.publicUrl("ab/cd.webp")).toBe("https://photos.gbam.app/ab/cd.webp");
   });
 });

@@ -324,6 +324,30 @@ export class OrdersService {
       )
       .orderBy(asc(productVariants.id));
     if (foundVariants.length !== variantIds.length) {
+      // Find which item went missing so the message can name it. Only this seller's own
+      // variants are looked up: an id from another shop must not reveal that shop's names.
+      const foundIds = new Set<string>();
+      for (const found of foundVariants) {
+        foundIds.add(found.variantId);
+      }
+      const missingIds: string[] = [];
+      for (const variantId of variantIds) {
+        if (!foundIds.has(variantId)) {
+          missingIds.push(variantId);
+        }
+      }
+      const missingRows = await tx
+        .select({ productName: products.name, variantTitle: productVariants.title })
+        .from(productVariants)
+        .innerJoin(products, eq(products.id, productVariants.productId))
+        .where(and(inArray(productVariants.id, missingIds), eq(products.sellerId, seller.id)))
+        .orderBy(asc(productVariants.id))
+        .limit(1);
+      const missing = missingRows[0];
+      if (missing) {
+        const name = variantDisplayName(missing.productName, missing.variantTitle);
+        throw new BadRequestException(`${name} is no longer available`);
+      }
       throw new BadRequestException("One or more products are unavailable");
     }
 

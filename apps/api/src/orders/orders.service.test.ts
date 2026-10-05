@@ -171,22 +171,22 @@ describe("OrdersService (integration)", () => {
   }
 
   it("rejects disabled, archived, hidden-product and other-shop variants", async () => {
-    const disabled = await createTestProduct(db, sellerId);
+    const disabled = await createTestProduct(db, sellerId, { name: "Zobo" });
     await db
       .update(productVariants)
       .set({ isEnabled: false })
       .where(eq(productVariants.id, disabled.variant.id));
-    await expectRejected(disabled.variant.id, 1, "unavailable");
+    await expectRejected(disabled.variant.id, 1, "Zobo is no longer available");
 
     const archived = await createTestProduct(db, sellerId);
     await db
       .update(productVariants)
       .set({ archivedAt: new Date() })
       .where(eq(productVariants.id, archived.variant.id));
-    await expectRejected(archived.variant.id, 1, "unavailable");
+    await expectRejected(archived.variant.id, 1, "is no longer available");
 
     const hidden = await createTestProduct(db, sellerId, { status: "hidden" });
-    await expectRejected(hidden.variant.id, 1, "unavailable");
+    await expectRejected(hidden.variant.id, 1, "is no longer available");
 
     const otherSeller = await createTestSeller(db, "other");
     try {
@@ -195,6 +195,15 @@ describe("OrdersService (integration)", () => {
     } finally {
       await db.delete(sellers).where(eq(sellers.id, otherSeller.id));
     }
+  });
+
+  it("names the product and variant that is no longer available", async () => {
+    const dress = await createTestProduct(db, sellerId, { name: "Ankara Dress" });
+    await db
+      .update(productVariants)
+      .set({ title: "Large", isEnabled: false })
+      .where(eq(productVariants.id, dress.variant.id));
+    await expectRejected(dress.variant.id, 1, "Ankara Dress – Large is no longer available");
   });
 
   it("rejects more than 99 of one variant, including across merged lines", async () => {

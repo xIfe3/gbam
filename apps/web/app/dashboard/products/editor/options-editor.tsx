@@ -10,6 +10,70 @@ import type { EditorOption } from "./editor-state";
 const chipInput =
   "text-ink focus-visible:outline-brand min-h-11 min-w-0 rounded-l-full bg-transparent py-1 pl-4 text-base focus-visible:outline-2";
 
+/**
+ * One value chip. What the seller types is kept here as a draft and only handed to the
+ * parent when they finish (leave the chip or press Enter). Renaming "M" to "Large" passes
+ * through "L", which may already exist; applying every keystroke would rebuild the variants
+ * at each step and lose the renamed value's price and stock.
+ */
+function ValueChip({
+  value,
+  otherValues,
+  onRename,
+  onRemove,
+}: {
+  value: string;
+  otherValues: string[];
+  onRename: (text: string) => void;
+  onRemove: () => void;
+}) {
+  const [draft, setDraft] = useState(value);
+
+  function finish() {
+    const trimmed = draft.trim();
+    if (trimmed === "") {
+      onRemove();
+      return;
+    }
+    // Nothing changed, or the new text is another chip's value: put the old text back.
+    if (trimmed === value || otherValues.includes(trimmed)) {
+      setDraft(value);
+      return;
+    }
+    onRename(trimmed);
+  }
+
+  return (
+    <li className="bg-brand-tint flex items-center rounded-full">
+      {/* Tap the chip text to edit it. A renamed value keeps its price and stock. */}
+      <input
+        value={draft}
+        maxLength={30}
+        aria-label={`Edit value ${value}`}
+        size={Math.max(draft.length, 2)}
+        onChange={(event) => setDraft(event.target.value)}
+        onBlur={finish}
+        onKeyDown={(event) => {
+          if (event.key === "Enter") {
+            // Enter finishes the edit; it must not submit the surrounding form.
+            event.preventDefault();
+            event.currentTarget.blur();
+          }
+        }}
+        className={chipInput}
+      />
+      <button
+        type="button"
+        onClick={onRemove}
+        aria-label={`Remove ${value}`}
+        className="text-ink focus-visible:outline-brand flex size-11 items-center justify-center rounded-full focus-visible:outline-2"
+      >
+        <X size={16} aria-hidden="true" />
+      </button>
+    </li>
+  );
+}
+
 /** One option (e.g. Size): a name, and its values as chips. */
 function OptionRow({
   option,
@@ -52,6 +116,17 @@ function OptionRow({
     onChange({ ...option, values });
   }
 
+  function otherValuesFor(valueIndex: number): string[] {
+    const others: string[] = [];
+    for (let i = 0; i < option.values.length; i++) {
+      const other = option.values[i];
+      if (i !== valueIndex && other !== undefined) {
+        others.push(other);
+      }
+    }
+    return others;
+  }
+
   function removeValue(valueIndex: number) {
     const values = [...option.values];
     values.splice(valueIndex, 1);
@@ -75,33 +150,14 @@ function OptionRow({
         {option.values.length > 0 && (
           <ul className="flex flex-wrap gap-2">
             {option.values.map((value, valueIndex) => (
-              <li
-                key={valueIndex}
-                className="bg-brand-tint flex items-center rounded-full"
-              >
-                {/* Tap the chip text to edit it. A renamed value keeps its price and stock. */}
-                <input
-                  value={value}
-                  maxLength={30}
-                  aria-label={`Edit value ${value}`}
-                  size={Math.max(value.length, 2)}
-                  onChange={(event) => renameValue(valueIndex, event.target.value)}
-                  onBlur={() => {
-                    if (value.trim() === "") {
-                      removeValue(valueIndex);
-                    }
-                  }}
-                  className={chipInput}
-                />
-                <button
-                  type="button"
-                  onClick={() => removeValue(valueIndex)}
-                  aria-label={`Remove ${value}`}
-                  className="text-ink focus-visible:outline-brand flex size-11 items-center justify-center rounded-full focus-visible:outline-2"
-                >
-                  <X size={16} aria-hidden="true" />
-                </button>
-              </li>
+              <ValueChip
+                // The value is part of the key, so after a rename the chip starts fresh.
+                key={`${valueIndex}:${value}`}
+                value={value}
+                otherValues={otherValuesFor(valueIndex)}
+                onRename={(text) => renameValue(valueIndex, text)}
+                onRemove={() => removeValue(valueIndex)}
+              />
             ))}
           </ul>
         )}

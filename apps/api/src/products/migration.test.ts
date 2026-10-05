@@ -29,9 +29,18 @@ async function applyMigration(handle: DbHandle, fileName: string) {
 }
 
 describe("migration 0006 backfill (throwaway database)", () => {
-  let adminHandle: DbHandle;
-  let migHandle: DbHandle;
-  let migDbName: string;
+  let adminHandle: DbHandle | undefined;
+  let migHandle: DbHandle | undefined;
+  let migDbName = "";
+  let dbCreated = false;
+
+  /** The throwaway database connection. Throws if beforeAll did not get that far. */
+  function mig(): DbHandle {
+    if (!migHandle) {
+      throw new Error("The throwaway database is not connected");
+    }
+    return migHandle;
+  }
 
   // Rows that exist before 0006 runs, so we can look them up after.
   const sellerId = randomUUID();
@@ -56,20 +65,22 @@ describe("migration 0006 backfill (throwaway database)", () => {
     const parsed = new URL(baseUrl);
     parsed.pathname = `/${migDbName}`;
 
-    adminHandle = createDb(baseUrl, { max: 1 });
-    await adminHandle.db.execute(sql.raw(`CREATE DATABASE ${migDbName}`));
+    const admin = createDb(baseUrl, { max: 1 });
+    adminHandle = admin;
+    await admin.db.execute(sql.raw(`CREATE DATABASE ${migDbName}`));
+    dbCreated = true;
     migHandle = createDb(parsed.toString(), { max: 1 });
 
     // Apply 0000-0005 (every migration file except 0006), in order.
     const files = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort();
     for (const file of files) {
       if (file < "0006") {
-        await applyMigration(migHandle, file);
+        await applyMigration(mig(), file);
       }
     }
 
     // Old-style data: the products table has no slug/status yet.
-    const db = migHandle.db;
+    const db = mig().db;
     await db.execute(sql`
       INSERT INTO sellers (id, slug, business_name, whatsapp_phone) VALUES
         (${sellerId}, 'shop-one', 'Shop One', '2990000000001'),
@@ -97,17 +108,24 @@ describe("migration 0006 backfill (throwaway database)", () => {
       INSERT INTO order_items (id, order_id, product_id, product_name, unit_price_kobo, quantity)
       VALUES (${orderItemId}, ${orderId}, ${dressOld}, 'Dress', 500000, 1)`);
 
-    await applyMigration(migHandle, "0006_little_groot.sql");
-  });
+    await applyMigration(mig(), "0006_little_groot.sql");
+  }, 60_000);
 
   afterAll(async () => {
-    await migHandle.close();
-    await adminHandle.db.execute(sql.raw(`DROP DATABASE IF EXISTS ${migDbName}`));
-    await adminHandle.close();
+    // beforeAll may have failed part way, so each handle may not exist.
+    if (migHandle) {
+      await migHandle.close();
+    }
+    if (adminHandle) {
+      if (dbCreated) {
+        await adminHandle.db.execute(sql.raw(`DROP DATABASE IF EXISTS ${migDbName}`));
+      }
+      await adminHandle.close();
+    }
   });
 
   async function productRow(id: string) {
-    const rows = await migHandle.db.execute(
+    const rows = await mig().db.execute(
       sql`SELECT slug, status FROM products WHERE id = ${id}`,
     );
     const row = rows[0];
@@ -139,7 +157,7 @@ describe("migration 0006 backfill (throwaway database)", () => {
   });
 
   it("gives every product one default variant with its old price and stock", async () => {
-    const rows = await migHandle.db.execute(sql`
+    const rows = await mig().db.execute(sql`
       SELECT p.id, p.price_kobo AS product_price, p.stock AS product_stock,
              count(v.id)::int AS variant_count,
              max(v.price_kobo) AS variant_price, max(v.stock) AS variant_stock
@@ -160,7 +178,7 @@ describe("migration 0006 backfill (throwaway database)", () => {
   });
 
   it("points order_items.variant_id at the product's default variant", async () => {
-    const rows = await migHandle.db.execute(sql`
+    const rows = await mig().db.execute(sql`
       SELECT oi.variant_id, v.product_id
       FROM order_items oi
       LEFT JOIN product_variants v ON v.id = oi.variant_id
@@ -186,11 +204,16 @@ describe("createTestProduct (dev database)", () => {
     handle = createDb(url, { max: 2 });
     const seller = await createTestSeller(handle.db, "migtest");
     sellerId = seller.id;
-  });
+  }, 60_000);
 
   afterAll(async () => {
-    await handle.db.delete(sellers).where(eq(sellers.id, sellerId));
-    await handle.close();
+    // Either value may be missing if beforeAll failed part way.
+    if (handle) {
+      if (sellerId) {
+        await handle.db.delete(sellers).where(eq(sellers.id, sellerId));
+      }
+      await handle.close();
+    }
   });
 
   it("products no longer has price_kobo, stock or is_active", async () => {

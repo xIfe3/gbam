@@ -1,6 +1,7 @@
 import {
   combinations,
   parseNairaInput,
+  PRODUCT_LIMITS,
   productInputSchema,
   type ProductInput,
 } from "@gbam/shared";
@@ -249,7 +250,18 @@ function anyOptionEmpty(options: EditorOption[]): boolean {
  * variants are parked in `stash` (not thrown away); once every option has a value the
  * variants are rebuilt from whatever is current, or from the stash.
  */
-export function withOptions(state: EditorState, options: EditorOption[]): EditorState {
+export function withOptions(state: EditorState, rawOptions: EditorOption[]): EditorState {
+  // Values are trimmed here so "Medium " and "Medium" can never be different values, and
+  // the variants always hold exactly the text the API will see.
+  const options: EditorOption[] = [];
+  for (const rawOption of rawOptions) {
+    const values: string[] = [];
+    for (const value of rawOption.values) {
+      values.push(value.trim());
+    }
+    options.push({ ...rawOption, values });
+  }
+
   let source = { options: state.options, variants: state.variants };
   if (state.variants.length === 0 && state.stash) {
     source = state.stash;
@@ -317,7 +329,7 @@ export function clearMissingImages(
 }
 
 /** Turns zod's path into the key the screens look errors up by, e.g. "variants.2.price". */
-function errorKey(path: PropertyKey[]): string {
+function errorKey(path: PropertyKey[], code: string): string {
   const parts: string[] = [];
   for (const part of path) {
     parts.push(String(part));
@@ -326,11 +338,27 @@ function errorKey(path: PropertyKey[]): string {
   if (key === "imageIds") {
     return "images";
   }
+  // Too many variants means too many option combinations; that is fixed on the options.
+  if (key === "variants" && code === "too_big") {
+    return "combinations";
+  }
   return key.replace(/\.priceKobo$/, ".price");
 }
 
 /** The first error in a list of issues, written for the seller. */
-function friendlyMessage(key: string, code: string, message: string): string {
+function friendlyMessage(
+  key: string,
+  code: string,
+  message: string,
+  variantCount: number | null,
+): string {
+  if (key === "combinations") {
+    const most = PRODUCT_LIMITS.maxVariants;
+    if (variantCount === null) {
+      return `That makes too many combinations; the most is ${most}. Remove some values.`;
+    }
+    return `That makes ${variantCount} combinations; the most is ${most}. Remove some values.`;
+  }
   if (key === "name") {
     return "Enter a product name";
   }
@@ -429,10 +457,10 @@ export function toProductInput(state: EditorState): BuildResult {
   const parsed = productInputSchema.safeParse(candidate);
   if (!parsed.success) {
     for (const issue of parsed.error.issues) {
-      const key = errorKey(issue.path);
+      const key = errorKey(issue.path, issue.code);
       // Our own price/stock messages (above) are clearer than zod's for unreadable text.
       if (errors[key] === undefined) {
-        errors[key] = friendlyMessage(key, issue.code, issue.message);
+        errors[key] = friendlyMessage(key, issue.code, issue.message, sourceVariants.length);
       }
     }
   }
@@ -452,10 +480,42 @@ export function errorsFromIssues(
 ): Record<string, string> {
   const errors: Record<string, string> = {};
   for (const issue of issues) {
-    const key = errorKey(issue.path);
+    const key = errorKey(issue.path, issue.code);
     if (errors[key] === undefined) {
-      errors[key] = friendlyMessage(key, issue.code, issue.message);
+      errors[key] = friendlyMessage(key, issue.code, issue.message, null);
     }
   }
   return errors;
+}
+
+/**
+ * Error keys that some field on screen shows. Anything else would be invisible, so the
+ * screens show those messages in a general error box instead. Without options only the
+ * single price and stock fields exist.
+ */
+function isClaimedKey(key: string, hasOptions: boolean): boolean {
+  if (key === "name" || key === "images") {
+    return true;
+  }
+  if (/^options\.\d+\.(name|values)$/.test(key)) {
+    return true;
+  }
+  if (!hasOptions) {
+    return key === "variants.0.price" || key === "variants.0.stock";
+  }
+  if (key === "combinations" || key === "variants") {
+    return true;
+  }
+  return /^variants\.\d+\.(price|stock|imageId)$/.test(key);
+}
+
+/** The messages of errors that no field shows (see isClaimedKey). */
+export function unclaimedMessages(errors: Record<string, string>, hasOptions: boolean): string[] {
+  const messages: string[] = [];
+  for (const [key, message] of Object.entries(errors)) {
+    if (!isClaimedKey(key, hasOptions)) {
+      messages.push(message);
+    }
+  }
+  return messages;
 }

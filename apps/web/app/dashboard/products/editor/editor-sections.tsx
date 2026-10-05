@@ -2,8 +2,10 @@
 
 import { useId, useState } from "react";
 import { TextField } from "@/components/brand/fields";
+import { FormError } from "@/components/brand/form-bits";
 import {
   clearMissingImages,
+  unclaimedMessages,
   withHasOptions,
   withOptions,
   type EditorOption,
@@ -100,6 +102,27 @@ export function DetailsSection({
   );
 }
 
+/**
+ * Errors that no field on screen shows (see unclaimedMessages). Without this a save could
+ * fail with nothing on screen to say why.
+ */
+export function UnclaimedErrors({
+  errors,
+  hasOptions,
+}: {
+  errors: Record<string, string>;
+  hasOptions: boolean;
+}) {
+  const messages = unclaimedMessages(errors, hasOptions);
+  return (
+    <>
+      {messages.map((message) => (
+        <FormError key={message} message={message} />
+      ))}
+    </>
+  );
+}
+
 /** "Does it come in options?" with Yes/No, then the options (Yes) or one price and stock (No). */
 export function OptionsSection({
   editor,
@@ -147,6 +170,7 @@ export function OptionsSection({
       {state.hasOptions && (
         <OptionsEditor options={state.options} errors={errors} onChange={editor.setOptions} />
       )}
+      {state.hasOptions && errors["combinations"] && <FormError message={errors["combinations"]} />}
       {!state.hasOptions && firstVariant && (
         <SingleVariantFields
           variant={firstVariant}

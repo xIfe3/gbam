@@ -76,6 +76,32 @@ describe("EditProductForm", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
+  it("shows an error that no field claims", async () => {
+    actions.updateProductAction.mockResolvedValue({
+      fieldErrors: { "variants.0.optionValues.0": "That value is not one of the option's values" },
+    });
+    render(<EditProductForm product={product()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(
+      await screen.findByText("That value is not one of the option's values"),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the photo error from the API near the photos", async () => {
+    actions.updateProductAction.mockResolvedValue({
+      fieldErrors: { images: "One of the photos can't be used. Upload it again." },
+    });
+    render(<EditProductForm product={product()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Save changes" }));
+
+    expect(
+      await screen.findByText("One of the photos can't be used. Upload it again."),
+    ).toBeInTheDocument();
+  });
+
   it("asks before deleting", () => {
     render(<EditProductForm product={product()} />);
 

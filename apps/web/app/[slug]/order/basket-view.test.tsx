@@ -179,6 +179,53 @@ describe("BasketView", () => {
     });
   });
 
+  it("uses only the product name for a default variant with an empty title", async () => {
+    const jollof = {
+      variantId: "v9",
+      productSlug: "jollof",
+      productName: "Jollof Rice",
+      variantTitle: "",
+      priceKobo: 200000,
+      photoUrl: null,
+      quantity: 1,
+    };
+    localStorage.setItem(STORAGE_KEY, JSON.stringify([jollof]));
+    vi.mocked(checkBasketAction).mockResolvedValue([
+      makeProduct("jollof", "Jollof Rice", "v9", "", 200000, 0),
+    ]);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+
+    expect(
+      await screen.findByText("Jollof Rice is sold out. Remove it to continue."),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove Jollof Rice" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Add one Jollof Rice" })).toBeInTheDocument();
+  });
+
+  it("offers to use the new price when the price changed", async () => {
+    const repriced = [
+      makeProduct("slides", "Leather slides", "v1", "42", 600000, 10),
+      makeProduct("tee", "Tee", "v2", "M", 300000, null),
+    ];
+    vi.mocked(checkBasketAction).mockResolvedValue(repriced);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+
+    expect(await screen.findByText(/now costs/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /Place order/ })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Use new price" }));
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /Place order/ })).toBeEnabled();
+    });
+    expect(screen.queryByText(/now costs/)).not.toBeInTheDocument();
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? "[]");
+    expect(saved[0].priceKobo).toBe(600000);
+    expect(saved[0].quantity).toBe(2);
+    // 2 x 6,000 + 1 x 3,000
+    expect(screen.getByRole("button", { name: /Place order/ })).toHaveTextContent("15,000");
+  });
+
   it("says the basket is empty when there are no lines", async () => {
     localStorage.clear();
     render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);

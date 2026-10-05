@@ -87,7 +87,8 @@ const optionSchema = z.object({
 
 const variantSchema = z.object({
   id: z.uuid().optional(),
-  optionValues: z.array(z.string()),
+  // Trimmed like the option values they must match, so a stray space cannot break the match.
+  optionValues: z.array(z.string().trim()),
   // The upper bounds keep values inside the database's integer column (max 2147483647),
   // so a huge number is a validation error instead of a server error.
   priceKobo: z

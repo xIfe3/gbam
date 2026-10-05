@@ -4,6 +4,7 @@ import {
   setAllPrices,
   setAllStock,
   toProductInput,
+  unclaimedMessages,
   withHasOptions,
   withOptions,
   type EditorState,
@@ -103,6 +104,108 @@ describe("rebuildVariants", () => {
     expect(result[0]?.priceText).toBe("5000");
     // The same variant id is never used twice.
     expect(result[1]?.id).toBeUndefined();
+  });
+});
+
+describe("renaming a value in one step", () => {
+  it("M -> Large while L exists keeps M's id, price, stock and image, and leaves L alone", () => {
+    const state: EditorState = {
+      name: "Shirt",
+      description: "",
+      images: [{ id: IMG, smallUrl: "/s.webp" }],
+      hasOptions: true,
+      options: [{ name: "Size", values: ["M", "L"] }],
+      variants: [
+        variant(["M"], { id: "id-m", priceText: "1000", stockText: "4", imageId: IMG }),
+        variant(["L"], { id: "id-l", priceText: "2000", stockText: "9" }),
+      ],
+    };
+
+    const renamed = withOptions(state, [{ name: "Size", values: ["Large", "L"] }]);
+
+    expect(renamed.variants).toEqual([
+      {
+        id: "id-m",
+        optionValues: ["Large"],
+        priceText: "1000",
+        stockText: "4",
+        imageId: IMG,
+        isEnabled: true,
+      },
+      {
+        id: "id-l",
+        optionValues: ["L"],
+        priceText: "2000",
+        stockText: "9",
+        imageId: null,
+        isEnabled: true,
+      },
+    ]);
+  });
+
+  it("trims values when options change", () => {
+    const state = validState();
+    const next = withOptions(state, [{ name: "Size", values: ["S", "Medium "] }]);
+    expect(next.options[0]?.values).toEqual(["S", "Medium"]);
+    expect(next.variants[1]?.optionValues).toEqual(["Medium"]);
+  });
+
+  it("saves fine when a variant's value still has a trailing space", () => {
+    const state = validState();
+    state.options = [{ name: "Size", values: ["S", "M"] }];
+    state.variants[1] = variant(["M "], { priceText: "13000" });
+    const result = toProductInput(state);
+    expect(result.ok).toBe(true);
+    if (result.ok) {
+      expect(result.input.variants[1]?.optionValues).toEqual(["M"]);
+    }
+  });
+});
+
+describe("too many combinations", () => {
+  it("says how many combinations there are and what the most is", () => {
+    const eight: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      eight.push(`a${i}`);
+    }
+    const seven: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      seven.push(`b${i}`);
+    }
+    const options = [
+      { name: "Size", values: eight },
+      { name: "Colour", values: seven },
+    ];
+    const state = withOptions(
+      { ...validState(), options: [], variants: [] },
+      options,
+    );
+    const result = toProductInput(state);
+    expect(result.ok).toBe(false);
+    if (!result.ok) {
+      expect(result.errors["combinations"]).toBe(
+        "That makes 56 combinations; the most is 50. Remove some values.",
+      );
+    }
+  });
+});
+
+describe("unclaimedMessages", () => {
+  it("lists errors that no field shows, and skips ones a field shows", () => {
+    const errors = {
+      name: "Enter a product name",
+      "variants.0.optionValues.0": "That value is not one of the option's values",
+      form: "Check the product and try again",
+    };
+    expect(unclaimedMessages(errors, true)).toEqual([
+      "That value is not one of the option's values",
+      "Check the product and try again",
+    ]);
+  });
+
+  it("treats the variants error as unclaimed when there are no options", () => {
+    expect(unclaimedMessages({ variants: "Reload" }, false)).toEqual(["Reload"]);
+    expect(unclaimedMessages({ variants: "Reload" }, true)).toEqual([]);
   });
 });
 

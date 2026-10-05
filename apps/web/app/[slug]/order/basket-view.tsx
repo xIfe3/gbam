@@ -29,8 +29,16 @@ const legalLinkClasses =
 
 type Props = { shopSlug: string; businessName: string };
 
+/** "Product – Variant", or just "Product" for a default variant (its title is empty). */
+function lineName(line: { productName: string; variantTitle: string }): string {
+  if (line.variantTitle === "") {
+    return line.productName;
+  }
+  return `${line.productName} – ${line.variantTitle}`;
+}
+
 function problemMessage(item: BasketProblem): string {
-  const name = `${item.line.productName} – ${item.line.variantTitle}`;
+  const name = lineName(item.line);
   if (item.problem === "gone") {
     return `${name} is no longer available. Remove it to continue.`;
   }
@@ -43,7 +51,7 @@ function problemMessage(item: BasketProblem): string {
   if (item.newPriceKobo === undefined) {
     throw new Error("A price_changed problem needs newPriceKobo");
   }
-  return `${name} now costs ${formatNaira(item.newPriceKobo)}. Remove it and add it again to continue.`;
+  return `${name} now costs ${formatNaira(item.newPriceKobo)}. Use the new price or remove it to continue.`;
 }
 
 /** The basket and the order form, at gbam.app/{slug}/order. */
@@ -221,6 +229,20 @@ export function BasketView({ shopSlug, businessName }: Props) {
                   </button>
                 );
               }
+              if (item.problem === "price_changed" && item.newPriceKobo !== undefined) {
+                // The server charges the price in its database anyway; this only brings the
+                // basket's saved price (and total) in line with it.
+                const newPrice = item.newPriceKobo;
+                fix = (
+                  <button
+                    type="button"
+                    className={smallButtonClasses}
+                    onClick={() => basket.setPrice(item.line.variantId, newPrice)}
+                  >
+                    Use new price
+                  </button>
+                );
+              }
               return (
                 <li
                   key={item.line.variantId}
@@ -240,7 +262,7 @@ export function BasketView({ shopSlug, businessName }: Props) {
 
       <ul className="divide-brand-tint border-brand-tint divide-y-2 rounded-2xl border-2 bg-white">
         {lines.map((line) => {
-          const label = `${line.productName} – ${line.variantTitle}`;
+          const label = lineName(line);
           return (
             <li key={line.variantId} className="flex items-center gap-3 p-4">
               <div className="bg-blush size-16 shrink-0 overflow-hidden rounded-xl">
@@ -257,7 +279,9 @@ export function BasketView({ shopSlug, businessName }: Props) {
               </div>
               <div className="min-w-0 flex-1">
                 <p className="text-ink font-bold">{line.productName}</p>
-                <p className="text-ink-muted text-sm">{line.variantTitle}</p>
+                {line.variantTitle !== "" && (
+                  <p className="text-ink-muted text-sm">{line.variantTitle}</p>
+                )}
                 <p className="text-ink text-sm font-bold">{formatNaira(line.priceKobo)}</p>
                 <button
                   type="button"

@@ -6,7 +6,7 @@ import { Button } from "@/components/brand/button";
 import { FormError, FormNotice } from "@/components/brand/form-bits";
 import type { ProductDetail, ProductStatus } from "@/lib/api";
 import { deleteProductAction, setProductStatusAction, updateProductAction } from "../actions";
-import { DetailsSection, OptionsSection, useEditorState } from "./editor-sections";
+import { DetailsSection, OptionsSection, UnclaimedErrors, useEditorState } from "./editor-sections";
 import { stateFromProduct, toProductInput } from "./editor-state";
 import { VariantCards } from "./variant-cards";
 
@@ -135,6 +135,7 @@ export function EditProductForm({ product }: { product: ProductDetail }) {
           </section>
         )}
 
+        <UnclaimedErrors errors={errors} hasOptions={state.hasOptions} />
         <FormError message={formError} />
         {formError === STALE_MESSAGE && (
           <div>

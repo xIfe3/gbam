@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Button } from "@/components/brand/button";
 import { FormError } from "@/components/brand/form-bits";
 import { createProductAction } from "../actions";
-import { DetailsSection, OptionsSection, useEditorState } from "./editor-sections";
+import { DetailsSection, OptionsSection, UnclaimedErrors, useEditorState } from "./editor-sections";
 import { emptyState, toProductInput } from "./editor-state";
 import { VariantCards } from "./variant-cards";
 
@@ -21,7 +21,8 @@ function stepForKey(key: string, hasOptions: boolean): Step {
   if (key === "name" || key === "images") {
     return 1;
   }
-  if (key.startsWith("options")) {
+  // "combinations" = too many option combinations, fixed by removing option values.
+  if (key.startsWith("options") || key === "combinations") {
     return 2;
   }
   // Prices and stock are on step 3 with options, and on step 2 without.
@@ -160,6 +161,7 @@ export function NewProductSteps() {
         />
       )}
 
+      <UnclaimedErrors errors={errors} hasOptions={state.hasOptions} />
       <FormError message={formError} />
 
       <div className="flex gap-3">

@@ -139,6 +139,16 @@ describe("productInputSchema", () => {
     expect(productInputSchema.safeParse(input).success).toBe(true);
   });
 
+  it("trims a variant's option values like the option's own values", () => {
+    const input = validProduct();
+    changeVariant(input, 1, { optionValues: ["M "] });
+    const parsed = productInputSchema.safeParse(input);
+    expect(parsed.success).toBe(true);
+    if (parsed.success) {
+      expect(parsed.data.variants[1]?.optionValues).toEqual(["M"]);
+    }
+  });
+
   it("rejects 0 images", () => {
     expectIssueAt({ ...validProduct(), imageIds: [] }, "imageIds");
   });

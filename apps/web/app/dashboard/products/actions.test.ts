@@ -71,6 +71,24 @@ describe("updateProductAction", () => {
     );
   });
 
+  it("turns the API's stale-variant error into a variants field error", async () => {
+    apiMock.updateProduct.mockRejectedValue(
+      new FakeApiError(400, {
+        message: "Validation failed",
+        issues: {
+          formErrors: [],
+          fieldErrors: {
+            variants: ["One of the options no longer exists. Reload to see the latest."],
+          },
+        },
+      }),
+    );
+    const result = await updateProductAction(PRODUCT_ID, validInput(), 3);
+    expect(result.fieldErrors).toEqual({
+      variants: "One of the options no longer exists. Reload to see the latest.",
+    });
+  });
+
   it("sends the version along with the product", async () => {
     apiMock.updateProduct.mockResolvedValue({});
     await expect(updateProductAction(PRODUCT_ID, validInput(), 3)).rejects.toThrow(
@@ -103,6 +121,23 @@ describe("createProductAction", () => {
     apiMock.createProduct.mockRejectedValue(new FakeApiError(400, { message: "Photo not found" }));
     const result = await createProductAction(validInput());
     expect(result.error).toBe("Photo not found");
+  });
+
+  it("turns the API's imageIds error into a photos field error with the real text", async () => {
+    apiMock.createProduct.mockRejectedValue(
+      new FakeApiError(400, {
+        message: "Validation failed",
+        issues: {
+          formErrors: [],
+          fieldErrors: { imageIds: ["One of the photos can't be used. Upload it again."] },
+        },
+      }),
+    );
+    const result = await createProductAction(validInput());
+    expect(result.error).toBeUndefined();
+    expect(result.fieldErrors).toEqual({
+      images: "One of the photos can't be used. Upload it again.",
+    });
   });
 
   it("hides the details of a server failure", async () => {

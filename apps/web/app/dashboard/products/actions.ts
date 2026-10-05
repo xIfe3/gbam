@@ -40,6 +40,59 @@ function messageFor(error: unknown, action: string): string {
   return GENERIC_ERROR;
 }
 
+/**
+ * The API reports some problems against a field: { message: "Validation failed", issues:
+ * { fieldErrors: { imageIds: ["..."] } } }. Returns those as editor error keys with the
+ * real text, or null when the error has no field errors. (Only the first text per field.)
+ */
+function fieldErrorsFrom(error: unknown): Record<string, string> | null {
+  if (!(error instanceof ApiError) || error.status !== 400) {
+    return null;
+  }
+  const body = error.body;
+  if (typeof body !== "object" || body === null || !("issues" in body)) {
+    return null;
+  }
+  const issues = body.issues;
+  if (typeof issues !== "object" || issues === null || !("fieldErrors" in issues)) {
+    return null;
+  }
+  const fieldErrors = issues.fieldErrors;
+  if (typeof fieldErrors !== "object" || fieldErrors === null) {
+    return null;
+  }
+
+  const result: Record<string, string> = {};
+  for (const [field, messages] of Object.entries(fieldErrors)) {
+    if (!Array.isArray(messages)) {
+      continue;
+    }
+    const first: unknown = messages[0];
+    if (typeof first !== "string") {
+      continue;
+    }
+    // The editor calls the photos field "images".
+    let key = field;
+    if (field === "imageIds") {
+      key = "images";
+    }
+    result[key] = first;
+  }
+  if (Object.keys(result).length === 0) {
+    return null;
+  }
+  return result;
+}
+
+/** What a failed create or update returns: field errors when the API sent any. */
+function saveFailure(error: unknown, action: string): SaveResult {
+  const fieldErrors = fieldErrorsFrom(error);
+  if (fieldErrors) {
+    return { fieldErrors };
+  }
+  return { error: messageFor(error, action) };
+}
+
 /** Uploads one photo straight away; the product it belongs to is saved later. */
 export async function uploadPhotoAction(formData: FormData): Promise<PhotoResult> {
   const photo = formData.get("photo");
@@ -78,7 +131,7 @@ export async function createProductAction(input: unknown): Promise<SaveResult> {
   try {
     await api.createProduct(parsed.data);
   } catch (error) {
-    return { error: messageFor(error, "createProduct") };
+    return saveFailure(error, "createProduct");
   }
   // redirect() works by throwing, so it stays outside the try/catch.
   revalidatePath(LIST_PATH);
@@ -108,7 +161,7 @@ export async function updateProductAction(
     if (error instanceof ApiError && error.status === 409) {
       return { error: STALE_ERROR };
     }
-    return { error: messageFor(error, "updateProduct") };
+    return saveFailure(error, "updateProduct");
   }
   revalidatePath(LIST_PATH);
   redirect(LIST_PATH);

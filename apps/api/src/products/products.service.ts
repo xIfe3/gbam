@@ -238,11 +238,6 @@ export class ProductsService {
       await assertImagesUsable(tx, sellerId, input.imageIds, null);
       const slug = await uniqueSlug(tx, sellerId, input.name);
 
-      const firstVariant = input.variants[0];
-      if (!firstVariant) {
-        throw new BadRequestException("A product needs at least one variant");
-      }
-
       const inserted = await tx
         .insert(products)
         .values({
@@ -296,11 +291,6 @@ export class ProductsService {
       }
 
       await assertImagesUsable(tx, sellerId, input.imageIds, productId);
-
-      const firstVariant = input.variants[0];
-      if (!firstVariant) {
-        throw new BadRequestException("A product needs at least one variant");
-      }
 
       // The slug is never touched: links to the product must keep working after a rename.
       await tx

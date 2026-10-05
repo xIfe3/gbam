@@ -19,6 +19,9 @@ const nextConfig: NextConfig = {
     // Server Actions refuse request bodies over 1 MB by default. Product photos go through
     // one (max 10 MB each), and the limit counts multipart overhead too, so allow 11 MB.
     serverActions: { bodySizeLimit: "11mb" },
+    // proxy.ts matches /dashboard/:path*, and Next buffers request bodies there (10 MB by
+    // default, cutting off a bigger upload silently). Match the Server Action limit.
+    proxyClientMaxBodySize: "11mb",
   },
 };
 

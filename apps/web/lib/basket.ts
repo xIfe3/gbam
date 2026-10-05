@@ -80,6 +80,23 @@ export function setQuantity(
   return result;
 }
 
+/** Replaces the saved price on one line (used when the seller changed the price). */
+export function setLinePrice(
+  lines: BasketLine[],
+  variantId: string,
+  priceKobo: number,
+): BasketLine[] {
+  const result: BasketLine[] = [];
+  for (const line of lines) {
+    if (line.variantId === variantId) {
+      result.push({ ...line, priceKobo });
+    } else {
+      result.push(line);
+    }
+  }
+  return result;
+}
+
 export function basketTotals(lines: BasketLine[]): { itemCount: number; totalKobo: number } {
   let itemCount = 0;
   let totalKobo = 0;
@@ -259,9 +276,15 @@ export function useBasket(shopSlug: string) {
     },
     [shopSlug],
   );
+  const changePrice = useCallback(
+    (variantId: string, priceKobo: number) => {
+      writeBasket(shopSlug, setLinePrice(readBasket(shopSlug), variantId, priceKobo));
+    },
+    [shopSlug],
+  );
   const clear = useCallback(() => {
     writeBasket(shopSlug, []);
   }, [shopSlug]);
 
-  return { lines, ready, add, setQuantity: changeQuantity, clear };
+  return { lines, ready, add, setQuantity: changeQuantity, setPrice: changePrice, clear };
 }
