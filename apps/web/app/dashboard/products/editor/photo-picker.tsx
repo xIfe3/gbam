@@ -127,7 +127,8 @@ export function PhotoPicker({
   return (
     <div className="flex flex-col gap-1.5">
       <span className="text-ink text-sm font-bold">
-        Photos <span className="text-ink-muted font-normal">(up to {PRODUCT_LIMITS.maxImages})</span>
+        Photos{" "}
+        <span className="text-ink-muted font-normal">(up to {PRODUCT_LIMITS.maxImages})</span>
       </span>
       <ul className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {images.map((photo, index) => (

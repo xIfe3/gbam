@@ -375,8 +375,7 @@ function friendlyMessage(
 }
 
 export type BuildResult =
-  | { ok: true; input: ProductInput }
-  | { ok: false; errors: Record<string, string> };
+  { ok: true; input: ProductInput } | { ok: false; errors: Record<string, string> };
 
 /**
  * Checks what the seller typed and builds the product to send. Prices go through

@@ -1,17 +1,23 @@
 "use client";
 
 import { createContext, useCallback, useContext, useRef, useState } from "react";
-import type { TourStates } from "@/lib/api";
+import type { TourName } from "@gbam/shared";
+import type { TourState, TourStates } from "@/lib/api";
 
 type ToursContextValue = {
-  /** What the server says about each tour (step and outcome). */
-  states: TourStates;
+  /**
+   * What the server says about each tour (step and outcome), or null if it couldn't be
+   * loaded. When unknown we don't open tours by themselves (we might repeat a finished one).
+   */
+  states: TourStates | null;
   /** A page's tour registers its replay function; returns an "unregister" cleanup. */
   register: (replay: () => void) => () => void;
   /** Called by the "?" button. Returns false when this page has no tour. */
   replayCurrent: () => boolean;
   /** True while the current page has a tour (so "?" knows what to do). */
   hasTour: boolean;
+  /** A tour moved or finished: remember it here, because the layout isn't reloaded between pages. */
+  update: (tour: TourName, state: TourState) => void;
 };
 
 // Context: a way to hand values to every component inside the dashboard without passing
@@ -22,7 +28,32 @@ export function useTours(): ToursContextValue | null {
   return useContext(ToursContext);
 }
 
-export function ToursProvider({ states, children }: { states: TourStates; children: React.ReactNode }) {
+export function ToursProvider({
+  states,
+  children,
+}: {
+  states: TourStates | null;
+  children: React.ReactNode;
+}) {
+  // Our own copy of the progress. The dashboard layout (which loaded `states` from the server)
+  // stays mounted while the seller moves between dashboard pages, so its copy goes stale.
+  const [current, setCurrent] = useState<TourStates | null>(states);
+
+  const update = useCallback((tour: TourName, state: TourState) => {
+    setCurrent((previous) => {
+      // Once finished, a tour stays finished here too.
+      if (previous) {
+        const before = previous[tour];
+        if (before && before.outcome !== null) {
+          return previous;
+        }
+      }
+      const next: TourStates = { ...previous };
+      next[tour] = state;
+      return next;
+    });
+  }, []);
+
   // useRef: a value kept between renders that doesn't trigger a re-render when it changes.
   const replayRef = useRef<(() => void) | null>(null);
   const [hasTour, setHasTour] = useState(false);
@@ -49,7 +80,7 @@ export function ToursProvider({ states, children }: { states: TourStates; childr
   }, []);
 
   return (
-    <ToursContext.Provider value={{ states, register, replayCurrent, hasTour }}>
+    <ToursContext.Provider value={{ states: current, register, replayCurrent, hasTour, update }}>
       {children}
     </ToursContext.Provider>
   );

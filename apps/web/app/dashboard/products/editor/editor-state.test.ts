@@ -176,10 +176,7 @@ describe("too many combinations", () => {
       { name: "Size", values: eight },
       { name: "Colour", values: seven },
     ];
-    const state = withOptions(
-      { ...validState(), options: [], variants: [] },
-      options,
-    );
+    const state = withOptions({ ...validState(), options: [], variants: [] }, options);
     const result = toProductInput(state);
     expect(result.ok).toBe(false);
     if (!result.ok) {

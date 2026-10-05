@@ -9,7 +9,8 @@ export function DashboardNav() {
   const pathname = usePathname();
   // Products covers /dashboard/products and everything under it. Everything else in the
   // dashboard (the order list and order pages) counts as Orders.
-  const onProducts = pathname === "/dashboard/products" || pathname.startsWith("/dashboard/products/");
+  const onProducts =
+    pathname === "/dashboard/products" || pathname.startsWith("/dashboard/products/");
 
   let ordersCurrent: "page" | undefined = "page";
   let productsCurrent: "page" | undefined = undefined;
@@ -26,7 +27,12 @@ export function DashboardNav() {
       <Link href="/dashboard" aria-current={ordersCurrent} className={tabClass}>
         Orders
       </Link>
-      <Link href="/dashboard/products" aria-current={productsCurrent} className={tabClass}>
+      <Link
+        href="/dashboard/products"
+        aria-current={productsCurrent}
+        className={tabClass}
+        data-tour="products-tab"
+      >
         Products
       </Link>
     </nav>

@@ -32,7 +32,12 @@ function startingStep(saved: TourState | undefined, stepCount: number): number {
  * - Back/Next save the step on the server so it resumes there, on any device.
  * - replay() (the "?" button) starts again from step 1 and saves nothing.
  */
-export function useTour(tour: TourName, stepCount: number, saved: TourState | undefined) {
+export function useTour(
+  tour: TourName,
+  stepCount: number,
+  saved: TourState | undefined,
+  onChange?: (state: TourState) => void,
+) {
   const finishedBefore = saved !== undefined && saved.outcome !== null;
   // useState: values React remembers between re-renders of this page.
   const [open, setOpen] = useState(!finishedBefore);
@@ -43,6 +48,9 @@ export function useTour(tour: TourName, stepCount: number, saved: TourState | un
     setStep(newStep);
     if (!replaying) {
       inBackground(saveTourStepAction(tour, newStep));
+      if (onChange) {
+        onChange({ step: newStep, outcome: null });
+      }
     }
   }
 
@@ -62,6 +70,9 @@ export function useTour(tour: TourName, stepCount: number, saved: TourState | un
     setOpen(false);
     if (!replaying) {
       inBackground(finishTourAction(tour, outcome));
+      if (onChange) {
+        onChange({ step, outcome });
+      }
     }
   }
 

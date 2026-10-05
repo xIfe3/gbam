@@ -15,7 +15,10 @@ import { useTour } from "./use-tour";
 export function PageTour({ tour }: { tour: TourName }) {
   const tours = useTours();
   let saved: TourState | undefined = undefined;
-  if (tours) {
+  if (tours && tours.states === null) {
+    // Progress couldn't be loaded: treat it as finished so it only opens through "?".
+    saved = { step: 1, outcome: "skipped" };
+  } else if (tours && tours.states) {
     saved = tours.states[tour];
   }
   return <PageTourWith tour={tour} saved={saved} />;
@@ -24,8 +27,13 @@ export function PageTour({ tour }: { tour: TourName }) {
 /** The same, with the saved state passed in directly (used by PageTour and in tests). */
 export function PageTourWith({ tour, saved }: { tour: TourName; saved: TourState | undefined }) {
   const steps = TOURS[tour];
-  const state = useTour(tour, steps.length, saved);
   const tours = useTours();
+  let onChange: ((state: TourState) => void) | undefined = undefined;
+  if (tours) {
+    const update = tours.update;
+    onChange = (state) => update(tour, state);
+  }
+  const state = useTour(tour, steps.length, saved, onChange);
 
   // Tell the "?" button which tour this page has, so it can replay it. The ref always holds
   // the newest replay function; we register one stable wrapper, once, that calls it.

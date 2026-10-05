@@ -193,7 +193,9 @@ describe("NewProductSteps", () => {
     await waitFor(() =>
       expect(screen.getByRole("heading", { name: /step 1 of 3/i })).toBeInTheDocument(),
     );
-    expect(screen.getByText("One of the photos can't be used. Upload it again.")).toBeInTheDocument();
+    expect(
+      screen.getByText("One of the photos can't be used. Upload it again."),
+    ).toBeInTheDocument();
   });
 
   it("shows an error that no field claims", async () => {

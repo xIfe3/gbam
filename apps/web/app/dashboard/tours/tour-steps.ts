@@ -26,8 +26,8 @@ export const TOURS: Record<TourName, TourStep[]> = {
     },
     {
       title: "Add your first product",
-      body: "Start with one thing you sell. It takes about a minute.",
-      target: "add-product",
+      body: "Tap Products, then Add product. Start with one thing you sell; it takes about a minute.",
+      target: "products-tab",
     },
   ],
   editor: [
@@ -79,6 +79,8 @@ export const TOURS: Record<TourName, TourStep[]> = {
 // Keep the words and the shared step counts in step: the API rejects steps past TOUR_STEPS.
 for (const name of Object.keys(TOURS) as TourName[]) {
   if (TOURS[name].length !== TOUR_STEPS[name]) {
-    throw new Error(`Tour "${name}" has ${TOURS[name].length} steps but TOUR_STEPS says ${TOUR_STEPS[name]}`);
+    throw new Error(
+      `Tour "${name}" has ${TOURS[name].length} steps but TOUR_STEPS says ${TOUR_STEPS[name]}`,
+    );
   }
 }

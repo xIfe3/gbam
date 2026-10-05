@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageTour } from "../../tours/page-tour";
 import { notFound } from "next/navigation";
 import { cache } from "react";
 import { api, ApiError } from "@/lib/api";
@@ -34,6 +35,7 @@ export default async function EditProductPage(props: PageProps<"/dashboard/produ
 
   return (
     <main className="flex flex-col gap-6">
+      <PageTour tour="editor" />
       <div>
         <Link
           href="/dashboard/products"

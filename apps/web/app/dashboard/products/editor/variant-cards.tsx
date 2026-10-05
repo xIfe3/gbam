@@ -22,7 +22,7 @@ export function SingleVariantFields({
   onChange: (variant: EditorVariant) => void;
 }) {
   return (
-    <div className="grid gap-4 sm:grid-cols-2">
+    <div data-tour="stock" className="grid gap-4 sm:grid-cols-2">
       <TextField
         label="Price (₦)"
         inputMode="numeric"
@@ -93,8 +93,8 @@ export function VariantCards({
   }
 
   return (
-    <div className="flex flex-col gap-4">
-      <div className="bg-brand-tint flex flex-col gap-3 rounded-xl p-4">
+    <div data-tour="variants" className="flex flex-col gap-4">
+      <div data-tour="stock" className="bg-brand-tint flex flex-col gap-3 rounded-xl p-4">
         <SetAllRow
           label="Set one price for all"
           buttonLabel="Apply price"
@@ -145,7 +145,9 @@ export function VariantCards({
                   placeholder="12,000"
                   value={variant.priceText}
                   error={errors[`variants.${index}.price`]}
-                  onChange={(event) => replace(index, { ...variant, priceText: event.target.value })}
+                  onChange={(event) =>
+                    replace(index, { ...variant, priceText: event.target.value })
+                  }
                 />
                 <TextField
                   label={`Stock for ${title}`}
@@ -153,7 +155,9 @@ export function VariantCards({
                   hint={STOCK_HINT}
                   value={variant.stockText}
                   error={errors[`variants.${index}.stock`]}
-                  onChange={(event) => replace(index, { ...variant, stockText: event.target.value })}
+                  onChange={(event) =>
+                    replace(index, { ...variant, stockText: event.target.value })
+                  }
                 />
               </div>
 

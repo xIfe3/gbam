@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
 import { SITE_URL } from "@/lib/site";
 import { CopyLinkButton } from "./copy-link-button";
+import { PageTour } from "./tours/page-tour";
 import { StatusBadge } from "./status-badge";
 
 export const metadata: Metadata = {
@@ -57,7 +58,8 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
   }
 
   return (
-    <main>
+    <main data-tour="orders">
+      <PageTour tour="dashboard" />
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter by status">
         {FILTERS.map((filter) => (
           <Link
@@ -78,7 +80,10 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
           title="No orders yet"
           description="Share your shop link on WhatsApp or your Status to get your first order."
         >
-          <p className="border-coral-tint bg-blush text-ink w-full max-w-xs rounded-lg border border-dashed px-3 py-2 text-sm break-all select-all">
+          <p
+            data-tour="shop-link"
+            className="border-coral-tint bg-blush text-ink w-full max-w-xs rounded-lg border border-dashed px-3 py-2 text-sm break-all select-all"
+          >
             {shopLinkText(shopSlug)}
           </p>
           <CopyLinkButton url={`${SITE_URL}/${shopSlug}`} />

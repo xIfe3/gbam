@@ -152,7 +152,10 @@ export function EditProductForm({ product }: { product: ProductDetail }) {
         </Button>
       </form>
 
-      <section aria-labelledby="more-heading" className="border-brand-tint flex flex-col gap-3 border-t-2 pt-6">
+      <section
+        aria-labelledby="more-heading"
+        className="border-brand-tint flex flex-col gap-3 border-t-2 pt-6"
+      >
         <h2 id="more-heading" className="text-ink text-lg font-bold">
           More
         </h2>

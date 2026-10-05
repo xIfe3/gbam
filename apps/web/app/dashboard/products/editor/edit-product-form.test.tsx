@@ -108,7 +108,9 @@ describe("EditProductForm", () => {
     fireEvent.click(screen.getByRole("button", { name: "Delete product" }));
 
     expect(
-      screen.getByText("Delete this product? If it has been ordered before, it will be archived instead."),
+      screen.getByText(
+        "Delete this product? If it has been ordered before, it will be archived instead.",
+      ),
     ).toBeInTheDocument();
     expect(actions.deleteProductAction).not.toHaveBeenCalled();
 

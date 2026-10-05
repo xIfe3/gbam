@@ -84,20 +84,28 @@ export function DetailsSection({
 }) {
   return (
     <div className="flex flex-col gap-5">
-      <PhotoPicker images={editor.state.images} onChange={editor.setImages} error={errors["images"]} />
-      <TextField
-        label="Product name"
-        value={editor.state.name}
-        maxLength={120}
-        error={errors["name"]}
-        onChange={(event) => editor.setName(event.target.value)}
-      />
-      <TextField
-        label="Description (optional)"
-        value={editor.state.description}
-        maxLength={2000}
-        onChange={(event) => editor.setDescription(event.target.value)}
-      />
+      <div data-tour="photos">
+        <PhotoPicker
+          images={editor.state.images}
+          onChange={editor.setImages}
+          error={errors["images"]}
+        />
+      </div>
+      <div data-tour="details" className="flex flex-col gap-5">
+        <TextField
+          label="Product name"
+          value={editor.state.name}
+          maxLength={120}
+          error={errors["name"]}
+          onChange={(event) => editor.setName(event.target.value)}
+        />
+        <TextField
+          label="Description (optional)"
+          value={editor.state.description}
+          maxLength={2000}
+          onChange={(event) => editor.setDescription(event.target.value)}
+        />
+      </div>
     </div>
   );
 }
@@ -140,7 +148,7 @@ export function OptionsSection({
 
   return (
     <div className="flex flex-col gap-4">
-      <fieldset className="flex flex-col gap-2">
+      <fieldset data-tour="options" className="flex flex-col gap-2">
         <legend className="text-ink mb-1 text-sm font-bold">Does it come in options?</legend>
         <p className="text-ink-muted text-sm">Like sizes or colours.</p>
         <div className="flex gap-3">

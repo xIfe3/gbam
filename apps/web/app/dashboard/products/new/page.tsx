@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { PageTour } from "../../tours/page-tour";
 import { NewProductSteps } from "../editor/new-product-steps";
 
 export const metadata: Metadata = {
@@ -11,6 +12,7 @@ export const metadata: Metadata = {
 export default function NewProductPage() {
   return (
     <main className="flex flex-col gap-6">
+      <PageTour tour="editor" />
       <div>
         <Link
           href="/dashboard/products"

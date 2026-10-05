@@ -7,7 +7,7 @@ vi.mock("./actions", () => ({
 }));
 
 import { finishTourAction, saveTourStepAction } from "./actions";
-import { PageTourWith } from "./page-tour";
+import { PageTour, PageTourWith } from "./page-tour";
 import { ToursProvider, useTours } from "./tours-provider";
 
 const save = vi.mocked(saveTourStepAction);
@@ -120,5 +120,48 @@ describe("PageTour", () => {
     expect(screen.getByText("photos area")).toHaveAttribute("data-tour-active");
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(screen.getByText("photos area")).not.toHaveAttribute("data-tour-active");
+  });
+
+  it("remembers a finished tour while moving between pages (the layout doesn't reload)", () => {
+    const { rerender } = render(
+      <ToursProvider states={{}}>
+        <PageTour tour="dashboard" />
+      </ToursProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    // Leave the page, then come back: same provider, stale server data.
+    rerender(<ToursProvider states={{}}>{null}</ToursProvider>);
+    rerender(
+      <ToursProvider states={{}}>
+        <PageTour tour="dashboard" />
+      </ToursProvider>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("resumes on the step reached earlier in this visit", () => {
+    const { rerender } = render(
+      <ToursProvider states={{}}>
+        <PageTour tour="editor" />
+      </ToursProvider>,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    fireEvent.click(screen.getByRole("button", { name: "Next" }));
+    rerender(<ToursProvider states={{}}>{null}</ToursProvider>);
+    rerender(
+      <ToursProvider states={{}}>
+        <PageTour tour="editor" />
+      </ToursProvider>,
+    );
+    expect(screen.getByRole("dialog")).toHaveTextContent("3 of 5");
+  });
+
+  it("does not open by itself when progress couldn't be loaded", () => {
+    render(
+      <ToursProvider states={null}>
+        <PageTour tour="editor" />
+      </ToursProvider>,
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 });

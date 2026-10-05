@@ -8,6 +8,7 @@ import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "../../status-badge";
 import { MoneyBreakdown } from "./money-breakdown";
 import { StatusActions } from "./status-actions";
+import { PageTour } from "../../tours/page-tour";
 import { WhatsAppMessages } from "./whatsapp-messages";
 
 async function loadOrder(id: string) {
@@ -43,6 +44,7 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
 
   return (
     <main className="space-y-6">
+      <PageTour tour="order" />
       <Link href="/dashboard" className="text-sm text-zinc-500 hover:text-zinc-900">
         ← All orders
       </Link>
@@ -58,14 +60,18 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
               })}
             </p>
           </div>
-          <StatusBadge status={order.status} />
+          <div data-tour="order-status">
+            <StatusBadge status={order.status} />
+          </div>
         </div>
         {/* Same state machine the API enforces, so buttons and API can never disagree. */}
-        <StatusActions
-          orderId={order.id}
-          allowed={nextStatuses(order.status, "seller")}
-          canRequestPayment={canRequestPayment}
-        />
+        <div data-tour="order-actions">
+          <StatusActions
+            orderId={order.id}
+            allowed={nextStatuses(order.status, "seller")}
+            canRequestPayment={canRequestPayment}
+          />
+        </div>
       </section>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
