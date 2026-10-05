@@ -4,10 +4,18 @@ const ALLOWED_FORMATS = ["jpeg", "png", "webp", "heif"];
 const LARGE_SIDE = 1600;
 const SMALL_SIDE = 400;
 
+/**
+ * A small file can hold a huge picture (a flat-colour PNG under 10 MB can decode to
+ * hundreds of MB of pixels), so we cap the pixel count, not just the byte size.
+ * 50 million pixels is about 7000 x 7000, more than any phone camera makes.
+ */
+const MAX_INPUT_PIXELS = 50_000_000;
+const SHARP_OPTIONS = { limitInputPixels: MAX_INPUT_PIXELS };
+
 /** The file is not a photo we can read (wrong type, corrupt, or unsupported HEIC build). */
 export class UnsupportedPhotoError extends Error {
-  constructor(message = "Unsupported photo") {
-    super(message);
+  constructor(message = "Unsupported photo", options?: { cause?: unknown }) {
+    super(message, options);
     this.name = "UnsupportedPhotoError";
   }
 }
@@ -23,15 +31,25 @@ export type ProcessedPhoto = { large: Buffer; small: Buffer; width: number; heig
  */
 export async function processPhoto(input: Buffer): Promise<ProcessedPhoto> {
   try {
-    const metadata = await sharp(input).metadata();
+    const metadata = await sharp(input, SHARP_OPTIONS).metadata();
     const format = metadata.format;
     if (format === undefined || !ALLOWED_FORMATS.includes(format)) {
       throw new UnsupportedPhotoError();
     }
+    const inputWidth = metadata.width;
+    const inputHeight = metadata.height;
+    if (inputWidth === undefined || inputHeight === undefined) {
+      throw new UnsupportedPhotoError();
+    }
+    if (inputWidth * inputHeight > MAX_INPUT_PIXELS) {
+      throw new UnsupportedPhotoError("Photo has too many pixels");
+    }
 
-    const large = await resizeTo(input, LARGE_SIDE);
-    const small = await resizeTo(input, SMALL_SIDE);
-    const largeMetadata = await sharp(large).metadata();
+    // Decode the original only once (the expensive step). The small copy is made from
+    // the 1600 px WebP, which is already upright and much cheaper to decode.
+    const large = await resizeTo(input, LARGE_SIDE, true);
+    const small = await resizeTo(large, SMALL_SIDE, false);
+    const largeMetadata = await sharp(large, SHARP_OPTIONS).metadata();
     const width = largeMetadata.width;
     const height = largeMetadata.height;
     if (width === undefined || height === undefined) {
@@ -42,14 +60,22 @@ export async function processPhoto(input: Buffer): Promise<ProcessedPhoto> {
     if (error instanceof UnsupportedPhotoError) {
       throw error;
     }
-    // sharp throws plain errors for corrupt files or formats it can't decode.
-    throw new UnsupportedPhotoError();
+    // sharp throws plain errors for corrupt files or formats it can't decode. We keep the
+    // original error as `cause` so it shows up in logs when debugging.
+    throw new UnsupportedPhotoError("Unsupported photo", { cause: error });
   }
 }
 
-async function resizeTo(input: Buffer, longestSide: number): Promise<Buffer> {
-  return sharp(input)
-    .rotate()
+async function resizeTo(
+  input: Buffer,
+  longestSide: number,
+  applyRotation: boolean,
+): Promise<Buffer> {
+  let pipeline = sharp(input, SHARP_OPTIONS);
+  if (applyRotation) {
+    pipeline = pipeline.rotate();
+  }
+  return pipeline
     .resize({
       width: longestSide,
       height: longestSide,

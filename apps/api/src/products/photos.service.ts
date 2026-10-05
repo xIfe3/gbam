@@ -60,7 +60,13 @@ export class PhotosService {
     const smallKey = `${baseName}-s.webp`;
 
     await this.storage.put(largeKey, processed.large, "image/webp");
-    await this.storage.put(smallKey, processed.small, "image/webp");
+    try {
+      await this.storage.put(smallKey, processed.small, "image/webp");
+    } catch (error) {
+      // Don't leave the large file behind when the small one could not be saved.
+      await this.deleteFiles([largeKey]);
+      throw error;
+    }
 
     // productId stays null: the photo is "unattached" until a product claims it.
     // If the insert fails we remove the files so they are not left behind.

@@ -216,6 +216,11 @@ describe("Photo endpoints over HTTP (integration)", () => {
     const res = await upload(seller.authorization, jpeg);
     expect(res.status).toBe(429);
     expect(res.json).toHaveProperty("retryAfterSeconds");
+    const rows = await db
+      .select()
+      .from(productImages)
+      .where(eq(productImages.sellerId, seller.sellerId));
+    expect(rows).toHaveLength(0);
   });
 
   it("lets only the owner delete an unattached photo", async () => {
@@ -300,6 +305,9 @@ describe("Photo endpoints over HTTP (integration)", () => {
 
   it("urlsFor builds public addresses", () => {
     const urls = photos.urlsFor({ largeKey: "a/b-l.webp", smallKey: "a/b-s.webp" });
-    expect(urls).toEqual({ large: `${PUBLIC_BASE}/a/b-l.webp`, small: `${PUBLIC_BASE}/a/b-s.webp` });
+    expect(urls).toEqual({
+      large: `${PUBLIC_BASE}/a/b-l.webp`,
+      small: `${PUBLIC_BASE}/a/b-s.webp`,
+    });
   });
 });

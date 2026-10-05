@@ -45,7 +45,9 @@ export class PhotosController {
   // exact check.
   @Post()
   @UseInterceptors(
-    FileInterceptor("photo", { limits: { fileSize: PRODUCT_LIMITS.maxPhotoBytes + 1 } }),
+    FileInterceptor("photo", {
+      limits: { fileSize: PRODUCT_LIMITS.maxPhotoBytes + 1, files: 1, fields: 5, parts: 6 },
+    }),
   )
   async upload(
     @CurrentSellerId() sellerId: string,

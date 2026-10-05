@@ -57,19 +57,34 @@ describe("processPhoto", () => {
     await expect(processPhoto(text)).rejects.toBeInstanceOf(UnsupportedPhotoError);
   });
 
-  it("handles HEIC either way: unsupported error or valid WebP, never a crash", async () => {
-    // Only a header, so decoding fails or is refused. Both outcomes are acceptable.
+  it("accepts a real HEIF picture and makes WebP", async () => {
+    const heif = await sharp({
+      create: { width: 200, height: 100, channels: 3, background: "#44aa88" },
+    })
+      .heif({ compression: "av1" })
+      .toBuffer();
+    expect((await sharp(heif).metadata()).format).toBe("heif");
+    const result = await processPhoto(heif);
+    expect((await sharp(result.large).metadata()).format).toBe("webp");
+    expect(result.width).toBe(200);
+  });
+
+  it("rejects a garbage file that only has a HEIC header", async () => {
     const header = Buffer.concat([
       Buffer.from([0, 0, 0, 24]),
       Buffer.from("ftypheic"),
       Buffer.alloc(32),
     ]);
-    try {
-      const result = await processPhoto(header);
-      const meta = await sharp(result.large).metadata();
-      expect(meta.format).toBe("webp");
-    } catch (error) {
-      expect(error).toBeInstanceOf(UnsupportedPhotoError);
-    }
+    await expect(processPhoto(header)).rejects.toBeInstanceOf(UnsupportedPhotoError);
+  });
+
+  it("rejects a picture with too many pixels (decompression bomb)", async () => {
+    const bomb = await sharp({
+      create: { width: 8000, height: 8000, channels: 3, background: "#ffffff" },
+    })
+      .png({ compressionLevel: 9 })
+      .toBuffer();
+    expect(bomb.length).toBeLessThan(10 * 1024 * 1024);
+    await expect(processPhoto(bomb)).rejects.toBeInstanceOf(UnsupportedPhotoError);
   });
 });
