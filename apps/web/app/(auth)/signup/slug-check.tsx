@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { TextField } from "@/components/brand/fields";
 import { checkSlugAction, type SlugCheck } from "./actions";
+import { SITE_HOST } from "@/lib/site";
 
 const DEBOUNCE_MS = 400;
 
@@ -65,7 +66,7 @@ export function SlugField({ value, onChange, error }: SlugFieldProps) {
         required
         value={value}
         onChange={(e) => onChange(e.target.value.toLowerCase())}
-        hint="gbam.app/your-link is what customers will visit."
+        hint={`${SITE_HOST}/your-link is what customers will visit.`}
         error={error}
       />
       {/* Always rendered so screen readers hear changes (role=status is polite). */}
@@ -76,7 +77,7 @@ export function SlugField({ value, onChange, error }: SlugFieldProps) {
         {value.length > 0 && !error && (
           <>
             {isGood && <span aria-hidden="true">✓ </span>}
-            gbam.app/{value}
+            {SITE_HOST}/{value}
             {message && ` · ${message}`}
           </>
         )}

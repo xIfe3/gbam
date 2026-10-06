@@ -14,6 +14,11 @@ COPY --from=prepare /app/out/json/ .
 RUN pnpm install --frozen-lockfile
 COPY --from=prepare /app/out/full/ .
 ENV NEXT_TELEMETRY_DISABLED=1
+# The site's public address is baked into the build (it's used in the browser too). Railway
+# passes service variables to a Docker build only when they are declared with ARG.
+# Unset → https://gbam.app.
+ARG NEXT_PUBLIC_SITE_URL
+ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
 RUN turbo run build --filter=@gbam/web...
 
 # output: "standalone" traces exactly the files `next start` needs into .next/standalone.

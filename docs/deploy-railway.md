@@ -100,11 +100,16 @@ Open the service Railway created from the repo, then:
 2. **Variables:**
    ```env
    RAILWAY_DOCKERFILE_PATH=apps/web/Dockerfile
+   NEXT_PUBLIC_SITE_URL=https://gbam.app
    API_URL=http://${{api.RAILWAY_PRIVATE_DOMAIN}}:4000
    INTERNAL_API_SECRET=<the same value as the api>
    TRUSTED_PROXY_HOPS=1
    GBAM_WHATSAPP_NUMBER=<your WhatsApp business number, optional>
    ```
+   `NEXT_PUBLIC_SITE_URL` is the site's own address, used for shop links ("Copy shop
+   link"), the sitemap and link previews. Use your temporary domain (e.g.
+   `https://gbam.zephra.dev`) until `gbam.app` is ready. It's baked in when the site is
+   built, so after changing it, redeploy the web service.
    `API_URL` points at the api's private address, which looks like
    `api.railway.internal`. The word before `.RAILWAY_PRIVATE_DOMAIN` must be your API
    service's **exact name** in Railway (e.g. `${{gbam.RAILWAY_PRIVATE_DOMAIN}}` if the service

@@ -4,7 +4,7 @@ import Link from "next/link";
 import { EmptyState, OrdersArt } from "@/components/brand/empty-state";
 import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
-import { SITE_URL } from "@/lib/site";
+import { SITE_HOST, SITE_URL } from "@/lib/site";
 import { CopyLinkButton } from "./copy-link-button";
 import { PageTour } from "./tours/page-tour";
 import { StatusBadge } from "./status-badge";
@@ -125,8 +125,7 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
 
 /** "gbam.app/mama-ngozi": the shop address without "https://", easier to read. */
 function shopLinkText(slug: string): string {
-  const host = new URL(SITE_URL).host;
-  return `${host}/${slug}`;
+  return `${SITE_HOST}/${slug}`;
 }
 
 /** "just now", "5m ago", "3h ago", or a date like "2 Oct". */
