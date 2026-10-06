@@ -13,6 +13,17 @@ import { forgetToursForTests, ToursProvider, useTours } from "./tours-provider";
 const save = vi.mocked(saveTourStepAction);
 const finish = vi.mocked(finishTourAction);
 
+/** The parts of the edit-product page the editor tour points at (all on one page there). */
+function EditorParts() {
+  return (
+    <>
+      <div data-tour="options">options</div>
+      <div data-tour="variants">variants</div>
+      <div data-tour="stock">stock</div>
+    </>
+  );
+}
+
 /** A pretend "?" button that replays the page's tour through the provider. */
 function ReplayButton() {
   const tours = useTours();
@@ -38,7 +49,12 @@ describe("PageTour", () => {
   });
 
   it("resumes on the saved step", () => {
-    render(<PageTourWith tour="editor" saved={{ step: 3, outcome: null }} />);
+    render(
+      <>
+        <EditorParts />
+        <PageTourWith tour="editor" saved={{ step: 3, outcome: null }} />
+      </>,
+    );
     expect(screen.getByRole("dialog")).toHaveTextContent("3 of 5");
   });
 
@@ -48,7 +64,12 @@ describe("PageTour", () => {
   });
 
   it("saves the step going forward and back", () => {
-    render(<PageTourWith tour="editor" saved={{ step: 2, outcome: null }} />);
+    render(
+      <>
+        <EditorParts />
+        <PageTourWith tour="editor" saved={{ step: 2, outcome: null }} />
+      </>,
+    );
     fireEvent.click(screen.getByRole("button", { name: "Next" }));
     expect(save).toHaveBeenLastCalledWith("editor", 3);
     fireEvent.click(screen.getByRole("button", { name: "Back" }));
@@ -143,6 +164,7 @@ describe("PageTour", () => {
   it("resumes on the step reached earlier in this visit", () => {
     const { rerender } = render(
       <ToursProvider states={{}}>
+        <EditorParts />
         <PageTour tour="editor" />
       </ToursProvider>,
     );
@@ -151,6 +173,7 @@ describe("PageTour", () => {
     rerender(<ToursProvider states={{}}>{null}</ToursProvider>);
     rerender(
       <ToursProvider states={{}}>
+        <EditorParts />
         <PageTour tour="editor" />
       </ToursProvider>,
     );
@@ -232,5 +255,30 @@ describe("PageTour", () => {
     expect(document.body.style.paddingBottom).not.toBe("");
     fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
     expect(document.body.style.paddingBottom).toBe("");
+  });
+
+  it("on the add-product form, waits for the next screen instead of pointing at nothing", async () => {
+    render(<PageTourWith tour="editor" saved={{ step: 3, outcome: null }} />);
+    // The options part isn't on the page yet: a small waiting note, no tour Next button.
+    expect(screen.getByRole("dialog")).toHaveTextContent("This is on the next screen");
+    expect(screen.queryByRole("button", { name: "Next" })).toBeNull();
+    expect(screen.getByRole("button", { name: "Skip tour" })).toBeInTheDocument();
+
+    // The seller moves the form on: the options part appears and the full step comes back.
+    const options = document.createElement("fieldset");
+    options.setAttribute("data-tour", "options");
+    await act(async () => {
+      document.body.appendChild(options);
+    });
+    expect(screen.getByRole("heading", { name: "Sizes or colours?" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
+    expect(options).toHaveAttribute("data-tour-active");
+    options.remove();
+  });
+
+  it("other tours never wait: a step with nothing to glow still shows its text", () => {
+    render(<PageTourWith tour="order" saved={undefined} />);
+    expect(screen.getByRole("heading", { name: "Request payment" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Next" })).toBeInTheDocument();
   });
 });

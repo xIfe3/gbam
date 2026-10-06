@@ -1,7 +1,28 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useSyncExternalStore } from "react";
 import type { TourStep } from "./tour-steps";
+
+/**
+ * Is an element matching `selector` on the page right now? useSyncExternalStore re-checks
+ * whenever the page changes (a MutationObserver tells us), so the card notices the moment the
+ * add-product form moves to the screen this step talks about.
+ */
+function useOnPage(selector: string | null): boolean {
+  function subscribe(onChange: () => void) {
+    const observer = new MutationObserver(onChange);
+    observer.observe(document.body, { childList: true, subtree: true });
+    return () => observer.disconnect();
+  }
+  function check() {
+    if (selector === null) {
+      return true;
+    }
+    return document.querySelector(selector) !== null;
+  }
+  // On the server there's no page to look at; say "present" so nothing flashes.
+  return useSyncExternalStore(subscribe, check, () => true);
+}
 
 type TourCardProps = {
   steps: TourStep[];
@@ -24,6 +45,11 @@ export function TourCard({ steps, step, onNext, onBack, onSkip, onDone }: TourCa
   const cardRef = useRef<HTMLDivElement>(null);
   const current = steps[step - 1];
   const isLast = step === steps.length;
+  let waitSelector: string | null = null;
+  if (current && current.waitForTarget) {
+    waitSelector = `[data-tour="${current.target}"]`;
+  }
+  const targetOnPage = useOnPage(waitSelector);
 
   // Glow the element this step talks about and bring it into view. The element may not be on
   // the page yet (e.g. the next step of the add-product form), so we also watch the page with a
@@ -101,6 +127,28 @@ export function TourCard({ steps, step, onNext, onBack, onSkip, onDone }: TourCa
 
   if (!current) {
     return null;
+  }
+
+  // The part this step explains is on a later screen of the form: wait for the seller to get there.
+  if (!targetOnPage) {
+    return (
+      <div
+        ref={cardRef}
+        role="dialog"
+        aria-modal="false"
+        aria-label="Tour paused"
+        tabIndex={-1}
+        className="border-brand-tint fixed inset-x-0 bottom-0 z-40 mx-auto flex max-w-lg items-center gap-3 rounded-t-2xl border-2 border-b-0 bg-white px-5 py-3 shadow-[0_-10px_30px_rgba(19,42,32,0.15)] focus-visible:outline-none"
+      >
+        <p className="text-ink-muted flex-1 text-sm">
+          This is on the next screen. Fill this one in and tap Next on the form; the tour picks up
+          there.
+        </p>
+        <button type="button" onClick={onSkip} className={SECONDARY}>
+          Skip tour
+        </button>
+      </div>
+    );
   }
 
   const dots = [];

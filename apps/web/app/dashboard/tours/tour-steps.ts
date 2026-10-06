@@ -5,7 +5,12 @@ import { TOUR_STEPS, type TourName } from "@gbam/shared";
  * that element glows while its step is showing. A step whose target isn't on the page
  * (e.g. no orders yet) still shows its text, just without a glow.
  */
-export type TourStep = { title: string; body: string; target: string };
+/**
+ * `waitForTarget`: the part this step explains is on a LATER screen of a multi-screen form
+ * (the add-product form). Instead of pointing at nothing, the card waits with a small note
+ * until the seller moves the form on and the part appears.
+ */
+export type TourStep = { title: string; body: string; target: string; waitForTarget?: boolean };
 
 export const TOURS: Record<TourName, TourStep[]> = {
   dashboard: [
@@ -45,16 +50,19 @@ export const TOURS: Record<TourName, TourStep[]> = {
       title: "Sizes or colours?",
       body: "Turn on options if it comes in different versions, like Size (S, M, L) or Colour.",
       target: "options",
+      waitForTarget: true,
     },
     {
       title: "Each combination has its own price and stock",
       body: "M / Red can cost more than S / Blue. Switch off any combination you don't sell.",
       target: "variants",
+      waitForTarget: true,
     },
     {
       title: "Not counting stock? Leave it blank",
       body: "Blank stock means always available. Put a number if you want it to show Sold out at 0.",
       target: "stock",
+      waitForTarget: true,
     },
   ],
   order: [
