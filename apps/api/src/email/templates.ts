@@ -1,3 +1,4 @@
+import { formatNaira } from "@gbam/shared";
 import type { SendEmailInput } from "@gbam/integrations";
 
 export type EmailJob =
@@ -9,6 +10,23 @@ export type EmailJob =
       email: string;
       phone: string | null;
       message: string;
+    }
+  | {
+      kind: "order_receipt";
+      to: string;
+      shopName: string;
+      code: string;
+      totalKobo: number;
+      trackingUrl: string;
+    }
+  | {
+      kind: "issue_reported";
+      to: string;
+      shopName: string;
+      code: string;
+      reasonLabel: string;
+      note: string | null;
+      orderUrl: string;
     };
 
 const CONTACT_INBOX = "hello@gbam.app";
@@ -30,6 +48,13 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   }
   if (job.kind === "reset_password") {
     return codeEmail(job.to, job.code, "Use this code to reset your Gbam password.");
+  }
+
+  if (job.kind === "order_receipt") {
+    return receiptEmail(job);
+  }
+  if (job.kind === "issue_reported") {
+    return issueEmail(job);
   }
 
   // contact_message
@@ -64,4 +89,55 @@ function codeEmail(to: string, code: string, intro: string): SendEmailInput {
     `<p>This code expires in 15 minutes. If you didn't ask for it, you can ignore this email.</p>`,
   ].join("\n");
   return { to, subject: `Your Gbam code: ${code}`, text, html };
+}
+
+/** Sent to a customer who gave their email at checkout: the code and the tracking link. */
+function receiptEmail(job: Extract<EmailJob, { kind: "order_receipt" }>): SendEmailInput {
+  const total = formatNaira(job.totalKobo);
+  const text = [
+    `Thanks for your order from ${job.shopName}.`,
+    ``,
+    `Order code: ${job.code}`,
+    `Total: ${total}`,
+    ``,
+    `Track your order, pay, or get help here:`,
+    job.trackingUrl,
+    ``,
+    `Keep this email: the link opens your order without a password.`,
+  ].join("\n");
+  const html = [
+    `<p>Thanks for your order from <strong>${escapeHtml(job.shopName)}</strong>.</p>`,
+    `<p style="font-size: 24px; font-weight: bold; letter-spacing: 2px">${escapeHtml(job.code)}</p>`,
+    `<p>Total: ${escapeHtml(total)}</p>`,
+    `<p><a href="${escapeHtml(job.trackingUrl)}">Track your order, pay, or get help</a></p>`,
+    `<p>Keep this email: the link opens your order without a password.</p>`,
+  ].join("\n");
+  return { to: job.to, subject: `Your order ${job.code} from ${job.shopName}`, text, html };
+}
+
+/** Sent to the seller when a customer reports a problem from their tracking page. */
+function issueEmail(job: Extract<EmailJob, { kind: "issue_reported" }>): SendEmailInput {
+  const lines = [
+    `A customer reported a problem with order ${job.code}.`,
+    ``,
+    `Problem: ${job.reasonLabel}`,
+  ];
+  const htmlLines = [
+    `<p>A customer reported a problem with order <strong>${escapeHtml(job.code)}</strong>.</p>`,
+    `<p><strong>Problem:</strong> ${escapeHtml(job.reasonLabel)}</p>`,
+  ];
+  if (job.note) {
+    lines.push(`Their note: ${job.note}`);
+    htmlLines.push(
+      `<p style="white-space: pre-wrap"><strong>Their note:</strong> ${escapeHtml(job.note)}</p>`,
+    );
+  }
+  lines.push(``, `Open the order: ${job.orderUrl}`);
+  htmlLines.push(`<p><a href="${escapeHtml(job.orderUrl)}">Open the order</a></p>`);
+  return {
+    to: job.to,
+    subject: `${job.shopName}: problem reported on ${job.code}`,
+    text: lines.join("\n"),
+    html: htmlLines.join("\n"),
+  };
 }

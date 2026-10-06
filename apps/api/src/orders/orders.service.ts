@@ -1,6 +1,7 @@
 import {
   customers,
   orderEvents,
+  orderIssues,
   orderItems,
   payments,
   whatsappMessages,
@@ -20,12 +21,15 @@ import {
 import {
   BadRequestException,
   ConflictException,
+  Inject,
   Injectable,
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, isNull, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
+import { EmailQueue } from "../email/email.queue.js";
+import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { generateOrderCode } from "./order-code.js";
@@ -52,7 +56,50 @@ export class OrdersService {
   constructor(
     @InjectDb() private readonly db: Db,
     private readonly notifications: NotificationsQueue,
+    private readonly emails: EmailQueue,
+    @Inject(ENV) private readonly env: Env,
   ) {}
+
+  /** The customer's private tracking link, e.g. https://gbam.app/track/GB-7K3Q?k=… */
+  trackingUrl(code: string, trackingKey: string): string {
+    return `${this.env.WEB_URL}/track/${code}?k=${trackingKey}`;
+  }
+
+  /**
+   * If the customer gave an email, queue a receipt with the code and tracking link. A failure
+   * here must never undo the order (it's already saved), so it's logged, not thrown.
+   */
+  private async sendReceipt(
+    order: { id: string; code: string; sellerId: string; totalKobo: number; trackingKey: string },
+    email: string,
+  ) {
+    try {
+      const shopRows = await this.db
+        .select({ businessName: sellers.businessName })
+        .from(sellers)
+        .where(eq(sellers.id, order.sellerId));
+      let shopName = "your shop";
+      const shop = shopRows[0];
+      if (shop) {
+        shopName = shop.businessName;
+      }
+      // jobId per order: queuing it twice still sends one email.
+      await this.emails.send(`receipt-${order.id}`, {
+        kind: "order_receipt",
+        to: email,
+        shopName,
+        code: order.code,
+        totalKobo: order.totalKobo,
+        trackingUrl: this.trackingUrl(order.code, order.trackingKey),
+      });
+    } catch (error) {
+      let reason = "error";
+      if (error instanceof Error) {
+        reason = error.message;
+      }
+      this.logger.error(`Could not queue the receipt for order ${order.code}: ${reason}`);
+    }
+  }
 
   /** Public: a customer places an order on a seller's storefront. */
   async createFromStorefront(slug: string, input: CreateOrderInput) {
@@ -70,6 +117,9 @@ export class OrdersService {
           from: null,
           to: "pending",
         });
+        if (input.customer.email) {
+          await this.sendReceipt(created.order, input.customer.email);
+        }
         return created.order;
       } catch (error) {
         const codeWasTaken = isUniqueViolation(error, "orders_seller_code_uq");
@@ -100,6 +150,8 @@ export class OrdersService {
         createdAt: orders.createdAt,
         customerName: customers.name,
         customerPhone: customers.phone,
+        // How many problems the customer reported that the seller hasn't resolved yet.
+        openIssues: sql<number>`(select count(*)::int from ${orderIssues} where ${orderIssues.orderId} = ${orders.id} and ${orderIssues.resolvedAt} is null)`,
       })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
@@ -133,6 +185,7 @@ export class OrdersService {
           orderBy: [desc(payments.createdAt)],
         },
         whatsappMessages: { orderBy: [asc(whatsappMessages.createdAt)] },
+        issues: { orderBy: [desc(orderIssues.createdAt)] },
       },
     });
 
@@ -143,6 +196,27 @@ export class OrdersService {
     // Which buttons the seller may press next, from the shared state machine.
     const allowedTransitions = nextStatuses(order.status, "seller");
     return { ...order, allowedTransitions };
+  }
+
+  /** The seller marks a customer's problem as dealt with. Another shop's issue → 404. */
+  async resolveIssue(sellerId: string, orderId: string, issueId: string) {
+    const owned = await this.db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.sellerId, sellerId)));
+    if (owned.length === 0) {
+      throw new NotFoundException("Order not found");
+    }
+    const updated = await this.db
+      .update(orderIssues)
+      .set({ resolvedAt: new Date() })
+      .where(and(eq(orderIssues.id, issueId), eq(orderIssues.orderId, orderId)))
+      .returning({ id: orderIssues.id, resolvedAt: orderIssues.resolvedAt });
+    const issue = updated[0];
+    if (!issue) {
+      throw new NotFoundException("Problem not found");
+    }
+    return issue;
   }
 
   /**
@@ -398,6 +472,7 @@ export class OrdersService {
         code: generateOrderCode(),
         totalKobo,
         note: input.note,
+        customerEmail: input.customer.email,
       })
       .returning();
     const order = firstRow(orderRows, "order");

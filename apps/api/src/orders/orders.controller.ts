@@ -41,6 +41,15 @@ export class OrdersController {
     return this.orders.getForSeller(sellerId, id);
   }
 
+  @Patch(":id/issues/:issueId/resolve")
+  resolveIssue(
+    @CurrentSellerId() sellerId: string,
+    @Param("id", new ParseUUIDPipe()) id: string,
+    @Param("issueId", new ParseUUIDPipe()) issueId: string,
+  ) {
+    return this.orders.resolveIssue(sellerId, id, issueId);
+  }
+
   @Patch(":id/status")
   updateStatus(
     @CurrentSellerId() sellerId: string,

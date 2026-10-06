@@ -217,9 +217,9 @@ describe("OrdersService (integration)", () => {
         ],
       }),
     ).rejects.toMatchObject({ response: { field: "items" } });
-    expect(createOrderSchema.safeParse({ customer, items: [{ variantId, quantity: 100 }] }).success).toBe(
-      false,
-    );
+    expect(
+      createOrderSchema.safeParse({ customer, items: [{ variantId, quantity: 100 }] }).success,
+    ).toBe(false);
   });
 
   it("waits for a product save instead of deadlocking, and keeps the variant", async () => {
@@ -234,7 +234,11 @@ describe("OrdersService (integration)", () => {
     });
     // Pretend to be a product save: product row locked FOR UPDATE, then variants touched.
     const save = db.transaction(async (tx) => {
-      await tx.select({ id: products.id }).from(products).where(eq(products.id, made.product.id)).for("update");
+      await tx
+        .select({ id: products.id })
+        .from(products)
+        .where(eq(products.id, made.product.id))
+        .for("update");
       locked();
       await released;
       await tx

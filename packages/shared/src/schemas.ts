@@ -82,10 +82,15 @@ export const slugSchema = z
 
 export const orderStatusSchema = z.enum(ORDER_STATUSES);
 
+/** Trimmed, lowercased, valid email. Lowercasing makes "Ada@X.com" and "ada@x.com" match. */
+export const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
+
 export const createOrderSchema = z.object({
   customer: z.object({
     name: z.string().trim().min(1).max(120),
     phone: nigerianPhoneSchema,
+    /** Optional: we email a receipt with the order code and tracking link. */
+    email: emailSchema.optional(),
   }),
   items: z
     .array(
@@ -99,13 +104,42 @@ export const createOrderSchema = z.object({
 });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
+/** "gb-7b2q " → "GB-7B2Q". Order codes use 2–9 and A–Z (no 0/1/O/I, which look alike). */
+export const orderCodeSchema = z
+  .string()
+  .trim()
+  .toUpperCase()
+  .regex(/^GB-[2-9A-Z]{4}$/, "Order codes look like GB-7B2Q");
+
+/** The /track form: the order code plus the last 4 digits of the phone used to order. */
+export const trackLookupSchema = z.object({
+  code: orderCodeSchema,
+  phoneLast4: z.string().trim().regex(/^\d{4}$/, "Enter the last 4 digits of your phone number"),
+});
+export type TrackLookupInput = z.infer<typeof trackLookupSchema>;
+
+export const ISSUE_REASONS = ["paid_not_marked", "not_received", "wrong_or_damaged", "other"] as const;
+export type IssueReason = (typeof ISSUE_REASONS)[number];
+
+/** What each reason says, for the customer's form and the seller's dashboard and email. */
+export const ISSUE_REASON_LABEL: Record<IssueReason, string> = {
+  paid_not_marked: "Paid but it shows unpaid",
+  not_received: "Haven't received my order",
+  wrong_or_damaged: "Wrong or damaged item",
+  other: "Something else",
+};
+
+export const reportIssueSchema = z.object({
+  reason: z.enum(ISSUE_REASONS),
+  note: z.string().trim().max(500).optional(),
+});
+export type ReportIssueInput = z.infer<typeof reportIssueSchema>;
+
 export const updateOrderStatusSchema = z.object({
   status: orderStatusSchema,
 });
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
 
-/** Trimmed, lowercased, valid email. Lowercasing makes "Ada@X.com" and "ada@x.com" match. */
-export const emailSchema = z.string().trim().toLowerCase().pipe(z.email());
 
 /** Max 200 stops someone sending a huge string to make the Argon2 hash do heavy work. */
 export const passwordSchema = z.string().min(8).max(200);
