@@ -1,5 +1,6 @@
 import { ORDER_STATUSES, TOUR_NAMES } from "@gbam/shared";
 import { relations, sql } from "drizzle-orm";
+import { randomBytes } from "node:crypto";
 import {
   bigint,
   boolean,
@@ -17,6 +18,12 @@ import {
 // The enum values come from @gbam/shared, so the DB and the state machine can't drift.
 export const orderStatusEnum = pgEnum("order_status", ORDER_STATUSES);
 export const orderActorEnum = pgEnum("order_actor", ["seller", "system"]);
+export const issueReasonEnum = pgEnum("issue_reason", [
+  "paid_not_marked",
+  "not_received",
+  "wrong_or_damaged",
+  "other",
+]);
 export const tourNameEnum = pgEnum("tour_name", TOUR_NAMES);
 export const tourOutcomeEnum = pgEnum("tour_outcome", ["completed", "skipped"]);
 export const paymentStatusEnum = pgEnum("payment_status", ["pending", "success", "failed"]);
@@ -294,11 +301,21 @@ export const orders = pgTable(
     /** True when payment arrived after the stock had run out: the seller must refund. */
     stockShortfall: boolean("stock_shortfall").notNull().default(false),
     note: text("note"),
+    /**
+     * Secret key in the customer's private tracking link (/track/GB-7K3Q?k=…). Long and random,
+     * so it can't be guessed; it opens only this order. Made here for every new order.
+     */
+    trackingKey: text("tracking_key")
+      .notNull()
+      .$defaultFn(() => randomBytes(32).toString("base64url")),
+    /** Optional: the customer asked for an emailed receipt with the tracking link. */
+    customerEmail: text("customer_email"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [
     uniqueIndex("orders_seller_code_uq").on(t.sellerId, t.code),
+    uniqueIndex("orders_tracking_key_uq").on(t.trackingKey),
     index("orders_seller_status_idx").on(t.sellerId, t.status),
   ],
 );
@@ -402,6 +419,22 @@ export const sellerTours = pgTable(
   (t) => [uniqueIndex("seller_tours_seller_tour_idx").on(t.sellerId, t.tour)],
 );
 
+/** A problem a customer reported from their tracking page. The seller marks it resolved. */
+export const orderIssues = pgTable(
+  "order_issues",
+  {
+    id: id(),
+    orderId: uuid("order_id")
+      .notNull()
+      .references(() => orders.id, { onDelete: "cascade" }),
+    reason: issueReasonEnum("reason").notNull(),
+    note: text("note"),
+    createdAt: createdAt(),
+    resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  },
+  (t) => [index("order_issues_order_idx").on(t.orderId)],
+);
+
 export const usersRelations = relations(users, ({ one, many }) => ({
   sessions: many(sessions),
   emailCodes: many(emailCodes),
@@ -435,6 +468,10 @@ export const productsRelations = relations(products, ({ one, many }) => ({
   variants: many(productVariants),
 }));
 
+export const orderIssuesRelations = relations(orderIssues, ({ one }) => ({
+  order: one(orders, { fields: [orderIssues.orderId], references: [orders.id] }),
+}));
+
 export const productOptionsRelations = relations(productOptions, ({ one }) => ({
   product: one(products, { fields: [productOptions.productId], references: [products.id] }),
 }));
@@ -456,6 +493,7 @@ export const ordersRelations = relations(orders, ({ one, many }) => ({
   payments: many(payments),
   events: many(orderEvents),
   whatsappMessages: many(whatsappMessages),
+  issues: many(orderIssues),
 }));
 
 export const orderItemsRelations = relations(orderItems, ({ one }) => ({
