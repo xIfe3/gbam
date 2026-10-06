@@ -72,8 +72,11 @@ Open the service Railway created from the repo, then:
 4. **Settings → Deploy → Pre-deploy Command.** This runs before every deploy. It updates
    the database tables, then loads the help, legal and blog pages:
    ```bash
-   node node_modules/@gbam/db/dist/migrate.js && node node_modules/@gbam/db/dist/sync-content.js
+   sh -c "node node_modules/@gbam/db/dist/migrate.js && node node_modules/@gbam/db/dist/sync-content.js"
    ```
+   Keep the `sh -c "…"` wrapper: Railway runs this command without a shell, so a bare `&&`
+   is not understood and only the first half (migrations) would run. In the deploy logs you
+   should see `Migrations up to date` (or `applied`) **and** `Synced N content entries`.
    If it fails, Railway keeps the old version running, so a broken update never goes live.
 5. **Settings → Networking → Public Networking → Custom Domain:** `api.gbam.app` (target port
    4000). Railway shows a DNS record (CNAME) to add where you bought `gbam.app`. HTTPS is
@@ -103,7 +106,9 @@ Open the service Railway created from the repo, then:
    GBAM_WHATSAPP_NUMBER=<your WhatsApp business number, optional>
    ```
    `API_URL` points at the api's private address, which looks like
-   `api.railway.internal`. `INTERNAL_API_SECRET` must be **exactly** the same as on the api,
+   `api.railway.internal`. The word before `.RAILWAY_PRIVATE_DOMAIN` must be your API
+   service's **exact name** in Railway (e.g. `${{gbam.RAILWAY_PRIVATE_DOMAIN}}` if the service
+   is called `gbam`). With the wrong name Railway fills in nothing and you get `http://:4000`. `INTERNAL_API_SECRET` must be **exactly** the same as on the api,
    or the API won't trust the visitor IP the website passes on.
 3. **Settings → Networking → Custom Domain:** `gbam.app` (target port 3000). Add the DNS
    record Railway shows. Add `www.gbam.app` too if you want it.
