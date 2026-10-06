@@ -35,6 +35,26 @@ describe("orders page empty states", () => {
     vi.mocked(api.listOrders).mockResolvedValue([]);
     render(await OrdersPage(props("paid")));
     expect(screen.getByText(/No orders with status/)).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Copy shop link" })).not.toBeInTheDocument();
+    // The friendly first-order card is only for "no orders at all".
+    expect(screen.queryByRole("heading", { name: "No orders yet" })).not.toBeInTheDocument();
+  });
+
+  it("always shows the shop link with a copy button, even when there are orders", async () => {
+    vi.mocked(api.listOrders).mockResolvedValue([
+      {
+        id: "o1",
+        code: "GB-AB12",
+        status: "pending",
+        totalKobo: 500000,
+        createdAt: new Date().toISOString(),
+        customerName: "Ada",
+        customerPhone: "2348012345678",
+      },
+    ] as never);
+    render(await OrdersPage(props()));
+    const bar = screen.getByRole("region", { name: "Your shop link" });
+    expect(bar).toHaveAttribute("data-tour", "shop-link");
+    expect(bar).toHaveTextContent("gbam.app/mama-ngozi");
+    expect(screen.getByRole("button", { name: "Copy shop link" })).toBeInTheDocument();
   });
 });

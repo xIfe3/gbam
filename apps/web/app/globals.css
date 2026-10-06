@@ -27,4 +27,7 @@ body {
   outline-offset: 4px;
   box-shadow: 0 0 0 8px var(--color-brand-tint);
   transition: box-shadow 200ms ease;
+  /* Keep it above the tour card when it's scrolled into view. */
+  scroll-margin-bottom: 20rem;
+  scroll-margin-top: 1rem;
 }

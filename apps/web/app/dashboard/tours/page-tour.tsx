@@ -54,17 +54,13 @@ export function PageTourWith({ tour, saved }: { tour: TourName; saved: TourState
     return null;
   }
   return (
-    <>
-      {/* Space at the end of the page so the card never hides the page's last button. */}
-      <div aria-hidden="true" className="h-80" />
-      <TourCard
-        steps={steps}
-        step={state.step}
-        onNext={state.next}
-        onBack={state.back}
-        onSkip={state.skip}
-        onDone={state.done}
-      />
-    </>
+    <TourCard
+      steps={steps}
+      step={state.step}
+      onNext={state.next}
+      onBack={state.back}
+      onSkip={state.skip}
+      onDone={state.done}
+    />
   );
 }

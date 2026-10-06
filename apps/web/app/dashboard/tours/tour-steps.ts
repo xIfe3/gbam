@@ -26,8 +26,8 @@ export const TOURS: Record<TourName, TourStep[]> = {
     },
     {
       title: "Add your first product",
-      body: "Tap Products, then Add product. Start with one thing you sell; it takes about a minute.",
-      target: "products-tab",
+      body: "Tap Add product and start with one thing you sell. It takes about a minute.",
+      target: "add-product",
     },
   ],
   editor: [

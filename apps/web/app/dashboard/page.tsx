@@ -6,6 +6,7 @@ import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
 import { SITE_HOST, SITE_URL } from "@/lib/site";
 import { CopyLinkButton } from "./copy-link-button";
+import { AddProductLink } from "./products/add-product-link";
 import { PageTour } from "./tours/page-tour";
 import { StatusBadge } from "./status-badge";
 
@@ -47,19 +48,44 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
     emptyMessage = `No orders with status "${STATUS_LABEL[status]}".`;
   }
 
-  // With no orders at all, help the seller get their first one: show their shop link.
+  // The seller's shop address, shown in the bar at the top so it's always one tap to copy.
   // (currentUser is cached per request, so this doesn't call the API a second time.)
   let shopSlug: string | null = null;
-  if (orders.length === 0 && !status) {
-    const user = await api.currentUser();
-    if (user.seller) {
-      shopSlug = user.seller.slug;
-    }
+  const user = await api.currentUser();
+  if (user.seller) {
+    shopSlug = user.seller.slug;
   }
 
   return (
-    <main data-tour="orders">
+    <main>
       <PageTour tour="dashboard" />
+      {shopSlug !== null && (
+        <section
+          aria-label="Your shop link"
+          data-tour="shop-link"
+          className="border-brand-tint mb-5 flex flex-col gap-3 rounded-2xl border-2 bg-white p-4 sm:flex-row sm:items-center"
+        >
+          <div className="min-w-0 flex-1">
+            <p className="text-ink-muted text-xs font-bold tracking-wide uppercase">
+              Your shop link
+            </p>
+            <a
+              href={`${SITE_URL}/${shopSlug}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-ink focus-visible:outline-brand block truncate font-bold underline focus-visible:outline-2"
+            >
+              {shopLinkText(shopSlug)}
+            </a>
+          </div>
+          <div className="flex flex-wrap items-start gap-2">
+            <CopyLinkButton url={`${SITE_URL}/${shopSlug}`} />
+            <span data-tour="add-product">
+              <AddProductLink>+ Add product</AddProductLink>
+            </span>
+          </div>
+        </section>
+      )}
       <nav className="mb-4 flex gap-2 overflow-x-auto pb-1" aria-label="Filter by status">
         {FILTERS.map((filter) => (
           <Link
@@ -74,30 +100,27 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
         ))}
       </nav>
 
-      {orders.length === 0 && shopSlug !== null && (
-        <EmptyState
-          art={<OrdersArt />}
-          title="No orders yet"
-          description="Share your shop link on WhatsApp or your Status to get your first order."
-        >
-          <p
-            data-tour="shop-link"
-            className="border-coral-tint bg-blush text-ink w-full max-w-xs rounded-lg border border-dashed px-3 py-2 text-sm break-all select-all"
-          >
-            {shopLinkText(shopSlug)}
-          </p>
-          <CopyLinkButton url={`${SITE_URL}/${shopSlug}`} />
-        </EmptyState>
+      {orders.length === 0 && status === undefined && shopSlug !== null && (
+        <div data-tour="orders">
+          <EmptyState
+            art={<OrdersArt />}
+            title="No orders yet"
+            description="Copy your shop link above and share it on WhatsApp or your Status to get your first order."
+          />
+        </div>
       )}
 
-      {orders.length === 0 && shopSlug === null && (
+      {orders.length === 0 && (status !== undefined || shopSlug === null) && (
         <p className="rounded-xl border border-dashed border-zinc-300 p-8 text-center text-zinc-500">
           {emptyMessage}
         </p>
       )}
 
       {orders.length > 0 && (
-        <ul className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white">
+        <ul
+          data-tour="orders"
+          className="divide-y divide-zinc-200 rounded-xl border border-zinc-200 bg-white"
+        >
           {orders.map((order) => (
             <li key={order.id}>
               <Link

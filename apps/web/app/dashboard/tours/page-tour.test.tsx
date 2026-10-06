@@ -224,4 +224,13 @@ describe("PageTour", () => {
     expect(later).toHaveAttribute("data-tour-active");
     later.remove();
   });
+
+  it("adds room at the BOTTOM of the page while open, not a gap where the tour sits", () => {
+    const { container } = render(<PageTourWith tour="dashboard" saved={undefined} />);
+    // Nothing rendered in place except the card itself.
+    expect(container.querySelector("[aria-hidden='true'].h-80")).toBeNull();
+    expect(document.body.style.paddingBottom).not.toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Skip tour" }));
+    expect(document.body.style.paddingBottom).toBe("");
+  });
 });

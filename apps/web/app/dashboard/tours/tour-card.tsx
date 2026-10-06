@@ -61,6 +61,16 @@ export function TourCard({ steps, step, onNext, onBack, onSkip, onDone }: TourCa
     };
   }, [current]);
 
+  // While the card is open, add room at the bottom of the page so it never covers the
+  // page's last button. (Padding on <body>, so it's always at the end, wherever the tour sits.)
+  useEffect(() => {
+    const before = document.body.style.paddingBottom;
+    document.body.style.paddingBottom = "20rem";
+    return () => {
+      document.body.style.paddingBottom = before;
+    };
+  }, []);
+
   // Move keyboard / screen-reader focus to the card each time the step changes.
   useEffect(() => {
     cardRef.current?.focus();
