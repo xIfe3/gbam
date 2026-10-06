@@ -63,7 +63,7 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
         <section
           aria-label="Your shop link"
           data-tour="shop-link"
-          className="border-brand-tint mb-5 flex flex-col gap-3 rounded-2xl border-2 bg-white p-4 sm:flex-row sm:items-center"
+          className="border-brand-tint mb-5 flex flex-col gap-3 rounded-2xl border-2 bg-white p-4 sm:flex-row sm:items-center sm:justify-between"
         >
           <div className="min-w-0 flex-1">
             <p className="text-ink-muted text-xs font-bold tracking-wide uppercase">
@@ -73,12 +73,12 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
               href={`${SITE_URL}/${shopSlug}`}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-ink focus-visible:outline-brand block truncate font-bold underline focus-visible:outline-2"
+              className="text-ink focus-visible:outline-brand mt-0.5 block font-bold break-all underline decoration-brand-tint decoration-2 underline-offset-4 focus-visible:outline-2"
             >
               {shopLinkText(shopSlug)}
             </a>
           </div>
-          <div className="flex flex-wrap items-start gap-2">
+          <div className="flex shrink-0 flex-wrap items-center gap-2">
             <CopyLinkButton url={`${SITE_URL}/${shopSlug}`} />
             <span data-tour="add-product">
               <AddProductLink>+ Add product</AddProductLink>

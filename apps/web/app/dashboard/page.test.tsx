@@ -28,7 +28,7 @@ describe("orders page empty states", () => {
     render(await OrdersPage(props()));
     expect(screen.getByRole("heading", { name: "No orders yet" })).toBeInTheDocument();
     expect(screen.getByText("gbam.app/mama-ngozi")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Copy shop link" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
   });
 
   it("keeps a short message when a status filter is empty", async () => {
@@ -55,6 +55,6 @@ describe("orders page empty states", () => {
     const bar = screen.getByRole("region", { name: "Your shop link" });
     expect(bar).toHaveAttribute("data-tour", "shop-link");
     expect(bar).toHaveTextContent("gbam.app/mama-ngozi");
-    expect(screen.getByRole("button", { name: "Copy shop link" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
   });
 });

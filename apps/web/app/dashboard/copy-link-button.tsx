@@ -4,9 +4,16 @@ import { useState } from "react";
 
 type CopyState = "idle" | "copied" | "failed";
 
-/** "Copy shop link": puts the seller's shop URL on the clipboard so they can paste it in WhatsApp. */
-export function CopyLinkButton({ url, label = "Copy shop link" }: { url: string; label?: string }) {
-  // useState: remembers whether the last tap worked, so we can say so under the button.
+// How long the button says "✓ Copied" before going back to its label.
+const COPIED_MS = 2000;
+
+/**
+ * Puts a link on the clipboard so the seller can paste it in WhatsApp. The button itself
+ * says "✓ Copied" for a moment (nothing else on the page moves). Only if copying is blocked
+ * does a note appear, on its own line underneath.
+ */
+export function CopyLinkButton({ url, label = "Copy link" }: { url: string; label?: string }) {
+  // useState: remembers how the last tap went.
   const [state, setState] = useState<CopyState>("idle");
 
   async function copy() {
@@ -15,16 +22,15 @@ export function CopyLinkButton({ url, label = "Copy shop link" }: { url: string;
       // expected sometimes; we tell the seller how to copy by hand instead.
       await navigator.clipboard.writeText(url);
       setState("copied");
+      setTimeout(() => setState("idle"), COPIED_MS);
     } catch {
       setState("failed");
     }
   }
 
-  let message = "";
+  let buttonText = label;
   if (state === "copied") {
-    message = "Copied! Paste it in WhatsApp.";
-  } else if (state === "failed") {
-    message = "Couldn't copy. Press and hold the link above to copy it.";
+    buttonText = "✓ Copied";
   }
 
   return (
@@ -32,14 +38,20 @@ export function CopyLinkButton({ url, label = "Copy shop link" }: { url: string;
       <button
         type="button"
         onClick={copy}
-        className="bg-brand hover:bg-brand-hover focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+        className="border-brand text-brand hover:bg-brand-tint focus-visible:outline-brand inline-flex min-h-11 min-w-32 items-center justify-center rounded-full border-2 bg-white px-5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
       >
-        {label}
+        {buttonText}
       </button>
-      {/* aria-live: screen readers read the message out when it appears. */}
-      <p aria-live="polite" className="text-ink-muted min-h-5 text-sm">
-        {message}
-      </p>
+      {/* aria-live: screen readers read this out; sighted people already see the button change. */}
+      <span aria-live="polite" className="sr-only">
+        {state === "copied" && "Copied! Paste it in WhatsApp."}
+      </span>
+      {state === "failed" && (
+        // basis-full puts it on its own line when the parent wraps (flex-wrap).
+        <p role="alert" className="text-ink-muted basis-full text-sm">
+          Couldn&apos;t copy. Press and hold the link to copy it.
+        </p>
+      )}
     </>
   );
 }
