@@ -68,7 +68,7 @@ describe("NewProductSteps", () => {
 
     fireEvent.click(screen.getByLabelText("No"));
     expect(screen.getByLabelText("Price (₦)")).toBeInTheDocument();
-    expect(screen.queryByLabelText("Option name")).toBeNull();
+    expect(screen.queryByLabelText(/What changes/)).toBeNull();
   });
 
   it("keeps option values when going Back from step 3", async () => {
@@ -77,7 +77,7 @@ describe("NewProductSteps", () => {
     clickNext();
 
     fireEvent.click(screen.getByLabelText("Yes"));
-    fireEvent.change(screen.getByLabelText("Option name"), { target: { value: "Size" } });
+    fireEvent.change(screen.getByLabelText(/What changes/), { target: { value: "Size" } });
     addValue("S");
     addValue("M");
     clickNext();
@@ -136,7 +136,7 @@ describe("NewProductSteps", () => {
     await fillStep1();
     clickNext();
     fireEvent.click(screen.getByLabelText("Yes"));
-    fireEvent.change(screen.getByLabelText("Option name"), { target: { value: "Size" } });
+    fireEvent.change(screen.getByLabelText(/What changes/), { target: { value: "Size" } });
   }
 
   it("renaming M to Large while L exists keeps M's price and stock, and L's too", async () => {
@@ -218,7 +218,7 @@ describe("NewProductSteps", () => {
     await reachSizeOptions();
     addValue("a1,a2,a3,a4,a5,a6,a7,a8");
     fireEvent.click(screen.getByRole("button", { name: "Add another option" }));
-    const names = screen.getAllByLabelText("Option name");
+    const names = screen.getAllByLabelText(/What changes/);
     fireEvent.change(names[1] as HTMLElement, { target: { value: "Colour" } });
     const adders = screen.getAllByLabelText("Add a value");
     fireEvent.change(adders[1] as HTMLElement, { target: { value: "b1,b2,b3,b4,b5,b6,b7" } });
@@ -242,5 +242,20 @@ describe("NewProductSteps", () => {
     expect(actions.createProductAction).not.toHaveBeenCalled();
     expect(screen.getByRole("heading", { name: /step 2 of 3/i })).toBeInTheDocument();
     expect(screen.getByText("Enter a price, like 12,000")).toBeInTheDocument();
+  });
+
+  it("explains options in plain words and counts the combinations as you type", async () => {
+    render(<NewProductSteps />);
+    await fillStep1();
+    clickNext();
+    fireEvent.click(screen.getByLabelText("Yes"));
+
+    expect(screen.getByText(/the things a customer chooses/)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText(/What changes/), { target: { value: "Size" } });
+    addValue("S");
+    expect(screen.getByText("This makes 1 combination.")).toBeInTheDocument();
+    addValue("M");
+    addValue("L");
+    expect(screen.getByText("This makes 3 combinations.")).toBeInTheDocument();
   });
 });

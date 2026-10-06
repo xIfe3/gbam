@@ -15,6 +15,7 @@ import {
 import { OptionsEditor } from "./options-editor";
 import { PhotoPicker } from "./photo-picker";
 import { SingleVariantFields } from "./variant-cards";
+import { PRODUCT_LIMITS } from "@gbam/shared";
 
 type Photo = { id: string; smallUrl: string };
 
@@ -132,6 +133,31 @@ export function UnclaimedErrors({
 }
 
 /** "Does it come in options?" with Yes/No, then the options (Yes) or one price and stock (No). */
+/**
+ * "This makes 6 combinations." while the seller types: each option's choices multiply
+ * (3 sizes × 2 colours = 6). Null until at least one option has a choice.
+ */
+function combinationText(options: { values: string[] }[]): string | null {
+  let count = 1;
+  let anyValues = false;
+  for (const option of options) {
+    if (option.values.length > 0) {
+      anyValues = true;
+      count = count * option.values.length;
+    }
+  }
+  if (!anyValues) {
+    return null;
+  }
+  if (count === 1) {
+    return "This makes 1 combination.";
+  }
+  if (count > PRODUCT_LIMITS.maxVariants) {
+    return `This makes ${count} combinations; the most is ${PRODUCT_LIMITS.maxVariants}. Remove some choices.`;
+  }
+  return `This makes ${count} combinations.`;
+}
+
 export function OptionsSection({
   editor,
   errors,
@@ -176,7 +202,18 @@ export function OptionsSection({
       </fieldset>
 
       {state.hasOptions && (
+        <p className="text-ink-muted text-sm">
+          Options are the things a customer chooses, like Size or Colour. Every mix of choices (for
+          example M / Red) is a combination with its own price and stock.
+        </p>
+      )}
+      {state.hasOptions && (
         <OptionsEditor options={state.options} errors={errors} onChange={editor.setOptions} />
+      )}
+      {state.hasOptions && combinationText(state.options) && (
+        <p aria-live="polite" className="text-ink text-sm font-bold">
+          {combinationText(state.options)}
+        </p>
       )}
       {state.hasOptions && errors["combinations"] && <FormError message={errors["combinations"]} />}
       {!state.hasOptions && firstVariant && (

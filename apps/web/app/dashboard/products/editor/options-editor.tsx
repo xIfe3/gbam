@@ -137,8 +137,8 @@ function OptionRow({
     <fieldset className="border-brand-tint flex flex-col gap-3 rounded-xl border-2 bg-white p-4">
       <legend className="text-ink px-1 text-sm font-bold">Option {index + 1}</legend>
       <TextField
-        label="Option name"
-        placeholder="Size, Colour…"
+        label="What changes? (e.g. Size, Colour)"
+        placeholder="Size"
         value={option.name}
         maxLength={30}
         error={errors[`options.${index}.name`]}
@@ -146,7 +146,7 @@ function OptionRow({
       />
 
       <div className="flex flex-col gap-1.5">
-        <span className="text-ink text-sm font-bold">Values</span>
+        <span className="text-ink text-sm font-bold">Choices customers pick from</span>
         {option.values.length > 0 && (
           <ul className="flex flex-wrap gap-2">
             {option.values.map((value, valueIndex) => (
@@ -164,7 +164,7 @@ function OptionRow({
         {!atLimit && (
           <input
             aria-label="Add a value"
-            placeholder="Type a value, then press Enter or comma"
+            placeholder="e.g. S, M, L (press Enter after each)"
             value={draft}
             maxLength={60}
             enterKeyHint="done"

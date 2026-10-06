@@ -20,7 +20,7 @@ export function ProductView({
   return (
     <>
       <OrderingTip />
-      <VariantPicker product={product} onAdd={basket.add} />
+      <VariantPicker product={product} onAdd={basket.add} orderHref={`/${shopSlug}/order`} />
     </>
   );
 }

@@ -10,7 +10,12 @@ import type { BasketLine } from "@/lib/basket";
 type Props = {
   product: StorefrontProduct;
   onAdd: (line: BasketLine) => void;
+  /** Where "View your order" goes after adding (the shop's order page). */
+  orderHref?: string;
 };
+
+// How long the button says "✓ Added" after a tap.
+const ADDED_MS = 2500;
 
 const MAX_QUANTITY = 99;
 const LOW_STOCK_AT = 5;
@@ -78,10 +83,13 @@ function findVariant(
 }
 
 /** Photos, option buttons, price, quantity and "Add to order" for one product. */
-export function VariantPicker({ product, onAdd }: Props) {
+export function VariantPicker({ product, onAdd, orderHref }: Props) {
   // useState: values React remembers between re-renders. Changing one re-draws the component.
   const [chosen, setChosen] = useState<(string | null)[]>(product.options.map(() => null));
   const [quantity, setQuantity] = useState(1);
+  // "✓ Added" on the button for a moment, and a lasting "Added to your order" line.
+  const [justAdded, setJustAdded] = useState(false);
+  const [addedOnce, setAddedOnce] = useState(false);
   // A thumbnail the customer tapped. It wins over the variant's own photo until they
   // pick a different option.
   const [tappedImageId, setTappedImageId] = useState<string | null>(null);
@@ -161,6 +169,26 @@ export function VariantPicker({ product, onAdd }: Props) {
     );
   }
 
+  // Tell the customer, in words, what's still missing or what they've picked.
+  const missing: string[] = [];
+  for (let i = 0; i < product.options.length; i++) {
+    const option = product.options[i];
+    if (option && chosen[i] === null) {
+      missing.push(option.name);
+    }
+  }
+  let pickHint: string | null = null;
+  if (missing.length > 0) {
+    pickHint = `Choose a ${missing.join(" and ")} to add it to your order.`;
+  } else if (variant !== null && product.options.length > 0) {
+    pickHint = `You picked: ${variant.title}`;
+  }
+
+  let addButtonText = "Add to order";
+  if (justAdded) {
+    addButtonText = "✓ Added";
+  }
+
   function choose(optionIndex: number, value: string) {
     const next = [...chosen];
     next[optionIndex] = value;
@@ -186,6 +214,9 @@ export function VariantPicker({ product, onAdd }: Props) {
       photoUrl,
       quantity: shownQuantity,
     });
+    setJustAdded(true);
+    setAddedOnce(true);
+    setTimeout(() => setJustAdded(false), ADDED_MS);
   }
 
   return (
@@ -235,7 +266,7 @@ export function VariantPicker({ product, onAdd }: Props) {
 
         {product.options.map((option, optionIndex) => (
           <fieldset key={option.name} className="mt-6">
-            <legend className="text-ink mb-2 font-bold">{option.name}</legend>
+            <legend className="text-ink mb-2 font-bold">Choose a {option.name}</legend>
             <div className="flex flex-wrap gap-2">
               {option.values.map((value) => {
                 const available = valueIsAvailable(product.variants, chosen, optionIndex, value);
@@ -283,9 +314,28 @@ export function VariantPicker({ product, onAdd }: Props) {
           </button>
           <div className="flex-1 md:flex-none">
             <Button variant="primary" size="lg" disabled={!canAdd} onClick={handleAdd}>
-              Add to order
+              {addButtonText}
             </Button>
           </div>
+        </div>
+
+        {pickHint && <p className="text-ink-muted mt-4 text-sm">{pickHint}</p>}
+
+        {/* role="status": screen readers announce it; it stays so they can go to checkout. */}
+        <div role="status" className="mt-4">
+          {addedOnce && (
+            <p className="bg-brand-tint text-ink flex flex-wrap items-center gap-x-3 gap-y-1 rounded-xl px-4 py-3 text-sm font-medium">
+              <span>✓ Added to your order.</span>
+              {orderHref && (
+                <a
+                  href={orderHref}
+                  className="text-brand focus-visible:outline-brand font-bold underline focus-visible:outline-2"
+                >
+                  View your order →
+                </a>
+              )}
+            </p>
+          )}
         </div>
 
         <ul className="text-ink-muted mt-6 flex flex-col gap-1.5 text-sm">

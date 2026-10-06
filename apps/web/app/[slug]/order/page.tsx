@@ -2,8 +2,8 @@ import { RESERVED_SLUGS } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
+import { ShopHeader } from "../shop-header";
 import { BasketView } from "./basket-view";
 
 async function loadStore(slug: string) {
@@ -28,22 +28,24 @@ export default async function OrderPage(props: PageProps<"/[slug]/order">) {
   const { store } = await loadStore(slug);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-8">
-      <header className="mb-6">
-        <Logo size="sm" />
+    <>
+      <ShopHeader shopSlug={store.slug} businessName={store.businessName} />
+      <main className="mx-auto max-w-2xl px-4 pt-4 pb-8">
         <Link
           href={`/${store.slug}`}
-          className="text-brand focus-visible:outline-brand mt-4 inline-flex min-h-11 items-center font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="text-ink-muted focus-visible:outline-brand inline-flex min-h-11 items-center text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
         >
-          ← {store.businessName}
+          ← Keep shopping
         </Link>
-        <h1 className="font-display text-ink mt-2 text-3xl leading-tight font-black">Your order</h1>
-      </header>
-      <BasketView shopSlug={store.slug} businessName={store.businessName} />
-      <footer className="text-ink-muted mt-10 text-sm">
-        Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-        Paystack.
-      </footer>
-    </main>
+        <h1 className="font-display text-ink mt-1 mb-6 text-3xl leading-tight font-black">
+          Your order
+        </h1>
+        <BasketView shopSlug={store.slug} businessName={store.businessName} />
+        <footer className="text-ink-muted mt-10 text-sm">
+          Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
+          Paystack.
+        </footer>
+      </main>
+    </>
   );
 }

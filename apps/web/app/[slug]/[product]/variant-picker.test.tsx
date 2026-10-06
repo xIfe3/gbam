@@ -1,4 +1,4 @@
-import { fireEvent, render, screen } from "@testing-library/react";
+import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import type { StorefrontProduct, StorefrontVariant } from "@/lib/api";
 import { VariantPicker } from "./variant-picker";
@@ -176,5 +176,38 @@ describe("VariantPicker", () => {
     expect(screen.getByRole("button", { name: "Blue" })).toBeEnabled();
     fireEvent.click(screen.getByRole("button", { name: "S" }));
     expect(screen.getByRole("button", { name: "Blue, sold out" })).toBeDisabled();
+  });
+
+  it("says plainly what to pick next, and what's chosen", () => {
+    render(<VariantPicker product={TEE} onAdd={vi.fn()} />);
+    expect(screen.getByText("Choose a Size")).toBeInTheDocument();
+    expect(
+      screen.getByText("Choose a Size and Colour to add it to your order."),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "S" }));
+    expect(screen.getByText("Choose a Colour to add it to your order.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Red" }));
+    expect(screen.getByText("You picked: S / Red")).toBeInTheDocument();
+  });
+
+  it("confirms Add to order clearly, with a link to the order", async () => {
+    vi.useFakeTimers();
+    const onAdd = vi.fn();
+    render(<VariantPicker product={MUG} onAdd={onAdd} orderHref="/ada/order" />);
+    fireEvent.click(screen.getByRole("button", { name: "Add to order" }));
+    expect(onAdd).toHaveBeenCalled();
+    expect(screen.getByRole("button", { name: "✓ Added" })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Added to your order.");
+    expect(screen.getByRole("link", { name: "View your order →" })).toHaveAttribute(
+      "href",
+      "/ada/order",
+    );
+    await act(async () => {
+      vi.advanceTimersByTime(2500);
+    });
+    expect(screen.getByRole("button", { name: "Add to order" })).toBeInTheDocument();
+    // The link stays, so they can still go and check out.
+    expect(screen.getByRole("link", { name: "View your order →" })).toBeInTheDocument();
+    vi.useRealTimers();
   });
 });

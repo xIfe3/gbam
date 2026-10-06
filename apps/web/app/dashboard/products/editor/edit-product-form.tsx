@@ -153,23 +153,44 @@ export function EditProductForm({ product }: { product: ProductDetail }) {
       </form>
 
       <section
-        aria-labelledby="more-heading"
-        className="border-brand-tint flex flex-col gap-3 border-t-2 pt-6"
+        aria-labelledby="visibility-heading"
+        className="border-brand-tint flex flex-col gap-2 border-t-2 pt-6"
       >
-        <h2 id="more-heading" className="text-ink text-lg font-bold">
-          More
+        <h2 id="visibility-heading" className="text-ink text-lg font-bold">
+          Visibility
         </h2>
-        <div className="flex flex-wrap gap-3">
+        <p className="text-ink-muted text-sm">
+          Hidden products stay saved here but customers can&apos;t see or order them.
+        </p>
+        <div>
           <Button variant="secondary" onClick={() => void toggleStatus()}>
             {statusButton}
           </Button>
-          {!confirmingDelete && (
-            <Button variant="ghost" onClick={() => setConfirmingDelete(true)}>
-              Delete product
-            </Button>
-          )}
         </div>
+      </section>
 
+      <section
+        aria-labelledby="delete-heading"
+        className="border-coral-tint flex flex-col gap-2 rounded-xl border-2 p-4"
+      >
+        <h2 id="delete-heading" className="text-coral-deep text-base font-bold">
+          Delete product
+        </h2>
+        <p className="text-ink-muted text-sm">
+          Removes it from your shop for good. If it has been ordered before, it&apos;s archived
+          instead so old orders still show it.
+        </p>
+        {!confirmingDelete && (
+          <div>
+            <button
+              type="button"
+              onClick={() => setConfirmingDelete(true)}
+              className="border-coral-deep text-coral-deep hover:bg-coral-wash focus-visible:outline-coral-deep inline-flex min-h-11 items-center rounded-full border-2 bg-white px-5 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Delete product
+            </button>
+          </div>
+        )}
         {confirmingDelete && (
           <div
             role="alertdialog"
