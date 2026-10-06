@@ -11,11 +11,7 @@ type PhotoProps = {
 export function Photo({ description, src, alt, className = "" }: PhotoProps) {
   if (src) {
     return (
-      <img
-        src={src}
-        alt={alt ?? description}
-        className={`rounded-3xl object-cover ${className}`}
-      />
+      <img src={src} alt={alt ?? description} className={`rounded-3xl object-cover ${className}`} />
     );
   }
 

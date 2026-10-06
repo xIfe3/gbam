@@ -164,7 +164,8 @@ export async function updateProductAction(
     return saveFailure(error, "updateProduct");
   }
   revalidatePath(LIST_PATH);
-  redirect(LIST_PATH);
+  // Back to the product's details page, which now shows the saved changes.
+  redirect(`${LIST_PATH}/${parsedId.data}`);
 }
 
 export async function setProductStatusAction(
@@ -182,6 +183,7 @@ export async function setProductStatusAction(
     return { error: messageFor(error, "setProductStatus") };
   }
   revalidatePath(LIST_PATH);
+  revalidatePath(`${LIST_PATH}/${parsedId.data}`);
   return {};
 }
 

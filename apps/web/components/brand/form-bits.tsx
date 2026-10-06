@@ -61,7 +61,10 @@ export function FormNotice({ message }: { message?: string }) {
     return null;
   }
   return (
-    <p role="status" className="bg-brand-tint text-ink border-brand-tint rounded-lg border px-4 py-3 text-sm font-medium">
+    <p
+      role="status"
+      className="bg-brand-tint text-ink border-brand-tint rounded-lg border px-4 py-3 text-sm font-medium"
+    >
       {message}
     </p>
   );

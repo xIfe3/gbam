@@ -28,7 +28,14 @@ const sizes = {
 
 // The one button style for the whole site. min-h-11 = 44px tap target; the focus ring
 // is visible on keyboard focus (focus-visible) for every variant.
-export function Button({ variant, size = "md", tone = "light", href, children, ...rest }: ButtonProps) {
+export function Button({
+  variant,
+  size = "md",
+  tone = "light",
+  href,
+  children,
+  ...rest
+}: ButtonProps) {
   const classes = `inline-flex items-center justify-center gap-2 rounded-full font-bold transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60 ${focusRings[tone]} ${variants[variant]} ${sizes[size]}`;
 
   if (href) {
