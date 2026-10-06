@@ -52,11 +52,9 @@ export function OrderingTip() {
   return (
     <aside
       aria-label="How to order"
-      className="border-brand-tint bg-brand-tint/40 mb-6 flex items-start gap-3 rounded-2xl border-2 p-4"
+      className="bg-brand-tint/60 mb-4 flex items-center gap-2 rounded-xl px-3 py-1.5"
     >
-      <span aria-hidden="true" className="text-xl">
-        💡
-      </span>
+      <span aria-hidden="true">💡</span>
       <p className="text-ink flex-1 text-sm">
         Pick your options → Add to order → Place order. You&apos;ll get updates on WhatsApp.
       </p>

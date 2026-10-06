@@ -143,7 +143,11 @@ export function VariantPicker({ product, onAdd }: Props) {
 
   // Plain <img>: the URLs are absolute and aspect-square stops layout shift.
   // The main photo is not lazy: it is the first thing the visitor sees.
-  let mainImage = <div className="bg-blush aspect-square w-full rounded-2xl md:flex-1" />;
+  // object-contain + a white frame: the whole photo shows at its real shape (a wide logo
+  // or a tall dress), never cropped or zoomed to fill the square.
+  let mainImage = (
+    <div className="border-brand-tint aspect-square w-full rounded-2xl border bg-white md:flex-1" />
+  );
   if (shownImage !== undefined) {
     mainImage = (
       // eslint-disable-next-line @next/next/no-img-element
@@ -152,7 +156,7 @@ export function VariantPicker({ product, onAdd }: Props) {
         alt={product.name}
         width={800}
         height={800}
-        className="bg-blush aspect-square w-full rounded-2xl object-cover md:flex-1"
+        className="border-brand-tint aspect-square w-full rounded-2xl border bg-white object-contain p-3 md:flex-1"
       />
     );
   }
@@ -208,7 +212,7 @@ export function VariantPicker({ product, onAdd }: Props) {
                     width={80}
                     height={80}
                     loading="lazy"
-                    className="size-full object-cover"
+                    className="size-full bg-white object-contain p-1"
                   />
                 </button>
               </li>
@@ -217,7 +221,7 @@ export function VariantPicker({ product, onAdd }: Props) {
         )}
       </div>
 
-      <div className="min-w-0">
+      <div className="border-brand-tint min-w-0 md:rounded-2xl md:border md:bg-white md:p-6">
         <h1 className="font-display text-ink text-3xl leading-tight font-black">{product.name}</h1>
         {/* aria-live: screen readers hear the price and stock change when options are picked. */}
         <div aria-live="polite">
@@ -253,7 +257,9 @@ export function VariantPicker({ product, onAdd }: Props) {
           </fieldset>
         ))}
 
-        <div className="mt-6 flex items-center gap-3">
+        {/* On phones this bar is pinned to the bottom of the screen, so "Add to order" is
+            always one tap away; on wider screens it sits in the card. */}
+        <div className="border-brand-tint fixed inset-x-0 bottom-0 z-20 flex items-center gap-3 border-t-2 bg-white px-4 py-3 md:static md:mt-6 md:border-0 md:p-0">
           <button
             type="button"
             aria-label="Fewer"
@@ -275,13 +281,17 @@ export function VariantPicker({ product, onAdd }: Props) {
           >
             +
           </button>
+          <div className="flex-1 md:flex-none">
+            <Button variant="primary" size="lg" disabled={!canAdd} onClick={handleAdd}>
+              Add to order
+            </Button>
+          </div>
         </div>
 
-        <div className="mt-6">
-          <Button variant="primary" size="lg" disabled={!canAdd} onClick={handleAdd}>
-            Add to order
-          </Button>
-        </div>
+        <ul className="text-ink-muted mt-6 flex flex-col gap-1.5 text-sm">
+          <li>💬 Order updates come on WhatsApp</li>
+          <li>🔒 Pay securely with Paystack</li>
+        </ul>
       </div>
     </div>
   );

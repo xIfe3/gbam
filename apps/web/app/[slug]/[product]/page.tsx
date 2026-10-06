@@ -1,11 +1,13 @@
 import { formatNaira, RESERVED_SLUGS } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { notFound } from "next/navigation";
-import { Logo } from "@/components/brand/logo";
-import { api, ApiError } from "@/lib/api";
-import { BasketBar } from "../basket-bar";
+import { notFound, unstable_rethrow } from "next/navigation";
+import { api, ApiError, type StorefrontProductCard } from "@/lib/api";
+import { ShopHeader } from "../shop-header";
 import { ProductView } from "./product-view";
+
+// How many of the shop's other products to show under this one.
+const MORE_COUNT = 4;
 
 async function loadProduct(slug: string, productSlug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -54,23 +56,77 @@ export default async function ProductPage(props: PageProps<"/[slug]/[product]">)
   const { slug, product: productSlug } = await props.params;
   const { store, product } = await loadProduct(slug, productSlug);
 
+  // The shop's other products for "More from …". Nice to have: if it fails, skip it.
+  const more: StorefrontProductCard[] = [];
+  try {
+    const shop = await api.storefront(slug);
+    for (const card of shop.products) {
+      if (card.slug !== product.slug && more.length < MORE_COUNT) {
+        more.push(card);
+      }
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+  }
+
   return (
-    <main className="mx-auto max-w-5xl px-4 py-8">
-      <header className="mb-6">
-        <Logo size="sm" />
+    <>
+      <ShopHeader shopSlug={store.slug} businessName={store.businessName} />
+      {/* pb-32 on phones: room for the "Add to order" bar pinned to the bottom. */}
+      <main className="mx-auto max-w-5xl px-4 pt-4 pb-32 md:pb-12">
         <Link
           href={`/${store.slug}`}
-          className="text-brand focus-visible:outline-brand mt-4 inline-flex min-h-11 items-center font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          className="text-ink-muted focus-visible:outline-brand mb-3 inline-flex min-h-11 items-center text-sm focus-visible:outline-2 focus-visible:outline-offset-2"
         >
-          ← {store.businessName}
+          ← All products
         </Link>
-      </header>
-      <ProductView shopSlug={store.slug} product={product} />
-      <footer className="text-ink-muted mt-10 pb-20 text-sm">
-        Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-        Paystack.
-      </footer>
-      <BasketBar shopSlug={store.slug} />
-    </main>
+        <ProductView shopSlug={store.slug} product={product} />
+
+        {more.length > 0 && (
+          <section aria-label={`More from ${store.businessName}`} className="mt-12">
+            <h2 className="font-display text-ink mb-4 text-xl font-black">
+              More from {store.businessName}
+            </h2>
+            <ul className="grid grid-cols-2 gap-4 md:grid-cols-4">
+              {more.map((card) => {
+                let price = formatNaira(card.minPriceKobo);
+                if (card.minPriceKobo !== card.maxPriceKobo) {
+                  price = `from ${price}`;
+                }
+                return (
+                  <li key={card.slug}>
+                    <Link
+                      href={`/${store.slug}/${card.slug}`}
+                      className="focus-visible:outline-brand block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2"
+                    >
+                      <div className="border-brand-tint flex aspect-square items-center justify-center overflow-hidden rounded-2xl border bg-white">
+                        {card.photoUrl && (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={card.photoUrl}
+                            alt=""
+                            width={300}
+                            height={300}
+                            loading="lazy"
+                            className="size-full object-contain p-2"
+                          />
+                        )}
+                      </div>
+                      <p className="text-ink mt-2 font-bold">{card.name}</p>
+                      <p className="text-ink-muted text-sm">{price}</p>
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </section>
+        )}
+
+        <footer className="text-ink-muted mt-12 text-sm">
+          Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
+          Paystack.
+        </footer>
+      </main>
+    </>
   );
 }
