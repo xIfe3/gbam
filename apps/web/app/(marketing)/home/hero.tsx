@@ -79,11 +79,26 @@ export function Hero() {
       <div className="mt-10 flex items-center justify-center gap-3.5">
         {/* Side photos only from md up: on a phone the chat mockup gets the whole width. */}
         <div className="hidden flex-col gap-3.5 md:flex">
-          <Photo description="food vendor at her stall" className="h-[150px] w-[120px]" />
-          <Photo description="delivery rider" className="h-[110px] w-[120px]" />
+          <Photo
+            description="food vendor at her stall"
+            src="/images/home/food-vendor.webp"
+            alt="A woman frying plantain at her market stall"
+            className="h-[150px] w-[120px]"
+          />
+          <Photo
+            description="delivery rider"
+            src="/images/home/delivery-okada.webp"
+            alt="A motorbike ready for deliveries"
+            className="h-[110px] w-[120px]"
+          />
         </div>
         <div className="hidden md:block">
-          <Photo description="fashion seller packing orders" className="h-60 w-[130px]" />
+          <Photo
+            description="fashion seller packing orders"
+            src="/images/home/fashion-seller.webp"
+            alt="A smiling tailor at his sewing machine, phone in hand"
+            className="h-60 w-[130px]"
+          />
         </div>
 
         <div className="relative">
@@ -99,11 +114,26 @@ export function Hero() {
         </div>
 
         <div className="hidden md:block">
-          <Photo description="customer paying on her phone" className="h-60 w-[130px]" />
+          <Photo
+            description="customer paying on her phone"
+            src="/images/home/customer-paying.webp"
+            alt="A happy customer pointing at her phone"
+            className="h-60 w-[130px]"
+          />
         </div>
         <div className="hidden flex-col gap-3.5 md:flex">
-          <Photo description="phone accessories seller" className="h-[110px] w-[120px]" />
-          <Photo description="happy seller counting orders" className="h-[150px] w-[120px]" />
+          <Photo
+            description="phone accessories seller"
+            src="/images/home/shop-seller.webp"
+            alt="A shop owner at her counter"
+            className="h-[110px] w-[120px]"
+          />
+          <Photo
+            description="happy seller counting orders"
+            src="/images/home/happy-seller.webp"
+            alt="A fruit seller smiling at an order on her phone"
+            className="h-[150px] w-[120px]"
+          />
         </div>
       </div>
     </section>

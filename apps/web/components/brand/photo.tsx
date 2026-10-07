@@ -11,7 +11,14 @@ type PhotoProps = {
 export function Photo({ description, src, alt, className = "" }: PhotoProps) {
   if (src) {
     return (
-      <img src={src} alt={alt ?? description} className={`rounded-3xl object-cover ${className}`} />
+      <img
+        src={src}
+        alt={alt ?? description}
+        // lazy: photos further down the page only download when they're about to be seen.
+        loading="lazy"
+        decoding="async"
+        className={`rounded-3xl object-cover ${className}`}
+      />
     );
   }
 
