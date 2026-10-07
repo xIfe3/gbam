@@ -279,7 +279,11 @@ describe("Order tracking over HTTP (integration)", () => {
     expect((view.json as { canPay: boolean }).canPay).toBe(true);
     const pay = await call("POST", `/track/${order.code}/pay?key=${order.trackingKey}`);
     expect(pay.status).toBe(200);
-    expect((pay.json as { url: string }).url).toMatch(/^https:\/\/checkout\.paystack\.com\//);
+    const link = pay.json as { url: string; accessCode: string | null };
+    expect(link.url).toMatch(/^https:\/\/checkout\.paystack\.com\//);
+    // The pop-up on /pay needs the access code: the last part of Paystack's checkout link.
+    expect(link.accessCode).not.toBeNull();
+    expect(link.url.endsWith(`/${link.accessCode}`)).toBe(true);
   });
 
   it("reporting a problem emails the seller, shows on both sides, and is limited to 3 an hour", async () => {

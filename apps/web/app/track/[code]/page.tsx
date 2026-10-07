@@ -5,6 +5,7 @@ import { notFound, redirect } from "next/navigation";
 import { ShopHeader } from "@/app/[slug]/shop-header";
 import { api, ApiError, type TrackedOrder } from "@/lib/api";
 import { PayNowButton } from "./pay-now-button";
+import { PaymentConfirming } from "./payment-confirming";
 import { ReportIssueForm } from "./report-issue-form";
 
 // Private page: keep it out of search results.
@@ -79,6 +80,8 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
     }
     stoppedText = `${stoppedText}. Message the seller if you have questions.`;
   }
+  // paid=1 is added after paying in Paystack's pop-up (see PayNowButton).
+  const justPaid = searchParams.paid === "1";
   const whatsappText = encodeURIComponent(`Hi ${shop.businessName}, about my order ${order.code}`);
 
   return (
@@ -140,8 +143,17 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
           </ol>
         </section>
 
-        {tracked.canPay && (
+        {tracked.canPay && justPaid && <PaymentConfirming />}
+        {tracked.canPay && !justPaid && (
           <PayNowButton code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
+        )}
+        {justPaid && order.status === "paid" && (
+          <p
+            role="status"
+            className="rounded-2xl bg-emerald-50 p-5 font-bold text-emerald-900"
+          >
+            ✓ Payment received. {shop.businessName} has been told.
+          </p>
         )}
 
         <section

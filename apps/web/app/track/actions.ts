@@ -51,17 +51,16 @@ export async function lookupAction(_prev: LookupState, formData: FormData): Prom
 
 const keySchema = z.string().min(20).max(200);
 
-/** "Pay now": returns the Paystack link to open, or a message. */
-export async function payNowAction(
-  code: string,
-  key: string,
-): Promise<{ url?: string; error?: string }> {
+export type PayNowResult = { url?: string; accessCode?: string | null; error?: string };
+
+/** "Pay": the order's Paystack checkout (pop-up access code + fallback link), or a message. */
+export async function payNowAction(code: string, key: string): Promise<PayNowResult> {
   if (!keySchema.safeParse(key).success) {
     return { error: GENERIC };
   }
   try {
     const result = await api.trackPay(code, key);
-    return { url: result.url };
+    return { url: result.url, accessCode: result.accessCode };
   } catch (error) {
     unstable_rethrow(error);
     if (error instanceof ApiError && error.status === 409) {

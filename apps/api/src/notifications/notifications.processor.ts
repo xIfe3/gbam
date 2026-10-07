@@ -2,11 +2,13 @@ import { orders } from "@gbam/db";
 import { WhatsAppError, type WhatsAppTemplateName } from "@gbam/integrations";
 import { formatNaira } from "@gbam/shared";
 import { Processor, WorkerHost } from "@nestjs/bullmq";
-import { Logger } from "@nestjs/common";
+import { Inject, Logger } from "@nestjs/common";
 import { UnrecoverableError, type Job } from "bullmq";
 import { eq } from "drizzle-orm";
+import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { InjectWhatsApp, type WhatsAppClient } from "../integrations/integrations.module.js";
+import { payPageUrl } from "../payments/checkout-links.js";
 import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 import { WhatsAppMessagesService } from "../whatsapp/whatsapp-messages.service.js";
 import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue.js";
@@ -34,6 +36,7 @@ export class NotificationsProcessor extends WorkerHost {
     @InjectWhatsApp() private readonly whatsapp: WhatsAppClient,
     private readonly payments: PaymentsService,
     private readonly messages: WhatsAppMessagesService,
+    @Inject(ENV) private readonly env: Env,
   ) {
     super(); // required because we extend WorkerHost
   }
@@ -66,9 +69,10 @@ export class NotificationsProcessor extends WorkerHost {
         params = [customerName, store, code, total];
         break;
       case "awaiting_payment": {
-        let link: { url: string };
+        // Create the Paystack checkout now (so the pay page opens fast), but send the customer
+        // to OUR review-and-pay page, which shows what they're paying for before Paystack.
         try {
-          link = await this.payments.ensurePaymentLink(orderId);
+          await this.payments.ensurePaymentLink(orderId);
         } catch (error) {
           // The order moved on (paid or cancelled) before this message went out: a payment
           // request would now be wrong, so skip it instead of retrying.
@@ -79,7 +83,13 @@ export class NotificationsProcessor extends WorkerHost {
           throw error;
         }
         template = "gbam_payment_request";
-        params = [customerName, total, code, store, link.url];
+        params = [
+          customerName,
+          total,
+          code,
+          store,
+          payPageUrl(this.env.WEB_URL, code, order.trackingKey),
+        ];
         break;
       }
       case "paid":

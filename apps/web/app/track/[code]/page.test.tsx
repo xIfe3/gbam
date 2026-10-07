@@ -40,8 +40,8 @@ const TRACKED = {
   canPay: true,
 };
 
-function props(k?: string) {
-  const searchParams: Record<string, string> = {};
+function props(k?: string, extra: Record<string, string> = {}) {
+  const searchParams: Record<string, string> = { ...extra };
   if (k) {
     searchParams.k = k;
   }
@@ -69,9 +69,9 @@ describe("customer tracking page", () => {
     expect(api.trackView).toHaveBeenCalledWith("GB-7B2Q", "secret-key-abcdefghijklmnop");
   });
 
-  it("offers Pay now only while payment is awaited", async () => {
+  it("offers Pay only while payment is awaited", async () => {
     const { unmount } = render(await TrackOrderPage(props("secret-key-abcdefghijklmnop")));
-    expect(screen.getByRole("button", { name: "Pay ₦10,000 now" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pay ₦10,000 securely" })).toBeInTheDocument();
     unmount();
     vi.mocked(api.trackView).mockResolvedValue({
       ...TRACKED,
@@ -79,7 +79,24 @@ describe("customer tracking page", () => {
       order: { ...TRACKED.order, status: "paid" },
     } as never);
     render(await TrackOrderPage(props("secret-key-abcdefghijklmnop")));
-    expect(screen.queryByRole("button", { name: /Pay .* now/ })).toBeNull();
+    expect(screen.queryByRole("button", { name: /Pay .* securely/ })).toBeNull();
+  });
+
+  it("right after paying, waits for confirmation instead of offering Pay again", async () => {
+    const { unmount } = render(
+      await TrackOrderPage(props("secret-key-abcdefghijklmnop", { paid: "1" })),
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Confirming your payment");
+    expect(screen.queryByRole("button", { name: /Pay .* securely/ })).toBeNull();
+    unmount();
+
+    vi.mocked(api.trackView).mockResolvedValue({
+      ...TRACKED,
+      canPay: false,
+      order: { ...TRACKED.order, status: "paid" },
+    } as never);
+    render(await TrackOrderPage(props("secret-key-abcdefghijklmnop", { paid: "1" })));
+    expect(screen.getByRole("status")).toHaveTextContent("✓ Payment received");
   });
 
   it("opens WhatsApp with the seller, the order code already typed", async () => {

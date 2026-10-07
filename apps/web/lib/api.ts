@@ -679,7 +679,10 @@ async function trackView(code: string, key: string) {
 }
 
 async function trackPay(code: string, key: string) {
-  return request<{ url: string }>(trackPath(code, key, "/pay"), { method: "POST" });
+  // accessCode opens Paystack's pop-up; url is Paystack's own page (the fallback).
+  return request<{ url: string; accessCode: string | null }>(trackPath(code, key, "/pay"), {
+    method: "POST",
+  });
 }
 
 async function trackReportIssue(code: string, key: string, body: { reason: IssueReason; note?: string }) {

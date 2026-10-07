@@ -52,6 +52,7 @@ export const RESERVED_SLUGS = new Set([
   "mission",
   "opengraph-image",
   "orders",
+  "pay",
   "pricing",
   "privacy",
   "refunds",

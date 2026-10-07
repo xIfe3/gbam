@@ -6,6 +6,7 @@ import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { accessCodeFrom } from "../payments/checkout-links.js";
 import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 
 // One answer for every failed lookup, so nobody can tell "wrong code" from "wrong phone".
@@ -148,7 +149,10 @@ export class TrackingService {
     };
   }
 
-  /** "Pay now": the same Paystack link the seller sent, only while payment is awaited. */
+  /**
+   * "Pay": the order's Paystack checkout, only while payment is awaited. `accessCode` lets
+   * the /pay page open Paystack's pop-up; `url` is the fallback (Paystack's own page).
+   */
   async payLink(code: string, key: string) {
     const order = await this.orderFor(code, key);
     if (order.status !== "awaiting_payment") {
@@ -156,7 +160,7 @@ export class TrackingService {
     }
     try {
       const link = await this.payments.ensurePaymentLink(order.id);
-      return { url: link.url };
+      return { url: link.url, accessCode: accessCodeFrom(link.url) };
     } catch (error) {
       // It changed between our check and the lock (e.g. just paid): say so, don't charge twice.
       if (error instanceof OrderNotAwaitingPaymentError) {
