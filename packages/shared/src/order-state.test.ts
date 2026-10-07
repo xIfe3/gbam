@@ -35,13 +35,16 @@ describe("order state machine", () => {
     expect(canTransition("delivered", "refunded", "seller")).toBe(true);
   });
 
-  it("treats cancelled and refunded as terminal", () => {
+  it("treats refunded as the only fully closed status", () => {
     for (const status of ORDER_STATUSES) {
-      const terminal = status === "cancelled" || status === "refunded";
-      expect(isTerminal(status)).toBe(terminal);
+      expect(isTerminal(status)).toBe(status === "refunded");
     }
-    expect(nextStatuses("cancelled", "system")).toEqual([]);
     expect(nextStatuses("refunded", "system")).toEqual([]);
+  });
+
+  it("lets a cancelled order be marked refunded (when it was paid; the API checks that)", () => {
+    expect(nextStatuses("cancelled", "seller")).toEqual(["refunded"]);
+    expect(canTransition("cancelled", "paid", "system")).toBe(false);
   });
 
   it("rejects transitions to the same status", () => {

@@ -9,17 +9,20 @@ import { updateOrderStatus, type UpdateStatusState } from "../../actions";
 const NEEDS_BANK_ACCOUNT = "Add your bank account to start receiving payments.";
 
 /**
- * One button per status the shared state machine allows a seller to move to.
+ * One button per everyday next step (cancel and refund have their own area further down).
  * "Request payment" stays disabled until the seller has a payout account (the API refuses
  * it too, with PAYOUT_ACCOUNT_REQUIRED).
  */
 export function StatusActions({
   orderId,
   allowed,
+  closed,
   canRequestPayment,
 }: {
   orderId: string;
   allowed: OrderStatus[];
+  /** True when the order can't move anywhere at all (not even cancel or refund). */
+  closed: boolean;
   canRequestPayment: boolean;
 }) {
   const [state, formAction, pending] = useActionState<UpdateStatusState, FormData>(
@@ -28,8 +31,11 @@ export function StatusActions({
   );
   const reasonId = useId();
 
-  if (allowed.length === 0) {
+  if (closed) {
     return <p className="text-sm text-zinc-500">This order is closed. No further actions.</p>;
+  }
+  if (allowed.length === 0) {
+    return null;
   }
 
   const paymentBlocked = allowed.includes("awaiting_payment") && !canRequestPayment;

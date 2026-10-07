@@ -42,7 +42,8 @@ const TRANSITIONS: Record<OrderStatus, readonly TransitionRule[]> = {
     { to: "refunded", actors: ANYONE },
   ],
   delivered: [{ to: "refunded", actors: ANYONE }],
-  cancelled: [],
+  // Possible when a customer paid after the seller cancelled (the API checks a payment exists).
+  cancelled: [{ to: "refunded", actors: ANYONE }],
   refunded: [],
 };
 

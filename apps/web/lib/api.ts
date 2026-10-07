@@ -260,6 +260,8 @@ export type OrderDetail = Order & {
   /** Newest first. */
   payments: {
     id: string;
+    /** Paystack's reference for this payment: what support needs to find it. */
+    reference: string;
     status: "pending" | "success" | "failed";
     amountKobo: number;
     platformFeeKobo: number;

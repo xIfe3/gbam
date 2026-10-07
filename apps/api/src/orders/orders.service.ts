@@ -176,6 +176,7 @@ export class OrdersService {
         payments: {
           columns: {
             id: true,
+            reference: true,
             status: true,
             amountKobo: true,
             platformFeeKobo: true,
@@ -270,6 +271,19 @@ export class OrdersService {
       // (The system actor is not limited: it never starts a payment request itself.)
       if (actor === "seller" && to === "awaiting_payment") {
         await assertHasPayoutAccount(tx, sellerId);
+      }
+
+      // "Refunded" only makes sense if money actually came in. A cancelled order that was
+      // never paid has nothing to give back, so the seller can't mark it refunded.
+      if (to === "refunded") {
+        const paidRows = await tx
+          .select({ id: payments.id })
+          .from(payments)
+          .where(and(eq(payments.orderId, orderId), eq(payments.status, "success")))
+          .limit(1);
+        if (paidRows.length === 0) {
+          throw new ConflictException("This order has no successful payment to refund.");
+        }
       }
 
       const updatedRows = await tx

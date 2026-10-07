@@ -13,7 +13,8 @@ describe("StatusActions", () => {
     render(
       <StatusActions
         orderId={ID}
-        allowed={["awaiting_payment", "cancelled"]}
+        allowed={["awaiting_payment", "fulfilled"]}
+        closed={false}
         canRequestPayment={false}
       />,
     );
@@ -28,18 +29,24 @@ describe("StatusActions", () => {
       "/signup/get-paid",
     );
     // Other actions still work.
-    expect(screen.getByRole("button", { name: "Cancel order" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Mark ready / sent" })).toBeEnabled();
   });
 
   it("enables Request payment once a payout account exists", () => {
     render(
       <StatusActions
         orderId={ID}
-        allowed={["awaiting_payment", "cancelled"]}
+        allowed={["awaiting_payment"]}
+        closed={false}
         canRequestPayment={true}
       />,
     );
     expect(screen.getByRole("button", { name: "Request payment" })).toBeEnabled();
     expect(screen.queryByRole("link", { name: /add bank account/i })).toBeNull();
+  });
+
+  it("says the order is closed when nothing at all can happen next", () => {
+    render(<StatusActions orderId={ID} allowed={[]} closed={true} canRequestPayment={true} />);
+    expect(screen.getByText("This order is closed. No further actions.")).toBeInTheDocument();
   });
 });

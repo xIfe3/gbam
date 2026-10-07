@@ -3,7 +3,7 @@
  * Each run creates its own seller, so it never collides with seed data.
  */
 import "reflect-metadata";
-import { orderEvents, productVariants, products, sellers } from "@gbam/db";
+import { orderEvents, payments, productVariants, products, sellers } from "@gbam/db";
 import { createOrderSchema, InvalidOrderTransitionError } from "@gbam/shared";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
@@ -68,6 +68,28 @@ describe("OrdersService (integration)", () => {
     expect(detail.items[0]!.quantity).toBe(3);
     expect(detail.allowedTransitions).toEqual(["awaiting_payment", "cancelled"]);
     expect(detail.events.map((e) => e.toStatus)).toEqual(["pending"]);
+  });
+
+  it("refuses to mark an order refunded when it has no successful payment", async () => {
+    const { id } = await placeOrder();
+    await service.transition({ orderId: id, to: "cancelled", actor: "seller", sellerId });
+    await expect(
+      service.transition({ orderId: id, to: "refunded", actor: "seller", sellerId }),
+    ).rejects.toThrow(/no successful payment/);
+  });
+
+  it("marks a paid-then-cancelled order refunded", async () => {
+    const { id } = await placeOrder();
+    await service.transition({ orderId: id, to: "cancelled", actor: "seller", sellerId });
+    // The customer paid anyway (the webhook logs NEEDS REFUND and leaves it cancelled).
+    await db.insert(payments).values({
+      orderId: id,
+      reference: `test-ref-${id}`,
+      amountKobo: 450_000,
+      status: "success",
+    });
+    const order = await service.transition({ orderId: id, to: "refunded", actor: "seller", sellerId });
+    expect(order.status).toBe("refunded");
   });
 
   it("does not let a seller mark an order paid, but lets the system", async () => {

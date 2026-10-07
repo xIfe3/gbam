@@ -1,4 +1,4 @@
-import { formatNaira, nextStatuses } from "@gbam/shared";
+import { formatNaira, nextStatuses, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -9,6 +9,8 @@ import { StatusBadge } from "../../status-badge";
 import { MoneyBreakdown } from "./money-breakdown";
 import { CustomerProblems } from "./customer-problems";
 import { StatusActions } from "./status-actions";
+import { CancelOrder } from "./cancel-order";
+import { RefundOrder } from "./refund-order";
 import { PageTour } from "../../tours/page-tour";
 import { WhatsAppMessages } from "./whatsapp-messages";
 
@@ -39,6 +41,25 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
   if (user.seller) {
     canRequestPayment = user.seller.hasPayoutAccount;
   }
+  // Cancel and refund live in their own area at the bottom, away from the everyday buttons.
+  const allowed = nextStatuses(order.status, "seller");
+  const everydayActions: OrderStatus[] = [];
+  for (const status of allowed) {
+    if (status !== "cancelled" && status !== "refunded") {
+      everydayActions.push(status);
+    }
+  }
+  const canCancel = allowed.includes("cancelled");
+  // A refund needs money that actually came in (the API checks this too).
+  let successfulPayment: (typeof order.payments)[number] | undefined = undefined;
+  for (const payment of order.payments) {
+    if (payment.status === "success") {
+      successfulPayment = payment;
+      break;
+    }
+  }
+  const canRefund = allowed.includes("refunded") && successfulPayment !== undefined;
+
   const waLink = `https://wa.me/${order.customer.phone}?text=${encodeURIComponent(
     `Hi ${order.customer.name}, about your order ${order.code}`,
   )}`;
@@ -69,7 +90,8 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
         <div data-tour="order-actions">
           <StatusActions
             orderId={order.id}
-            allowed={nextStatuses(order.status, "seller")}
+            allowed={everydayActions}
+            closed={everydayActions.length === 0 && !canCancel && !canRefund}
             canRequestPayment={canRequestPayment}
           />
         </div>
@@ -125,6 +147,22 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
       <MoneyBreakdown payments={order.payments} />
 
       <WhatsAppMessages messages={order.whatsappMessages} />
+
+      {(canCancel || canRefund) && (
+        <section
+          aria-label="Cancel or refund"
+          className="space-y-6 rounded-xl border border-rose-200 bg-white p-5"
+        >
+          {canRefund && successfulPayment && (
+            <RefundOrder
+              orderId={order.id}
+              reference={successfulPayment.reference}
+              amountKobo={successfulPayment.amountKobo}
+            />
+          )}
+          {canCancel && <CancelOrder orderId={order.id} code={order.code} />}
+        </section>
+      )}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
         <h2 className="mb-2 font-semibold">History</h2>
