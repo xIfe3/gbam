@@ -28,6 +28,9 @@ WORKDIR /app
 RUN addgroup --system --gid 1001 gbam && adduser --system --uid 1001 --ingroup gbam gbam
 COPY --from=builder --chown=gbam:gbam /app/apps/web/.next/standalone ./
 COPY --from=builder --chown=gbam:gbam /app/apps/web/.next/static ./apps/web/.next/static
+# Files in public/ (e.g. /images/...) aren't traced into standalone: copy them in next to
+# server.js, or they 404 in production.
+COPY --from=builder --chown=gbam:gbam /app/apps/web/public ./apps/web/public
 USER gbam
 EXPOSE 3000
 CMD ["node", "apps/web/server.js"]
