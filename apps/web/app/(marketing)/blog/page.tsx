@@ -28,7 +28,11 @@ export default async function BlogPage() {
         eyebrow="Blog"
         title="Notes for WhatsApp sellers"
         lead="Practical ideas for getting paid and staying organised."
-        photo={{ description: "seller writing notes beside her phone" }}
+        photo={{
+          description: "seller writing notes beside her phone",
+          src: "/images/pages/blog.webp",
+          alt: "A woman writing notes in a notebook",
+        }}
       />
       <div className="mx-auto max-w-3xl px-4 pb-16">
         {failed && <ContentUnavailable what="Blog posts" />}

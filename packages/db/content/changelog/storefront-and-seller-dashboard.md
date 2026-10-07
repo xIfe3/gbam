@@ -1,7 +1,7 @@
 ---
 title: Storefront and seller dashboard
 summary: Customers can order from a shop link, and sellers can manage orders.
-sortOrder: 5
+sortOrder: 11
 published: true
 date: 2026-10-02
 ---

@@ -105,7 +105,11 @@ export default function HowItWorksPage() {
         eyebrow="How it works"
         title="From link to delivered order"
         lead="Here is what happens on your side and on your customer's side."
-        photo={{ description: "customer paying on her phone" }}
+        photo={{
+          description: "customer paying on her phone",
+          src: "/images/pages/how-it-works.webp",
+          alt: "A delighted customer looking at her phone",
+        }}
       />
       <StepList title="For sellers" steps={SELLER_STEPS} />
       <StepList title="For your customers" steps={CUSTOMER_STEPS} />

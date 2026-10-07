@@ -30,7 +30,11 @@ export default async function HelpPage() {
         eyebrow="Help centre"
         title="Answers, step by step"
         lead="How to set up your shop, get paid and keep customers updated."
-        photo={{ description: "seller reading a guide on her phone" }}
+        photo={{
+          description: "seller reading a guide on her phone",
+          src: "/images/pages/help.webp",
+          alt: "A woman reading on her laptop",
+        }}
       />
       <div className="mx-auto max-w-5xl px-4 pb-8">
         {failed && <ContentUnavailable what="Help articles" />}

@@ -1,7 +1,7 @@
 ---
 title: Paystack, WhatsApp and Docker
 summary: Real payment links, automatic WhatsApp updates and a container setup.
-sortOrder: 4
+sortOrder: 10
 published: true
 date: 2026-10-02
 ---

@@ -15,7 +15,11 @@ export default function AboutPage() {
         eyebrow="About"
         title="Why Gbam exists"
         lead="Many Nigerian businesses sell on WhatsApp. Payments, orders and updates end up scattered across chats. Gbam puts them in one place."
-        photo={{ description: "small business owner at work with her phone" }}
+        photo={{
+          description: "small business owner at work with her phone",
+          src: "/images/pages/about.webp",
+          alt: "A small business owner holding her laptop",
+        }}
       />
       <div className="mx-auto max-w-5xl px-4">
         <BentoGrid>

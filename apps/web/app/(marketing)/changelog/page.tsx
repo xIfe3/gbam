@@ -29,7 +29,11 @@ export default async function ChangelogPage() {
         eyebrow="Changelog"
         title="What's new in Gbam"
         lead="We are early and building in the open. Here is what has shipped."
-        photo={{ description: "team shipping an update" }}
+        photo={{
+          description: "team shipping an update",
+          src: "/images/pages/changelog.webp",
+          alt: "A small team working together around a laptop",
+        }}
       />
       <div className="mx-auto max-w-3xl px-4 pb-16">
         {failed && <ContentUnavailable what="The changelog" />}

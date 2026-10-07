@@ -49,7 +49,11 @@ export default async function FaqPage() {
         eyebrow="FAQ"
         title="Quick answers"
         lead="The questions sellers ask us most. Not here? Email support@gbam.app."
-        photo={{ description: "seller checking a question on her phone" }}
+        photo={{
+          description: "seller checking a question on her phone",
+          src: "/images/pages/faq.webp",
+          alt: "A woman waving as she looks at her phone",
+        }}
       />
       <div className="mx-auto max-w-3xl px-4 pb-8">
         {failed && <ContentUnavailable what="The FAQ" />}

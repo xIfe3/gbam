@@ -15,7 +15,11 @@ export default function MissionPage() {
         eyebrow="Mission"
         title="No more chasing payments in the DMs"
         lead="Our mission is to make selling on WhatsApp simple, paid and organised."
-        photo={{ description: "seller relaxed after a day of paid orders" }}
+        photo={{
+          description: "seller relaxed after a day of paid orders",
+          src: "/images/pages/mission.webp",
+          alt: "A relaxed woman smiling over a cup of tea",
+        }}
       />
       <div className="mx-auto max-w-5xl px-4">
         <BentoGrid>

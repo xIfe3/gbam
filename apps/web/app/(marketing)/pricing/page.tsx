@@ -17,7 +17,11 @@ export default function PricingPage() {
         eyebrow="Pricing"
         title={`${platformFeePercent}% per paid order, capped at ${platformFeeCap}`}
         lead={`You only pay when you get paid: ${platformFeePercent}% of each paid order, never more than ${platformFeeCap}.`}
-        photo={{ description: "seller smiling at a paid order notification" }}
+        photo={{
+          description: "seller smiling at a paid order notification",
+          src: "/images/pages/pricing.webp",
+          alt: "A market seller giving a thumbs up, phone in hand",
+        }}
         cta={{ href: "/signup", label: "Start selling free" }}
       />
       <div className="mx-auto max-w-5xl px-4">

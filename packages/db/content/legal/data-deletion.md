@@ -5,19 +5,21 @@ category: Legal
 sortOrder: 7
 published: true
 date: 2026-10-03
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-07
 sections:
   - id: how-to-ask
     heading: How to ask for deletion
     body: |
-      There is no delete button yet, so deletion is a request by email:
+      Sellers can delete their account in the dashboard: **Settings**, then **Delete my account**. This closes the shop at once and sends us the deletion request.
+
+      You can also ask by email:
 
       1. Email **privacy@gbam.app** from the email address on your Gbam account.
       2. Say that you want your account and data deleted.
       3. If you are a customer of a seller and have no account, give us the WhatsApp number you used to order.
 
       We may reply to confirm it is really you before we go ahead. This page is also Gbam's data deletion instructions for Meta.
-    short: Email privacy@gbam.app from your account email and ask.
+    short: Use Settings → Delete my account, or email privacy@gbam.app.
   - id: timing
     heading: How long it takes
     body: |

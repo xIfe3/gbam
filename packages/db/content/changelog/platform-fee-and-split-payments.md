@@ -1,7 +1,7 @@
 ---
 title: Platform fee and split payments
 summary: Payments are split automatically, with Gbam's fee taken per paid order.
-sortOrder: 3
+sortOrder: 9
 published: true
 date: 2026-10-03
 ---

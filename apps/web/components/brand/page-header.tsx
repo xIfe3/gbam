@@ -5,7 +5,7 @@ type PageHeaderProps = {
   eyebrow: string;
   title: string;
   lead: string;
-  photo: { description: string; src?: string };
+  photo: { description: string; src?: string; alt?: string };
   cta?: { href: string; label: string };
 };
 
@@ -30,7 +30,13 @@ export function PageHeader({ eyebrow, title, lead, photo, cta }: PageHeaderProps
           </div>
         )}
       </div>
-      <Photo description={photo.description} src={photo.src} className="h-64 w-full md:h-80" />
+      <Photo
+        description={photo.description}
+        src={photo.src}
+        alt={photo.alt}
+        priority
+        className="h-64 w-full md:h-80"
+      />
     </header>
   );
 }

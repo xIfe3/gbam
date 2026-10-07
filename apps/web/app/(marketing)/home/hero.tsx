@@ -81,12 +81,14 @@ export function Hero() {
         <div className="hidden flex-col gap-3.5 md:flex">
           <Photo
             description="food vendor at her stall"
+            priority
             src="/images/home/food-vendor.webp"
             alt="A woman frying plantain at her market stall"
             className="h-[150px] w-[120px]"
           />
           <Photo
             description="delivery rider"
+            priority
             src="/images/home/delivery-okada.webp"
             alt="A motorbike ready for deliveries"
             className="h-[110px] w-[120px]"
@@ -95,6 +97,7 @@ export function Hero() {
         <div className="hidden md:block">
           <Photo
             description="fashion seller packing orders"
+            priority
             src="/images/home/fashion-seller.webp"
             alt="A smiling tailor at his sewing machine, phone in hand"
             className="h-60 w-[130px]"
@@ -116,6 +119,7 @@ export function Hero() {
         <div className="hidden md:block">
           <Photo
             description="customer paying on her phone"
+            priority
             src="/images/home/customer-paying.webp"
             alt="A happy customer pointing at her phone"
             className="h-60 w-[130px]"
@@ -124,12 +128,14 @@ export function Hero() {
         <div className="hidden flex-col gap-3.5 md:flex">
           <Photo
             description="phone accessories seller"
+            priority
             src="/images/home/shop-seller.webp"
             alt="A shop owner at her counter"
             className="h-[110px] w-[120px]"
           />
           <Photo
             description="happy seller counting orders"
+            priority
             src="/images/home/happy-seller.webp"
             alt="A fruit seller smiling at an order on her phone"
             className="h-[150px] w-[120px]"

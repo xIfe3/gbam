@@ -1,7 +1,7 @@
 ---
 title: New brand and marketing site
 summary: A new look for Gbam, plus a help centre, FAQ, blog and this changelog.
-sortOrder: 1
+sortOrder: 7
 published: true
 date: 2026-10-03
 ---

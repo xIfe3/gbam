@@ -22,4 +22,6 @@ Payout timing follows Paystack's settlement schedule for your account, not Gbam.
 
 ## Changing your bank account
 
-Email support@gbam.app from the address on your account and we will help you update it.
+Open **Settings**, then **Getting paid**, and choose **Change bank account**. We check the new account with your bank, show you its name, and ask for your password before switching. New payments go to the new account. Payments you have already received are not affected.
+
+We email you whenever your bank account is changed. If you didn't make the change, email **support@gbam.app** straight away and change your password.

@@ -1,7 +1,7 @@
 ---
 title: API and background worker
 summary: The server that powers orders, with a worker for background jobs.
-sortOrder: 6
+sortOrder: 12
 published: true
 date: 2026-10-02
 ---

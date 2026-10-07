@@ -1,7 +1,7 @@
 ---
 title: WhatsApp delivery status
 summary: See whether each WhatsApp message was sent, delivered, read or failed.
-sortOrder: 2
+sortOrder: 8
 published: true
 date: 2026-10-03
 ---

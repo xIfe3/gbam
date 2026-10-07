@@ -2,16 +2,16 @@
 title: WhatsApp messages
 summary: The automatic updates your customers receive, and what you will see.
 category: Orders
-sortOrder: 6
+sortOrder: 7
 published: true
-date: 2026-10-03
+date: 2026-10-07
 ---
 
 Gbam sends your customer WhatsApp messages for you as an order moves along, so you do not have to type each update.
 
 ## When messages go out
 
-- When you request payment, with the Paystack payment link.
+- When you request payment, with a link to pay for the order.
 - At the later steps of the order, such as when payment is confirmed and when the order moves forward.
 
 ## Where they come from

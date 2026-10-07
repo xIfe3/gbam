@@ -1,7 +1,7 @@
 ---
 title: Foundation and order rules
 summary: The project base, the database and the rules every order follows.
-sortOrder: 7
+sortOrder: 13
 published: true
 date: 2026-10-02
 ---

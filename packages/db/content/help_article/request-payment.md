@@ -4,7 +4,7 @@ summary: Send the customer a Paystack payment link from the dashboard.
 category: Orders
 sortOrder: 3
 published: true
-date: 2026-10-03
+date: 2026-10-07
 ---
 
 When a new order arrives, check you can fulfil it, then ask the customer to pay.
@@ -13,9 +13,9 @@ When a new order arrives, check you can fulfil it, then ask the customer to pay.
 
 1. Open the order in your dashboard.
 2. Press **Request payment**.
-3. Gbam sends the customer a Paystack payment link on WhatsApp. The order moves to **Awaiting payment**.
+3. Gbam sends the customer a payment link on WhatsApp. The order moves to **Awaiting payment**.
 
-The customer pays on Paystack's secure page. Gbam never sees their card details.
+The link opens a **Review & pay** page showing what they ordered and the total. Their **Pay** button opens Paystack's secure payment window, so Gbam never sees their card details.
 
 ## When they pay
 
