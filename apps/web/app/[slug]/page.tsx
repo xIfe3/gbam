@@ -109,7 +109,10 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
       )}
       <footer className="text-ink-muted mt-10 pb-20 text-sm">
         Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-        Paystack.
+        Paystack.{" "}
+        <Link href="/track" className="underline">
+          Track an order
+        </Link>
       </footer>
       <BasketBar shopSlug={store.slug} clearOnMount={paidCode !== null} />
     </main>

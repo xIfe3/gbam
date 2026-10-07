@@ -34,6 +34,7 @@ function order(stockShortfall: boolean) {
     createdAt: "2026-10-01T10:00:00.000Z",
     stockShortfall,
     customer: { name: "Ada", phone: "2348012345678" },
+    issues: [],
     items: [
       {
         id: "i1",

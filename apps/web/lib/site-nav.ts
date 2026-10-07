@@ -63,6 +63,7 @@ export const FOOTER_GROUPS: NavGroup[] = [
     title: "Help",
     links: [
       { href: "/help", label: "Help centre" },
+      { href: "/track", label: "Track an order" },
       { href: "/faq", label: "FAQ" },
       { href: "/login", label: "Log in" },
       { href: "/signup", label: "Sign up" },

@@ -136,6 +136,11 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
                 <div className="flex flex-col items-end gap-1">
                   <span className="font-semibold tabular-nums">{formatNaira(order.totalKobo)}</span>
                   <StatusBadge status={order.status} />
+                  {order.openIssues > 0 && (
+                    <span className="bg-coral-wash text-coral-deep border-coral-tint rounded-full border px-2 py-0.5 text-xs font-bold">
+                      Problem reported
+                    </span>
+                  )}
                 </div>
               </Link>
             </li>

@@ -14,9 +14,9 @@ export type PlaceOrderState =
       message: string;
       fieldErrors?: Record<string, string[] | undefined>;
       /** What the customer typed, sent back because React clears the form after submit. */
-      values: { name: string; phone: string; note: string };
+      values: { name: string; phone: string; email: string; note: string };
     }
-  | { status: "success"; code: string; totalKobo: number };
+  | { status: "success"; code: string; totalKobo: number; trackingKey: string };
 
 /** The basket arrives as JSON text like [{"variantId":"…","quantity":2}]. This checks its shape. */
 const basketSchema = z.array(
@@ -85,6 +85,7 @@ export async function placeOrder(
   const values = {
     name: readField(formData, "name"),
     phone: readField(formData, "phone"),
+    email: readField(formData, "email"),
     note: readField(formData, "note"),
   };
 
@@ -111,8 +112,13 @@ export async function placeOrder(
 
   // 2. Check everything with the SAME schema the API uses, so the customer sees
   //    mistakes immediately (e.g. a bad phone number) without a trip to the API.
+  // The email is optional: blank means "no receipt", not "invalid email".
+  let email: string | undefined = values.email.trim();
+  if (email === "") {
+    email = undefined;
+  }
   const parsed = createOrderSchema.safeParse({
-    customer: { name: values.name, phone: values.phone },
+    customer: { name: values.name, phone: values.phone, email },
     items,
     note,
   });
@@ -127,7 +133,12 @@ export async function placeOrder(
   // 3. Send it to the API.
   try {
     const order = await api.placeOrder(slug, parsed.data);
-    return { status: "success", code: order.code, totalKobo: order.totalKobo };
+    return {
+      status: "success",
+      code: order.code,
+      totalKobo: order.totalKobo,
+      trackingKey: order.trackingKey,
+    };
   } catch (error) {
     // 4xx = the API rejected the order (e.g. product unavailable): show its message.
     if (error instanceof ApiError && error.status < 500) {

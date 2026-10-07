@@ -49,6 +49,7 @@ describe("orders page empty states", () => {
         createdAt: new Date().toISOString(),
         customerName: "Ada",
         customerPhone: "2348012345678",
+        openIssues: 1,
       },
     ] as never);
     render(await OrdersPage(props()));
@@ -56,5 +57,7 @@ describe("orders page empty states", () => {
     expect(bar).toHaveAttribute("data-tour", "shop-link");
     expect(bar).toHaveTextContent("gbam.app/mama-ngozi");
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
+    // The customer reported a problem on this order.
+    expect(screen.getByText("Problem reported")).toBeInTheDocument();
   });
 });

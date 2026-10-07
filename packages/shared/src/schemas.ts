@@ -67,6 +67,7 @@ export const RESERVED_SLUGS = new Set([
   "storefront",
   "support",
   "terms",
+  "track",
   "twitter-image",
   "use-cases",
   "www",

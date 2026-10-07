@@ -49,3 +49,23 @@ export async function updateOrderStatus(
   refresh();
   return {};
 }
+
+/** The seller marks a customer's reported problem as dealt with. */
+export async function resolveIssueAction(
+  orderId: string,
+  issueId: string,
+): Promise<{ error?: string }> {
+  const ids = z.object({ orderId: z.uuid(), issueId: z.uuid() }).safeParse({ orderId, issueId });
+  if (!ids.success) {
+    return { error: "Invalid request." };
+  }
+  try {
+    await api.resolveOrderIssue(ids.data.orderId, ids.data.issueId);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("resolveIssue failed", error);
+    return { error: "Couldn't mark it resolved. Please try again." };
+  }
+  refresh();
+  return {};
+}

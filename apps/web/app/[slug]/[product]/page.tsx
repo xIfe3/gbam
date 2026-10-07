@@ -124,7 +124,10 @@ export default async function ProductPage(props: PageProps<"/[slug]/[product]">)
 
         <footer className="text-ink-muted mt-12 text-sm">
           Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-          Paystack.
+          Paystack.{" "}
+          <Link href="/track" className="underline">
+            Track an order
+          </Link>
         </footer>
       </main>
     </>

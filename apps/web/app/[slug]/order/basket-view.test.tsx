@@ -162,6 +162,7 @@ describe("BasketView", () => {
       status: "success",
       code: "GB-ABCD",
       totalKobo: 1300000,
+      trackingKey: "secret-key-abc",
     });
     render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
 
@@ -177,6 +178,18 @@ describe("BasketView", () => {
     await waitFor(() => {
       expect(localStorage.getItem(STORAGE_KEY)).toBe("[]");
     });
+    // The order-placed screen gives every way back to this order.
+    expect(screen.getByRole("link", { name: "Track this order" })).toHaveAttribute(
+      "href",
+      "/track/GB-ABCD?k=secret-key-abc",
+    );
+    expect(screen.getByRole("button", { name: "Copy tracking link" })).toBeInTheDocument();
+    expect(screen.getByText(/Take a screenshot of this code/)).toBeInTheDocument();
+    const remembered = JSON.parse(localStorage.getItem("gbam-my-orders") ?? "[]") as {
+      code: string;
+      key: string;
+    }[];
+    expect(remembered[0]).toMatchObject({ code: "GB-ABCD", key: "secret-key-abc" });
   });
 
   it("uses only the product name for a default variant with an empty title", async () => {

@@ -220,13 +220,26 @@ export type Order = {
   createdAt: string;
 };
 
+/** What placing an order returns: the order plus its secret tracking key. */
+export type PlacedOrder = Order & { trackingKey: string };
+
 export type OrderListItem = Pick<Order, "id" | "code" | "status" | "totalKobo" | "createdAt"> & {
+  /** Problems the customer reported that the seller hasn't marked resolved. */
+  openIssues: number;
   customerName: string;
   customerPhone: string;
 };
 
 export type OrderDetail = Order & {
   customer: { name: string; phone: string };
+  /** Problems the customer reported from their tracking page, newest first. */
+  issues: {
+    id: string;
+    reason: "paid_not_marked" | "not_received" | "wrong_or_damaged" | "other";
+    note: string | null;
+    createdAt: string;
+    resolvedAt: string | null;
+  }[];
   items: {
     id: string;
     productName: string;
@@ -333,7 +346,7 @@ async function storefrontProduct(slug: string, productSlug: string) {
 }
 
 async function placeOrder(slug: string, body: unknown) {
-  return request<Order>(`/storefront/${encodeURIComponent(slug)}/orders`, {
+  return request<PlacedOrder>(`/storefront/${encodeURIComponent(slug)}/orders`, {
     method: "POST",
     body: JSON.stringify(body),
   });
@@ -585,8 +598,63 @@ async function finishTour(tour: string, outcome: "completed" | "skipped") {
   });
 }
 
+export type IssueReason = "paid_not_marked" | "not_received" | "wrong_or_damaged" | "other";
+
+/** What a customer's tracking page shows (no personal details). */
+export type TrackedOrder = {
+  shop: { slug: string; businessName: string; whatsappPhone: string };
+  order: {
+    code: string;
+    status: OrderStatus;
+    totalKobo: number;
+    createdAt: string;
+    items: { productName: string; variantTitle: string; unitPriceKobo: number; quantity: number }[];
+    events: { toStatus: OrderStatus; createdAt: string }[];
+  };
+  issues: { reason: IssueReason; createdAt: string; resolved: boolean }[];
+  canPay: boolean;
+};
+
+async function trackLookup(body: { code: string; phoneLast4: string }) {
+  return request<{ code: string; key: string }>("/track/lookup", {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+function trackPath(code: string, key: string, rest: string): string {
+  return `/track/${encodeURIComponent(code)}${rest}?key=${encodeURIComponent(key)}`;
+}
+
+async function trackView(code: string, key: string) {
+  return request<TrackedOrder>(trackPath(code, key, ""));
+}
+
+async function trackPay(code: string, key: string) {
+  return request<{ url: string }>(trackPath(code, key, "/pay"), { method: "POST" });
+}
+
+async function trackReportIssue(code: string, key: string, body: { reason: IssueReason; note?: string }) {
+  return request<{ ok: true }>(trackPath(code, key, "/issues"), {
+    method: "POST",
+    body: JSON.stringify(body),
+  });
+}
+
+async function resolveOrderIssue(orderId: string, issueId: string) {
+  return request<{ id: string }>(
+    `/orders/${encodeURIComponent(orderId)}/issues/${encodeURIComponent(issueId)}/resolve`,
+    { method: "PATCH", auth: "session" },
+  );
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  trackLookup,
+  trackView,
+  trackPay,
+  trackReportIssue,
+  resolveOrderIssue,
   getTours,
   saveTourStep,
   finishTour,

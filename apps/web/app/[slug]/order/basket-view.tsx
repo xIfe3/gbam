@@ -12,6 +12,9 @@ import type { StorefrontProduct } from "@/lib/api";
 import { basketTotals, checkBasket, useBasket, type BasketProblem } from "@/lib/basket";
 import { LEGAL_LABELS } from "@/lib/site-nav";
 import { checkBasketAction, placeOrder, type PlaceOrderState } from "../actions";
+import { CopyLinkButton } from "@/app/dashboard/copy-link-button";
+import { rememberOrder } from "@/lib/my-orders";
+import { SITE_HOST, SITE_URL } from "@/lib/site";
 
 // 44px round +/- buttons with a visible keyboard focus ring.
 const stepperClasses =
@@ -108,22 +111,51 @@ export function BasketView({ shopSlug, businessName }: Props) {
   // After a successful order the basket is emptied so it is not ordered twice.
   const clearBasket = basket.clear;
   const succeeded = state.status === "success";
+  let placedCode = "";
+  let placedKey = "";
+  if (state.status === "success") {
+    placedCode = state.code;
+    placedKey = state.trackingKey;
+  }
   useEffect(() => {
     if (succeeded) {
       clearBasket();
+      // Remember the order on this phone, so /track can list it with nothing to type.
+      rememberOrder({
+        code: placedCode,
+        key: placedKey,
+        shopSlug,
+        businessName,
+        placedAt: new Date().toISOString(),
+      });
     }
-  }, [succeeded, clearBasket]);
+  }, [succeeded, clearBasket, placedCode, placedKey, shopSlug, businessName]);
 
   if (state.status === "success") {
+    const trackingPath = `/track/${state.code}?k=${encodeURIComponent(state.trackingKey)}`;
     return (
       <section className="bg-brand-tint rounded-2xl p-6 text-center">
         <p className="text-brand-hover text-sm font-bold">Order placed</p>
-        <p className="font-display text-ink my-2 text-4xl font-black tracking-wider">
+        <p className="text-ink-muted mt-2 text-sm">Your order code</p>
+        <p className="font-display text-ink my-1 text-5xl font-black tracking-wider">
           {state.code}
         </p>
         <p className="text-ink-muted">
           Total {formatNaira(state.totalKobo)}. The seller will message you on WhatsApp with payment
-          details. Quote your order code if you need help.
+          details.
+        </p>
+        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
+          <Link
+            href={trackingPath}
+            className="bg-brand hover:bg-brand-hover focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Track this order
+          </Link>
+          <CopyLinkButton url={`${SITE_URL}${trackingPath}`} label="Copy tracking link" />
+        </div>
+        <p className="text-ink-muted mt-4 text-sm">
+          📸 Take a screenshot of this code to keep it. You can always find this order at{" "}
+          <strong>{SITE_HOST}/track</strong> on this phone.
         </p>
         <Link href={`/${shopSlug}`} className={`${smallButtonClasses} mt-4`}>
           Back to {businessName}
@@ -178,7 +210,7 @@ export function BasketView({ shopSlug, businessName }: Props) {
   }
 
   // React clears the form after a server action, so a failed submit puts the input back.
-  let previous: { name: string; phone: string; note: string } | undefined = undefined;
+  let previous: { name: string; phone: string; email: string; note: string } | undefined = undefined;
   let formError: string | undefined = undefined;
   if (state.status === "error") {
     previous = state.values;
@@ -349,6 +381,16 @@ export function BasketView({ shopSlug, businessName }: Props) {
           autoComplete="tel"
           defaultValue={previous?.phone}
           error={fieldError("phone")}
+        />
+        <TextField
+          label="Email (optional)"
+          name="email"
+          type="email"
+          inputMode="email"
+          autoComplete="email"
+          hint="We'll email your order code and tracking link."
+          defaultValue={previous?.email}
+          error={fieldError("email")}
         />
         <label className="flex flex-col gap-1.5">
           <span className="text-ink text-sm font-bold">Note (optional)</span>
