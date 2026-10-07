@@ -1,7 +1,12 @@
 /** Integration test against the dev Postgres and Redis db 1. The email queue is a recorder. */
 import "reflect-metadata";
 import { emailCodes, sellers, sessions, users } from "@gbam/db";
-import { BadRequestException, ConflictException, UnauthorizedException } from "@nestjs/common";
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+  UnauthorizedException,
+} from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomInt, randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
@@ -69,7 +74,12 @@ describe("AuthService signup and verification (integration)", () => {
   function sentTo(email: string): number {
     let count = 0;
     for (const entry of sent) {
-      if (entry.job.kind !== "contact_message" && entry.job.to === email) {
+      // Contact messages and deletion requests go to our own inboxes, not to a user.
+      if (
+        entry.job.kind !== "contact_message" &&
+        entry.job.kind !== "account_closed" &&
+        entry.job.to === email
+      ) {
         count = count + 1;
       }
     }
@@ -705,5 +715,108 @@ describe("AuthService signup and verification (integration)", () => {
       freshMeta(),
     );
     expect(result.user.email).toBe(input.email);
+  });
+
+  // ---- Settings: change password, close account ----
+
+  it("changePassword keeps this device signed in and signs out the others", async () => {
+    const input = newInput();
+    const thisDevice = await service.signup(input, meta);
+    const otherDevice = await service.login(input.email, input.password, freshMeta());
+
+    await service.changePassword(
+      thisDevice.user.id,
+      thisDevice.sessionToken,
+      input.password,
+      "a brand new password",
+    );
+
+    expect((await service.me(thisDevice.sessionToken)).id).toBe(thisDevice.user.id);
+    await expect(service.me(otherDevice.sessionToken)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    await expect(service.login(input.email, input.password, freshMeta())).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+    const again = await service.login(input.email, "a brand new password", freshMeta());
+    expect(again.user.id).toBe(thisDevice.user.id);
+  });
+
+  it("changePassword refuses a wrong current password and changes nothing", async () => {
+    const input = newInput();
+    const signedUp = await service.signup(input, meta);
+    const otherDevice = await service.login(input.email, input.password, freshMeta());
+
+    const error = await service
+      .changePassword(signedUp.user.id, signedUp.sessionToken, "not my password", "whatever123")
+      .catch((e: unknown) => e);
+
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as BadRequestException).getResponse()).toMatchObject({
+      field: "currentPassword",
+    });
+    expect((await service.me(otherDevice.sessionToken)).id).toBe(signedUp.user.id);
+    const again = await service.login(input.email, input.password, freshMeta());
+    expect(again.user.id).toBe(signedUp.user.id);
+  });
+
+  it("closeAccount hides the shop, signs out everywhere, emails the privacy inbox, blocks login", async () => {
+    const input = newInput({ businessName: "Ada Bakes" });
+    const signedUp = await service.signup(input, meta);
+    const otherDevice = await service.login(input.email, input.password, freshMeta());
+
+    // The name is matched without caring about capitals or spaces around it.
+    await service.closeAccount(signedUp.user.id, "  ada bakes ", input.password);
+
+    const [seller] = await db
+      .select()
+      .from(sellers)
+      .where(eq(sellers.ownerUserId, signedUp.user.id));
+    expect(seller?.closedAt).toBeInstanceOf(Date);
+    await expect(service.me(signedUp.sessionToken)).rejects.toBeInstanceOf(UnauthorizedException);
+    await expect(service.me(otherDevice.sessionToken)).rejects.toBeInstanceOf(
+      UnauthorizedException,
+    );
+
+    let request: EmailJob | undefined = undefined;
+    for (const entry of sent) {
+      if (entry.job.kind === "account_closed" && entry.job.ownerEmail === input.email) {
+        request = entry.job;
+      }
+    }
+    expect(request).toMatchObject({ shopName: "Ada Bakes", slug: input.slug });
+
+    const loginError = await service
+      .login(input.email, input.password, freshMeta())
+      .catch((e: unknown) => e);
+    expect(loginError).toBeInstanceOf(ForbiddenException);
+  });
+
+  it("closeAccount needs the right shop name and password, else nothing happens", async () => {
+    const input = newInput({ businessName: "Ada Bakes" });
+    const signedUp = await service.signup(input, meta);
+
+    const wrongName = await service
+      .closeAccount(signedUp.user.id, "Someone Else", input.password)
+      .catch((e: unknown) => e);
+    expect(wrongName).toBeInstanceOf(BadRequestException);
+    expect((wrongName as BadRequestException).getResponse()).toMatchObject({
+      field: "businessName",
+    });
+
+    const wrongPassword = await service
+      .closeAccount(signedUp.user.id, "Ada Bakes", "not my password")
+      .catch((e: unknown) => e);
+    expect(wrongPassword).toBeInstanceOf(BadRequestException);
+    expect((wrongPassword as BadRequestException).getResponse()).toMatchObject({
+      field: "password",
+    });
+
+    const [seller] = await db
+      .select()
+      .from(sellers)
+      .where(eq(sellers.ownerUserId, signedUp.user.id));
+    expect(seller?.closedAt).toBeNull();
+    expect((await service.me(signedUp.sessionToken)).id).toBe(signedUp.user.id);
   });
 });

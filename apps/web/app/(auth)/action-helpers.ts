@@ -44,6 +44,10 @@ function bodyMessage(body: unknown): string | null {
   return null;
 }
 
+function hasCode(body: unknown, code: string): boolean {
+  return typeof body === "object" && body !== null && "code" in body && body.code === code;
+}
+
 /** A message safe to show for an API failure. Logs only the status, never request data. */
 export function failureMessage(error: unknown, action: string): string {
   // lib/api throws a Next redirect (session expired, email not verified) from inside API
@@ -53,6 +57,10 @@ export function failureMessage(error: unknown, action: string): string {
     const message = bodyMessage(error.body);
     // 401 (wrong credentials) and 429 (try again in N minutes) carry a message written for users.
     if ((error.status === 401 || error.status === 429) && message !== null) {
+      return message;
+    }
+    // A deleted account trying to sign in: the API says how to reopen it.
+    if (error.status === 403 && message !== null && hasCode(error.body, "ACCOUNT_CLOSED")) {
       return message;
     }
     console.error(`${action} failed with status ${error.status}`);

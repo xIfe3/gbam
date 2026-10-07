@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { AuthCard, AuthLink } from "@/components/brand/auth-card";
+import { FormNotice } from "@/components/brand/form-bits";
 import { safeNextPath } from "@/lib/safe-next";
 import { redirectIfSignedIn } from "../guard";
 import { LoginForm } from "./login-form";
@@ -26,6 +27,12 @@ export default async function LoginPage(props: PageProps<"/login">) {
           </>
         }
       >
+        {/* Shown once, right after "Delete my account". */}
+        {searchParams.closed === "1" && (
+          <div className="mb-4">
+            <FormNotice message="Your account is deleted and your shop is hidden. We've been told to remove your data. Thanks for using Gbam." />
+          </div>
+        )}
         <LoginForm next={next ?? undefined} />
       </AuthCard>
     </main>

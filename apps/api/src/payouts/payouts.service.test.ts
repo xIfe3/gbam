@@ -72,6 +72,7 @@ describe("PayoutsService (integration)", () => {
       keys.push(
         `payouts:resolve:seller:${id}`,
         `payouts:create:seller:${id}`,
+        `payouts:change:seller:${id}`,
         `payouts:create-lock:${id}`,
       );
     }
@@ -486,5 +487,93 @@ describe("PayoutsService (integration)", () => {
 
       expect(error).toBeInstanceOf(ServiceUnavailableException);
     }
+  });
+
+  describe("changeAccount", () => {
+    it("points the existing subaccount at the new bank and saves the new details", async () => {
+      const { sellerId } = await freshSeller();
+      await service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+      const before = await sellerRow(sellerId);
+      const updateSpy = vi.spyOn(paystack, "updateSubaccount");
+      const createSpy = vi.spyOn(paystack, "createSubaccount");
+
+      const result = await service.changeAccount(sellerId, {
+        bankCode: "044",
+        accountNumber: "9876543210",
+      });
+
+      expect(result).toEqual({
+        bankName: "Access Bank",
+        accountLast4: "3210",
+        bankAccountName: "TEST ACCOUNT",
+      });
+      expect(updateSpy).toHaveBeenCalledWith(before.paystackSubaccountCode, {
+        businessName: before.businessName,
+        bankCode: "044",
+        accountNumber: "9876543210",
+      });
+      expect(createSpy).not.toHaveBeenCalled();
+      const after = await sellerRow(sellerId);
+      // Same subaccount (so nothing about past payments changes), new bank details.
+      expect(after.paystackSubaccountCode).toBe(before.paystackSubaccountCode);
+      expect(after.bankName).toBe("Access Bank");
+      expect(after.accountLast4).toBe("3210");
+      expect(JSON.stringify(after)).not.toContain("9876543210");
+    });
+
+    it("refuses when there is no payout account yet (409), without calling Paystack", async () => {
+      const { sellerId } = await freshSeller();
+      const updateSpy = vi.spyOn(paystack, "updateSubaccount");
+
+      const error = await errorFrom(
+        service.changeAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(ConflictException);
+      expect(bodyOf(error).code).toBe("PAYOUT_ACCOUNT_MISSING");
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    it("keeps the old details when Paystack refuses the change", async () => {
+      const { sellerId } = await freshSeller();
+      await service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+      const before = await sellerRow(sellerId);
+      vi.spyOn(paystack, "updateSubaccount").mockRejectedValue(
+        new PaystackError("Something went wrong", 500),
+      );
+
+      const error = await errorFrom(
+        service.changeAccount(sellerId, { bankCode: "044", accountNumber: "9876543210" }),
+      );
+
+      expect(error).toBeInstanceOf(ServiceUnavailableException);
+      expect(await sellerRow(sellerId)).toEqual(before);
+    });
+
+    it("rejects an account Paystack can't resolve as an accountNumber error", async () => {
+      const { sellerId } = await freshSeller();
+      await service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+      const updateSpy = vi.spyOn(paystack, "updateSubaccount");
+
+      const error = await errorFrom(
+        service.changeAccount(sellerId, { bankCode: GTBANK, accountNumber: BAD_ACCOUNT }),
+      );
+
+      expect(error).toBeInstanceOf(BadRequestException);
+      expect(bodyOf(error).field).toBe("accountNumber");
+      expect(updateSpy).not.toHaveBeenCalled();
+    });
+
+    it("allows 5 changes per day per seller", async () => {
+      const { sellerId } = await freshSeller();
+      await service.createAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+      for (let i = 0; i < 5; i++) {
+        await service.changeAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT });
+      }
+      const error = await errorFrom(
+        service.changeAccount(sellerId, { bankCode: GTBANK, accountNumber: GOOD_ACCOUNT }),
+      );
+      expect(error).toBeInstanceOf(TooManyRequestsError);
+    });
   });
 });

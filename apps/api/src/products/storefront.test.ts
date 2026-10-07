@@ -157,6 +157,17 @@ describe("Storefront endpoints over HTTP (integration)", () => {
     expect(status).toBe(404);
   });
 
+  it("returns 404 for a closed shop and its products", async () => {
+    const seller = await newSeller();
+    const created = await createTestProduct(db, seller.id, {});
+    await db.update(sellers).set({ closedAt: new Date() }).where(eq(sellers.id, seller.id));
+
+    const { status } = await getList(seller.slug);
+    expect(status).toBe(404);
+    const res = await fetch(`${baseUrl}/storefront/${seller.slug}/products/${created.product.slug}`);
+    expect(res.status).toBe(404);
+  });
+
   it("marks soldOut only when every enabled variant has tracked stock 0", async () => {
     const seller = await newSeller();
     const out = await createTestProduct(db, seller.id, { name: "Out", stock: 0 });

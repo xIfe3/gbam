@@ -115,3 +115,33 @@ export async function createPayoutAccountAction(
   }
   redirect("/dashboard");
 }
+
+/**
+ * Settings → "Yes, pay me here" when CHANGING the bank account: the API checks the new
+ * account with Paystack and points the existing subaccount at it. Back to settings after.
+ */
+export async function changePayoutAccountAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const values = readValues(formData);
+  const input = payoutAccountSchema.safeParse(values);
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error), values };
+  }
+
+  try {
+    await api.changePayoutAccount(input.data);
+  } catch (error) {
+    unstable_rethrow(error);
+    if (isConflict(error, "PAYOUT_SETUP_IN_PROGRESS")) {
+      return { error: "We're already saving a change. Refresh in a minute.", values };
+    }
+    // No account yet (e.g. opened settings in an old tab): the sign-up step adds one.
+    if (isConflict(error, "PAYOUT_ACCOUNT_MISSING")) {
+      redirect("/signup/get-paid");
+    }
+    return payoutFailure(error, values, "change payout account");
+  }
+  redirect("/dashboard/settings?saved=bank");
+}

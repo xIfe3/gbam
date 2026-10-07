@@ -27,9 +27,17 @@ export type EmailJob =
       reasonLabel: string;
       note: string | null;
       orderUrl: string;
+    }
+  | {
+      kind: "account_closed";
+      sellerId: string;
+      shopName: string;
+      slug: string;
+      ownerEmail: string;
     };
 
 const CONTACT_INBOX = "hello@gbam.app";
+const PRIVACY_INBOX = "privacy@gbam.app";
 
 /** Makes user-typed text safe to put inside HTML, so "<b>" shows as text, not markup. */
 export function escapeHtml(value: string): string {
@@ -55,6 +63,9 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   }
   if (job.kind === "issue_reported") {
     return issueEmail(job);
+  }
+  if (job.kind === "account_closed") {
+    return accountClosedEmail(job);
   }
 
   // contact_message
@@ -139,5 +150,32 @@ function issueEmail(job: Extract<EmailJob, { kind: "issue_reported" }>): SendEma
     subject: `${job.shopName}: problem reported on ${job.code}`,
     text: lines.join("\n"),
     html: htmlLines.join("\n"),
+  };
+}
+
+/** To our privacy inbox: a seller deleted their account, so their data must be dealt with. */
+function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>): SendEmailInput {
+  const lines = [
+    `A seller deleted their account. The shop is already hidden and they are signed out.`,
+    ``,
+    `Shop: ${job.shopName} (/${job.slug})`,
+    `Seller id: ${job.sellerId}`,
+    `Owner email: ${job.ownerEmail}`,
+    ``,
+    `Delete or anonymise their data as the privacy policy says (keep what the law requires).`,
+  ];
+  const html = [
+    `<p>A seller deleted their account. The shop is already hidden and they are signed out.</p>`,
+    `<p><strong>Shop:</strong> ${escapeHtml(job.shopName)} (/${escapeHtml(job.slug)})<br>`,
+    `<strong>Seller id:</strong> ${escapeHtml(job.sellerId)}<br>`,
+    `<strong>Owner email:</strong> ${escapeHtml(job.ownerEmail)}</p>`,
+    `<p>Delete or anonymise their data as the privacy policy says (keep what the law requires).</p>`,
+  ].join("\n");
+  return {
+    to: PRIVACY_INBOX,
+    subject: `Account deletion request: ${job.shopName}`,
+    text: lines.join("\n"),
+    html,
+    replyTo: job.ownerEmail,
   };
 }

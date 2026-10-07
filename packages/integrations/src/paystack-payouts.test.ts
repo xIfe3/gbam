@@ -148,6 +148,47 @@ describe("HttpPaystackClient.resolveAccount", () => {
   });
 });
 
+describe("HttpPaystackClient.updateSubaccount", () => {
+  it("PUTs /subaccount/<code> with the new bank code and account number", async () => {
+    const calls = stubFetch([
+      {
+        status: 200,
+        body: {
+          status: true,
+          message: "Subaccount updated",
+          data: { subaccount_code: "ACCT_6uujpqtzmnufzkw", id: 55 },
+        },
+      },
+    ]);
+    const client = new HttpPaystackClient("sk_test_x", "https://paystack.test");
+
+    await client.updateSubaccount("ACCT_6uujpqtzmnufzkw", {
+      businessName: "Mama's Kitchen",
+      bankCode: "044",
+      accountNumber: ACCOUNT,
+    });
+
+    expect(calls[0]?.url).toBe("https://paystack.test/subaccount/ACCT_6uujpqtzmnufzkw");
+    expect(calls[0]?.init?.method).toBe("PUT");
+    expect(JSON.parse(String(calls[0]?.init?.body))).toEqual({
+      business_name: "Mama's Kitchen",
+      settlement_bank: "044",
+      account_number: ACCOUNT,
+    });
+  });
+
+  it("fails with the status and never puts the account number in the error", async () => {
+    stubFetch([{ status: 400, body: { status: false, message: `Account ${ACCOUNT} is invalid` } }]);
+    const client = new HttpPaystackClient("sk_test_x", "https://paystack.test");
+    const error = await errorFrom(
+      client.updateSubaccount("ACCT_x", { businessName: "S", bankCode: "044", accountNumber: ACCOUNT }),
+    );
+    expect(error).toBeInstanceOf(PaystackError);
+    expect((error as PaystackError).status).toBe(400);
+    expect((error as PaystackError).message).not.toContain(ACCOUNT);
+  });
+});
+
 describe("HttpPaystackClient.createSubaccount", () => {
   it("POSTs /subaccount with the bank code and a 0% charge, and returns subaccount_code", async () => {
     const calls = stubFetch([
@@ -232,6 +273,16 @@ describe("FakePaystackClient payouts", () => {
     });
     expect(a.subaccountCode).toMatch(/^ACCT_fake_[a-z0-9]+$/);
     expect(a.subaccountCode).not.toBe(b.subaccountCode);
+    expect(logs.join("\n")).not.toContain(ACCOUNT);
+  });
+
+  it("updates a subaccount without logging the full number", async () => {
+    await fake.updateSubaccount("ACCT_fake_abc", {
+      businessName: "Shop",
+      bankCode: "044",
+      accountNumber: ACCOUNT,
+    });
+    expect(logs.join("\n")).toContain("ACCT_fake_abc");
     expect(logs.join("\n")).not.toContain(ACCOUNT);
   });
 });

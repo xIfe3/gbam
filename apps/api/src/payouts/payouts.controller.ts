@@ -1,5 +1,5 @@
 import { payoutAccountSchema, type PayoutAccountInput } from "@gbam/shared";
-import { Body, Controller, Get, HttpCode, Inject, Post, Req, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, HttpCode, Inject, Post, Put, Req, UseGuards } from "@nestjs/common";
 import type { Request } from "express";
 import { CurrentSellerId } from "../auth/current-user.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -39,5 +39,14 @@ export class PayoutsController {
     @Body(new ZodPipe(payoutAccountSchema)) body: PayoutAccountInput,
   ) {
     return this.payouts.createAccount(sellerId, body);
+  }
+
+  // Settings → change bank account: the same subaccount, pointed at a new account.
+  @Put("account")
+  changeAccount(
+    @CurrentSellerId() sellerId: string,
+    @Body(new ZodPipe(payoutAccountSchema)) body: PayoutAccountInput,
+  ) {
+    return this.payouts.changeAccount(sellerId, body);
   }
 }

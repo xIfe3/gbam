@@ -175,6 +175,22 @@ describe("OrdersService (integration)", () => {
     ).rejects.toBeInstanceOf(NotFoundException);
   });
 
+  it("refuses orders for a closed shop", async () => {
+    const closed = await createTestSeller(db, "closed");
+    try {
+      const created = await createTestProduct(db, closed.id, { name: "Zobo" });
+      await db.update(sellers).set({ closedAt: new Date() }).where(eq(sellers.id, closed.id));
+      await expect(
+        service.createFromStorefront(closed.slug, {
+          customer: { name: "Ada", phone: "2348011112222" },
+          items: [{ variantId: created.variant.id, quantity: 1 }],
+        }),
+      ).rejects.toBeInstanceOf(NotFoundException);
+    } finally {
+      await db.delete(sellers).where(eq(sellers.id, closed.id));
+    }
+  });
+
   it("rejects variants that do not exist", async () => {
     await expect(
       service.createFromStorefront(slug, {

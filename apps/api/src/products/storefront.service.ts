@@ -203,7 +203,8 @@ export class StorefrontService {
     const [seller] = await this.db
       .select({ id: sellers.id, businessName: sellers.businessName })
       .from(sellers)
-      .where(eq(sellers.slug, slug));
+      // A closed shop (owner deleted the account) looks the same as one that never existed.
+      .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));
     if (!seller) {
       throw new NotFoundException("Store not found");
     }

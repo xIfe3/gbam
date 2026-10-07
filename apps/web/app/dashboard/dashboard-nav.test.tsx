@@ -20,4 +20,11 @@ describe("dashboard nav", () => {
     expect(screen.getByRole("link", { name: "Products" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Orders" })).not.toHaveAttribute("aria-current");
   });
+
+  it("marks Settings current on the settings page", () => {
+    pathState.current = "/dashboard/settings";
+    render(<DashboardNav />);
+    expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Orders" })).not.toHaveAttribute("aria-current");
+  });
 });

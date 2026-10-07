@@ -575,6 +575,52 @@ async function createPayoutAccount(body: PayoutAccountBody) {
   });
 }
 
+/** Settings → change bank account: the same Paystack subaccount, pointed at a new account. */
+async function changePayoutAccount(body: PayoutAccountBody) {
+  return request<PayoutAccount>("/payouts/account", {
+    method: "PUT",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+// ---- Settings ----
+
+export type ShopSettings = {
+  slug: string;
+  businessName: string;
+  phone: string;
+  payoutAccount: PayoutAccount | null;
+};
+
+async function getSettings() {
+  return request<ShopSettings>("/settings", { auth: "session" });
+}
+
+async function updateShopSettings(body: { businessName: string; phone: string }) {
+  return request<ShopSettings>("/settings/shop", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function changePassword(body: { currentPassword: string; newPassword: string }) {
+  return request<{ ok: true }>("/auth/change-password", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function closeAccount(body: { businessName: string; password: string }) {
+  return request<{ ok: true }>("/auth/close-account", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
 /** How far the seller got in one guided tour. outcome is null while it's unfinished. */
 export type TourState = { step: number; outcome: "completed" | "skipped" | null };
 export type TourStates = Partial<Record<"dashboard" | "editor" | "order", TourState>>;
@@ -663,6 +709,11 @@ export const api = {
   listBanks,
   resolvePayoutAccount,
   createPayoutAccount,
+  changePayoutAccount,
+  getSettings,
+  updateShopSettings,
+  changePassword,
+  closeAccount,
   signup,
   slugAvailable,
   verifyEmail,

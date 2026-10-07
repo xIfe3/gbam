@@ -17,6 +17,8 @@ export interface PaystackClient {
   resolveAccount(input: ResolveAccountInput): Promise<{ accountName: string }>;
   /** A Paystack "subaccount" = a seller's bank account that split payments are paid into. */
   createSubaccount(input: CreateSubaccountInput): Promise<{ subaccountCode: string }>;
+  /** Points an existing subaccount at a different bank account (past payments are unaffected). */
+  updateSubaccount(subaccountCode: string, input: CreateSubaccountInput): Promise<void>;
 }
 
 /** `code` is how Paystack names the bank everywhere else (e.g. "058" for GTBank). */
@@ -224,6 +226,19 @@ export class HttpPaystackClient implements PaystackClient {
     return { subaccountCode: body.subaccount_code };
   }
 
+  async updateSubaccount(subaccountCode: string, input: CreateSubaccountInput) {
+    const params = {
+      business_name: input.businessName,
+      settlement_bank: input.bankCode,
+      account_number: input.accountNumber,
+    };
+    // encodeURIComponent: the code goes into the URL path, so it must not add "/" or "?".
+    await this.request(`/subaccount/${encodeURIComponent(subaccountCode)}`, subaccountData, {
+      method: "PUT",
+      body: JSON.stringify(params),
+    });
+  }
+
   /**
    * Calls a Paystack endpoint and returns the `data` part of its reply.
    * Paystack always answers as { status: true/false, message: "...", data: {...} }.
@@ -386,6 +401,13 @@ export class FakePaystackClient implements PaystackClient {
         `(bank ${input.bankCode}, account ending ${input.accountNumber.slice(-4)})`,
     );
     return { subaccountCode };
+  }
+
+  async updateSubaccount(subaccountCode: string, input: CreateSubaccountInput) {
+    this.log(
+      `[fake paystack] subaccount ${subaccountCode} now pays into bank ${input.bankCode}, ` +
+        `account ending ${input.accountNumber.slice(-4)}`,
+    );
   }
 }
 

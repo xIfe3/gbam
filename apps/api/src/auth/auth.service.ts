@@ -3,12 +3,13 @@ import { RESERVED_SLUGS, slugSchema, type SignupInput } from "@gbam/shared";
 import {
   BadRequestException,
   ConflictException,
+  ForbiddenException,
   Injectable,
   Logger,
   UnauthorizedException,
   type OnModuleInit,
 } from "@nestjs/common";
-import { and, desc, eq, gt, isNull, lt, lte, or, sql } from "drizzle-orm";
+import { and, desc, eq, gt, isNull, lt, lte, ne, or, sql } from "drizzle-orm";
 import { randomBytes, timingSafeEqual } from "node:crypto";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
@@ -37,6 +38,7 @@ const FORGOT_PER_EMAIL_DAY = 10;
 const RESET_PER_IP = 20;
 const RESET_IP_WINDOW_SECONDS = 10 * 60;
 const SLIDE_EVERY_MS = 24 * 60 * 60 * 1000;
+const SETTINGS_PASSWORD_TRIES_PER_HOUR = 10;
 
 export type PublicUser = {
   id: string;
@@ -332,6 +334,15 @@ export class AuthService implements OnModuleInit {
       throw new TooManyRequestsError(LOCK_MINUTES * 60);
     }
 
+    // A shop whose owner deleted the account stays closed. Checked only after the right
+    // password, so this answer tells a stranger nothing.
+    if (row.seller && row.seller.closedAt !== null) {
+      throw new ForbiddenException({
+        code: "ACCOUNT_CLOSED",
+        message: "This account was deleted. To reopen it, email support@gbam.app.",
+      });
+    }
+
     const sessionToken = await this.createSession(this.db, user.id, meta);
     return { sessionToken, user: toPublicUser(fresh, row.seller) };
   }
@@ -357,6 +368,10 @@ export class AuthService implements OnModuleInit {
       .limit(1);
     const row = rows[0];
     if (!row) {
+      return null;
+    }
+    // Closing an account deletes its sessions; this is a second guard in case one survives.
+    if (row.seller && row.seller.closedAt !== null) {
       return null;
     }
 
@@ -484,6 +499,108 @@ export class AuthService implements OnModuleInit {
 
     const [seller] = await this.db.select().from(sellers).where(eq(sellers.ownerUserId, user.id));
     return { sessionToken: result.sessionToken, user: toPublicUser(result.updated, seller) };
+  }
+
+  // ---- Settings ----
+
+  /**
+   * Settings → change password. The current password proves it's really the owner (not
+   * someone who found an open laptop). Every OTHER device is signed out, in case the old
+   * password leaked; the device making the change stays signed in.
+   */
+  async changePassword(
+    userId: string,
+    currentSessionToken: string,
+    currentPassword: string,
+    newPassword: string,
+  ): Promise<void> {
+    await this.limit(`change-password:${userId}`, SETTINGS_PASSWORD_TRIES_PER_HOUR, 3600);
+    await this.checkOwnPassword(userId, currentPassword, "currentPassword");
+
+    // Slow on purpose, so it runs outside the transaction (see signup).
+    const passwordHash = await hashPassword(newPassword);
+    const now = new Date();
+    // A transaction: the new password and the sign-outs happen together, or not at all.
+    await this.db.transaction(async (tx) => {
+      await tx.update(users).set({ passwordHash }).where(eq(users.id, userId));
+      await tx
+        .delete(sessions)
+        .where(
+          and(eq(sessions.userId, userId), ne(sessions.tokenHash, hashToken(currentSessionToken))),
+        );
+      // Reset codes asked for before the change shouldn't be able to undo it.
+      await tx
+        .update(emailCodes)
+        .set({ consumedAt: now })
+        .where(
+          and(
+            eq(emailCodes.userId, userId),
+            eq(emailCodes.purpose, "reset_password"),
+            isNull(emailCodes.consumedAt),
+          ),
+        );
+    });
+  }
+
+  /**
+   * Settings → delete my account. Typing the shop's name makes it hard to do by accident;
+   * the password makes sure it's the owner. The shop is hidden at once and every device is
+   * signed out. The records are kept for now (orders are business records) and our privacy
+   * inbox is emailed to finish the deletion as the privacy policy says.
+   */
+  async closeAccount(userId: string, typedShopName: string, password: string): Promise<void> {
+    await this.limit(`close-account:${userId}`, SETTINGS_PASSWORD_TRIES_PER_HOUR, 3600);
+
+    const [row] = await this.db
+      .select({ user: users, seller: sellers })
+      .from(users)
+      .innerJoin(sellers, eq(sellers.ownerUserId, users.id))
+      .where(eq(users.id, userId));
+    if (!row) {
+      throw new UnauthorizedException();
+    }
+    const seller = row.seller;
+
+    const typed = typedShopName.trim().toLowerCase();
+    const expected = seller.businessName.trim().toLowerCase();
+    if (typed !== expected) {
+      throw new BadRequestException({
+        field: "businessName",
+        message: `Type your shop name exactly: ${seller.businessName}`,
+      });
+    }
+    await this.checkOwnPassword(userId, password, "password");
+
+    const now = new Date();
+    await this.db.transaction(async (tx) => {
+      await tx.update(sellers).set({ closedAt: now }).where(eq(sellers.id, seller.id));
+      await tx.delete(sessions).where(eq(sessions.userId, userId));
+    });
+
+    // After the commit. If the queue is down the shop is still closed; the log is the backup.
+    try {
+      await this.emails.send(`account-closed-${seller.id}`, {
+        kind: "account_closed",
+        sellerId: seller.id,
+        shopName: seller.businessName,
+        slug: seller.slug,
+        ownerEmail: row.user.email,
+      });
+    } catch (error) {
+      this.logger.error(`Could not queue the deletion request for seller ${seller.id}`, error);
+    }
+  }
+
+  /** A field error (not a 401: they ARE signed in) when the password is wrong. */
+  private async checkOwnPassword(userId: string, password: string, field: string): Promise<void> {
+    const [user] = await this.db.select().from(users).where(eq(users.id, userId));
+    if (!user) {
+      throw new UnauthorizedException();
+    }
+    const passwordOk = await verifyPassword(user.passwordHash, password);
+    if (!passwordOk) {
+      throw new BadRequestException({ field, message: "That password isn't right" });
+    }
   }
 
   // ---- Helpers ----

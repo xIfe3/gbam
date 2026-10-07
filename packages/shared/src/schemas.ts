@@ -180,6 +180,29 @@ export const forgotPasswordSchema = z.object({
 });
 export type ForgotPasswordInput = z.output<typeof forgotPasswordSchema>;
 
+// ---- Seller settings ----
+
+/** Shop details a seller can change. The shop link (slug) never changes: links are shared. */
+export const shopSettingsSchema = z.object({
+  businessName: z.string().trim().min(1, "Enter your shop name").max(120),
+  phone: nigerianPhoneSchema,
+});
+export type ShopSettingsInput = z.output<typeof shopSettingsSchema>;
+
+/** The current password proves it's really the owner; the new one meets the signup policy. */
+export const changePasswordSchema = z.object({
+  currentPassword: z.string().min(1, "Enter your current password").max(200),
+  newPassword: passwordSchema,
+});
+export type ChangePasswordInput = z.output<typeof changePasswordSchema>;
+
+/** Deleting an account: type the shop's name (so it's never an accident) and the password. */
+export const closeAccountSchema = z.object({
+  businessName: z.string().trim().min(1, "Type your shop name").max(120),
+  password: z.string().min(1, "Enter your password").max(200),
+});
+export type CloseAccountInput = z.output<typeof closeAccountSchema>;
+
 /** The new password must meet the signup policy. */
 /**
  * `requestId` is what forgot-password returned to this browser. The reset code only works

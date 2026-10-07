@@ -127,9 +127,35 @@ export class PayoutsService {
     // and that must not eat into the lock's time (see CREATE_LOCK_SECONDS).
     const bankName = await this.bankNameFor(input.bankCode);
 
-    // A lock in Redis, so a double click can't create two subaccounts at Paystack.
-    // SET ... NX only sets the key if it doesn't exist yet; EX makes it expire on its own
-    // if this process dies before releasing it.
+    return this.whileLocked(sellerId, () =>
+      this.createAccountWhileLocked(sellerId, input, bankName),
+    );
+  }
+
+  /**
+   * Settings → "Change bank account". Points the seller's EXISTING Paystack subaccount at a
+   * new bank account (never a second subaccount), so past payments are untouched and new
+   * ones go to the new account. Paystack confirms the account's name first, as at sign-up.
+   */
+  async changeAccount(sellerId: string, input: PayoutAccountInput): Promise<SavedPayoutAccount> {
+    await this.enforceLimit(
+      `payouts:change:seller:${sellerId}`,
+      CREATE_LIMIT,
+      CREATE_WINDOW_SECONDS,
+    );
+    const bankName = await this.bankNameFor(input.bankCode);
+    return this.whileLocked(sellerId, () =>
+      this.changeAccountWhileLocked(sellerId, input, bankName),
+    );
+  }
+
+  /**
+   * Runs `work` while holding a lock in Redis, so a double click can't set up (or change)
+   * a payout account twice at the same time at Paystack.
+   * SET ... NX only sets the key if it doesn't exist yet; EX makes it expire on its own
+   * if this process dies before releasing it.
+   */
+  private async whileLocked<T>(sellerId: string, work: () => Promise<T>): Promise<T> {
     const lockKey = `payouts:create-lock:${sellerId}`;
     const lockToken = randomBytes(16).toString("hex");
     const locked = await this.redis.set(lockKey, lockToken, "EX", CREATE_LOCK_SECONDS, "NX");
@@ -142,7 +168,7 @@ export class PayoutsService {
     }
 
     try {
-      return await this.createAccountWhileLocked(sellerId, input, bankName);
+      return await work();
     } finally {
       // Release the lock, but only if it is still ours (it may have expired and been
       // taken by another request in the meantime).
@@ -151,6 +177,86 @@ export class PayoutsService {
         await this.redis.del(lockKey);
       }
     }
+  }
+
+  /** The locked part of a change: one Paystack check, one Paystack update, one save. */
+  private async changeAccountWhileLocked(
+    sellerId: string,
+    input: PayoutAccountInput,
+    bankName: string,
+  ): Promise<SavedPayoutAccount> {
+    const sellerRows = await this.db
+      .select({
+        businessName: sellers.businessName,
+        subaccountCode: sellers.paystackSubaccountCode,
+      })
+      .from(sellers)
+      .where(eq(sellers.id, sellerId));
+    const seller = sellerRows[0];
+    if (!seller) {
+      throw new NotFoundException("Shop not found");
+    }
+    if (seller.subaccountCode === null) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: "PAYOUT_ACCOUNT_MISSING",
+        message: "Your shop has no payout account yet. Add one first.",
+      });
+    }
+
+    const accountName = await this.resolveWithPaystack(sellerId, input, bankName);
+
+    try {
+      await this.paystack.updateSubaccount(seller.subaccountCode, {
+        businessName: seller.businessName,
+        bankCode: input.bankCode,
+        accountNumber: input.accountNumber,
+      });
+    } catch (error) {
+      this.logPaystackFailure(`updateSubaccount for seller ${sellerId}`, error);
+      if (
+        error instanceof PaystackError &&
+        error.status !== undefined &&
+        DETAILS_REJECTED_STATUSES.has(error.status)
+      ) {
+        throw new BadRequestException({
+          statusCode: 400,
+          message:
+            "Paystack couldn't switch payouts to this account. Check the details or use another account.",
+        });
+      }
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        message:
+          "We couldn't reach Paystack to change your bank account. Nothing was changed. Please try again.",
+      });
+    }
+
+    const saved: SavedPayoutAccount = {
+      bankName,
+      accountLast4: input.accountNumber.slice(-4),
+      bankAccountName: accountName,
+    };
+    try {
+      await this.db.update(sellers).set(saved).where(eq(sellers.id, sellerId));
+    } catch (error) {
+      // Paystack already pays into the new account; only our copy of the details is stale.
+      // Class name only in the log, for the same reason as in createAccountWhileLocked.
+      let errorKind = "unknown error";
+      if (error instanceof Error) {
+        errorKind = error.name;
+      }
+      this.logger.error(
+        `Subaccount ${seller.subaccountCode} changed at Paystack for seller ${sellerId} but saving the new details failed (${errorKind})`,
+      );
+      throw new ServiceUnavailableException({
+        statusCode: 503,
+        message: "We couldn't save your new bank details. Please try again.",
+      });
+    }
+
+    this.logger.log(`Payout account changed for seller ${sellerId} (${seller.subaccountCode})`);
+    return saved;
   }
 
   /** The locked part: two database queries and two Paystack calls, nothing else. */
@@ -170,8 +276,8 @@ export class PayoutsService {
     if (!seller) {
       throw new NotFoundException("Shop not found");
     }
-    // Changing bank details later is a separate feature (it must update the existing
-    // subaccount, not create a second one), so for now a second account is refused.
+    // Changing bank details is changeAccount (it updates the existing subaccount instead
+    // of creating a second one), so a second account is refused here.
     if (seller.subaccountCode !== null) {
       throw accountExists();
     }
@@ -353,6 +459,6 @@ function accountExists() {
   return new ConflictException({
     statusCode: 409,
     code: "PAYOUT_ACCOUNT_EXISTS",
-    message: "Your shop already has a payout account. To change it, email support@gbam.app.",
+    message: "Your shop already has a payout account. To change it, go to Settings.",
   });
 }

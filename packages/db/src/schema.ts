@@ -168,6 +168,11 @@ export const sellers = pgTable("sellers", {
   bankName: text("bank_name"),
   accountLast4: text("account_last4"),
   bankAccountName: text("bank_account_name"),
+  /**
+   * Set when the owner deletes their account: the shop is hidden at once and its owner
+   * can't sign in. The rows are kept (orders are business records) until deletion is done.
+   */
+  closedAt: timestamp("closed_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

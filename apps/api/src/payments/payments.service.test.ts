@@ -61,6 +61,10 @@ class StubPaystack implements PaystackClient {
   async createSubaccount(): Promise<{ subaccountCode: string }> {
     throw new Error("not used in payments tests");
   }
+
+  async updateSubaccount(): Promise<void> {
+    throw new Error("not used in payments tests");
+  }
 }
 
 describe("PaymentsService (integration)", () => {

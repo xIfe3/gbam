@@ -4,7 +4,12 @@ import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/brand/button";
 import { TextField } from "@/components/brand/fields";
 import { FormError, SubmitButton } from "@/components/brand/form-bits";
-import { createPayoutAccountAction, resolveAccountAction, type ResolveState } from "./actions";
+import {
+  changePayoutAccountAction,
+  createPayoutAccountAction,
+  resolveAccountAction,
+  type ResolveState,
+} from "./actions";
 
 type Bank = { name: string; code: string };
 
@@ -21,13 +26,22 @@ const selectClasses =
  *   1. choose the bank and type the account number → "Check account"
  *   2. see the name the bank has for it → "Yes, pay me here" (creates the payout account)
  *      or "Change details" (back to part 1, with what was typed still there).
+ *
+ * `mode="change"` is the same form in Settings: it switches an existing payout account to
+ * the new bank account instead of creating one, and has no "Skip for now".
  */
-export function BankForm({ banks }: { banks: Bank[] }) {
+export function BankForm({ banks, mode = "create" }: { banks: Bank[]; mode?: "create" | "change" }) {
   const [resolveState, resolveAction] = useActionState<ResolveState, FormData>(
     resolveAccountAction,
     {},
   );
-  const [createState, createAction] = useActionState(createPayoutAccountAction, {});
+  // Which server action saves the account. Chosen before the hook: hooks can't be called
+  // conditionally, but the function given to one can be.
+  let saveAccountAction = createPayoutAccountAction;
+  if (mode === "change") {
+    saveAccountAction = changePayoutAccountAction;
+  }
+  const [createState, createAction] = useActionState(saveAccountAction, {});
 
   // The select's value is the bank's position in the list, not its code: a few Paystack
   // codes are shared by two bank names, and each name must stay selectable.
@@ -165,14 +179,16 @@ export function BankForm({ banks }: { banks: Bank[] }) {
         <SubmitButton pendingLabel="Checking…">Check account</SubmitButton>
       </form>
 
-      <div className="border-brand-tint border-t pt-4">
-        <p className="text-ink-muted mb-2 text-sm">
-          You can add it later. Until then, you can&apos;t send payment links.
-        </p>
-        <Button variant="ghost" href="/dashboard">
-          Skip for now
-        </Button>
-      </div>
+      {mode === "create" && (
+        <div className="border-brand-tint border-t pt-4">
+          <p className="text-ink-muted mb-2 text-sm">
+            You can add it later. Until then, you can&apos;t send payment links.
+          </p>
+          <Button variant="ghost" href="/dashboard">
+            Skip for now
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

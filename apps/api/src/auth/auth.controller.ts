@@ -1,9 +1,13 @@
 import {
+  changePasswordSchema,
+  closeAccountSchema,
   codeSchema,
   forgotPasswordSchema,
   loginSchema,
   resetPasswordSchema,
   signupSchema,
+  type ChangePasswordInput,
+  type CloseAccountInput,
   type ForgotPasswordInput,
   type LoginInput,
   type ResetPasswordInput,
@@ -152,5 +156,35 @@ export class AuthController {
       body.password,
       this.meta(req),
     );
+  }
+
+  // ---- Settings (signed-in, verified sellers) ----
+
+  @Post("change-password")
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  async changePassword(
+    @Req() req: Request,
+    @CurrentUser() user: PublicUser,
+    @Body(new ZodPipe(changePasswordSchema)) body: ChangePasswordInput,
+  ) {
+    // The guard has already checked this header, so the token is there.
+    const token = bearerToken(req.headers.authorization);
+    if (token === null) {
+      throw new Error("SessionGuard let a request through without a session token");
+    }
+    await this.auth.changePassword(user.id, token, body.currentPassword, body.newPassword);
+    return { ok: true };
+  }
+
+  @Post("close-account")
+  @HttpCode(200)
+  @UseGuards(SessionGuard)
+  async closeAccount(
+    @CurrentUser() user: PublicUser,
+    @Body(new ZodPipe(closeAccountSchema)) body: CloseAccountInput,
+  ) {
+    await this.auth.closeAccount(user.id, body.businessName, body.password);
+    return { ok: true };
   }
 }

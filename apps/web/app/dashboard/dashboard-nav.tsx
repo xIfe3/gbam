@@ -7,16 +7,23 @@ import { usePathname } from "next/navigation";
 // usePathname() tells us, so we can mark the current tab.
 export function DashboardNav() {
   const pathname = usePathname();
-  // Products covers /dashboard/products and everything under it. Everything else in the
-  // dashboard (the order list and order pages) counts as Orders.
+  // Products covers /dashboard/products and everything under it, Settings likewise.
+  // Everything else in the dashboard (the order list and order pages) counts as Orders.
   const onProducts =
     pathname === "/dashboard/products" || pathname.startsWith("/dashboard/products/");
+  const onSettings =
+    pathname === "/dashboard/settings" || pathname.startsWith("/dashboard/settings/");
 
   let ordersCurrent: "page" | undefined = "page";
   let productsCurrent: "page" | undefined = undefined;
+  let settingsCurrent: "page" | undefined = undefined;
   if (onProducts) {
     ordersCurrent = undefined;
     productsCurrent = "page";
+  }
+  if (onSettings) {
+    ordersCurrent = undefined;
+    settingsCurrent = "page";
   }
 
   const tabClass =
@@ -34,6 +41,9 @@ export function DashboardNav() {
         data-tour="products-tab"
       >
         Products
+      </Link>
+      <Link href="/dashboard/settings" aria-current={settingsCurrent} className={tabClass}>
+        Settings
       </Link>
     </nav>
   );

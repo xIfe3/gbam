@@ -11,6 +11,7 @@ import { PaymentsModule } from "./payments/payments.module.js";
 import { PayoutsModule } from "./payouts/payouts.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { ProductsModule } from "./products/products.module.js";
+import { SettingsModule } from "./settings/settings.module.js";
 import { ToursModule } from "./tours/tours.module.js";
 import { TrackingModule } from "./tracking/tracking.module.js";
 
@@ -27,6 +28,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     PaymentsModule,
     PayoutsModule,
     ProductsModule,
+    SettingsModule,
     ToursModule,
     TrackingModule,
     WhatsAppModule,

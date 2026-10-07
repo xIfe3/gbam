@@ -339,7 +339,8 @@ export class OrdersService {
     const sellerRows = await tx
       .select({ id: sellers.id })
       .from(sellers)
-      .where(eq(sellers.slug, slug));
+      // No new orders for a closed shop (its owner deleted the account).
+      .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));
     const seller = sellerRows[0];
     if (!seller) {
       throw new NotFoundException("Store not found");
