@@ -1,10 +1,4 @@
-import {
-  productImages,
-  productOptions,
-  productVariants,
-  products,
-  sellers,
-} from "@gbam/db";
+import { productImages, productOptions, productVariants, products, sellers } from "@gbam/db";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -113,7 +107,14 @@ export class StorefrontService {
       if (mainPhoto) {
         photoUrl = mainPhoto;
       }
-      cards.push({ slug: product.slug, name: product.name, photoUrl, minPriceKobo, maxPriceKobo, soldOut });
+      cards.push({
+        slug: product.slug,
+        name: product.name,
+        photoUrl,
+        minPriceKobo,
+        maxPriceKobo,
+        soldOut,
+      });
     }
 
     return { store: { slug, businessName: seller.businessName }, products: cards };

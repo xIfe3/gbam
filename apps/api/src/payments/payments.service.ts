@@ -16,6 +16,17 @@ function placeholderEmail(phone: string): string {
   return `${phone}@customers.gbam.app`;
 }
 
+/** Asked for a payment link, but the order has already moved past "awaiting payment". */
+export class OrderNotAwaitingPaymentError extends Error {
+  constructor(
+    readonly orderId: string,
+    readonly status: string,
+  ) {
+    super(`Order ${orderId} is ${status}, not awaiting payment`);
+    this.name = "OrderNotAwaitingPaymentError";
+  }
+}
+
 @Injectable()
 export class PaymentsService {
   private readonly logger = new Logger(PaymentsService.name);
@@ -39,12 +50,18 @@ export class PaymentsService {
     const link = await this.db.transaction(async (tx) => {
       // 1. Lock the order (see "row lock" in OrdersService.transition).
       const lockedRows = await tx
-        .select({ id: orders.id })
+        .select({ id: orders.id, status: orders.status })
         .from(orders)
         .where(eq(orders.id, orderId))
         .for("update");
-      if (lockedRows.length === 0) {
+      const locked = lockedRows[0];
+      if (!locked) {
         throw new Error(`Order ${orderId} not found`);
+      }
+      // Checked HERE, under the lock: if the customer paid a moment ago (webhook) the order is
+      // no longer awaiting payment, and a new link would let them be charged twice.
+      if (locked.status !== "awaiting_payment") {
+        throw new OrderNotAwaitingPaymentError(orderId, locked.status);
       }
 
       // 2. Already have an unpaid link for this order? Reuse it.

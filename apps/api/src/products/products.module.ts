@@ -11,11 +11,7 @@ import { StorefrontController } from "./storefront.controller.js";
 import { StorefrontService } from "./storefront.service.js";
 
 @Module({
-  imports: [
-    AuthModule,
-    RateLimiterModule,
-    BullModule.registerQueue({ name: PHOTO_CLEANUP_QUEUE }),
-  ],
+  imports: [AuthModule, RateLimiterModule, BullModule.registerQueue({ name: PHOTO_CLEANUP_QUEUE })],
   controllers: [ProductsController, StorefrontController, PhotosController],
   providers: [ProductsService, StorefrontService, PhotosService, PhotoCleanupQueue],
   exports: [PhotosService],

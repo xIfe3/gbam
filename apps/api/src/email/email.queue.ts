@@ -22,8 +22,12 @@ export class EmailQueue {
       removeOnComplete: 1_000 as number | boolean,
       removeOnFail: 5_000 as number | { age: number },
     };
-    // Codes sit in plaintext in the job data, so don't keep those jobs around.
-    if (job.kind === "verify_email" || job.kind === "reset_password") {
+    // Codes and private tracking links sit in plaintext in the job data: don't keep them around.
+    if (
+      job.kind === "verify_email" ||
+      job.kind === "reset_password" ||
+      job.kind === "order_receipt"
+    ) {
       options.removeOnComplete = true;
       options.removeOnFail = { age: 3600 };
     }

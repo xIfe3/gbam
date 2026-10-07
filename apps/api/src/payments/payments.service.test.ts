@@ -18,7 +18,7 @@ import { createTestProduct, createTestSeller } from "../test-helpers.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { PaymentsModule } from "./payments.module.js";
-import { PaymentsService } from "./payments.service.js";
+import { OrderNotAwaitingPaymentError, PaymentsService } from "./payments.service.js";
 
 process.loadEnvFile?.("../../.env");
 
@@ -138,11 +138,18 @@ describe("PaymentsService (integration)", () => {
     expect(link.reference).toMatch(new RegExp(`^gbam_${order.code}_[0-9a-f]{8}$`));
   });
 
+  it("refuses a new link once the order is no longer awaiting payment (no double charge)", async () => {
+    const order = await orderMovedToAwaitingPayment();
+    // e.g. the customer already paid through the WhatsApp link a moment ago.
+    await db.update(orders).set({ status: "paid" }).where(eq(orders.id, order.id));
+    await expect(service.ensurePaymentLink(order.id)).rejects.toBeInstanceOf(
+      OrderNotAwaitingPaymentError,
+    );
+  });
+
   it("creates only one link when two calls race", async () => {
-    const order = await ordersService.createFromStorefront(slug, {
-      customer: { name: "Bisi", phone: "2348022223333" },
-      items: [{ variantId, quantity: 1 }],
-    });
+    // Links are only made for orders awaiting payment (the real flow).
+    const order = await orderMovedToAwaitingPayment();
     const before = paystack.initialized;
     const [a, b] = await Promise.all([
       service.ensurePaymentLink(order.id),

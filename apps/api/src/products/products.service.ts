@@ -1,4 +1,11 @@
-import { orderItems, productImages, productOptions, productVariants, products, sellers } from "@gbam/db";
+import {
+  orderItems,
+  productImages,
+  productOptions,
+  productVariants,
+  products,
+  sellers,
+} from "@gbam/db";
 import {
   variantTitle,
   type ProductInput,
@@ -320,11 +327,7 @@ export class ProductsService {
 
   // Only active/hidden: archiving happens through remove(), and archived products
   // can't be brought back, so they count as not found here.
-  async setStatus(
-    sellerId: string,
-    productId: string,
-    status: "active" | "hidden",
-  ): Promise<void> {
+  async setStatus(sellerId: string, productId: string, status: "active" | "hidden"): Promise<void> {
     const updated = await this.db
       .update(products)
       .set({ status, updatedAt: new Date() })
@@ -456,7 +459,10 @@ export class ProductsService {
     productId: string,
     imageIds: string[],
   ): Promise<string[]> {
-    const current = await tx.select().from(productImages).where(eq(productImages.productId, productId));
+    const current = await tx
+      .select()
+      .from(productImages)
+      .where(eq(productImages.productId, productId));
     const wanted = new Set(imageIds);
     const removedKeys: string[] = [];
     const removedIds: string[] = [];
@@ -473,7 +479,6 @@ export class ProductsService {
     await this.attachImages(tx, sellerId, productId, imageIds);
     return removedKeys;
   }
-
 
   private async syncVariants(tx: Tx, productId: string, input: VariantInput[]): Promise<void> {
     const existing = await tx

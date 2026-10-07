@@ -316,6 +316,8 @@ export const orders = pgTable(
   (t) => [
     uniqueIndex("orders_seller_code_uq").on(t.sellerId, t.code),
     uniqueIndex("orders_tracking_key_uq").on(t.trackingKey),
+    // /track looks orders up by code alone (codes repeat across shops, so not unique).
+    index("orders_code_idx").on(t.code),
     index("orders_seller_status_idx").on(t.sellerId, t.status),
   ],
 );

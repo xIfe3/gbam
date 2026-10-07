@@ -9,7 +9,11 @@ import { resolveIssueAction } from "../../actions";
 type Issue = OrderDetail["issues"][number];
 
 function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
+  return new Date(iso).toLocaleString("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Lagos",
+  });
 }
 
 /** Problems the customer reported from their tracking page, with "Mark resolved". */

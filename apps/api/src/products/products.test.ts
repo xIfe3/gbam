@@ -144,10 +144,7 @@ describe("Seller product endpoints over HTTP (integration)", () => {
       },
       { ip: "203.0.113.12", userAgent: "vitest" },
     );
-    await db
-      .update(users)
-      .set({ emailVerifiedAt: new Date() })
-      .where(eq(users.id, result.user.id));
+    await db.update(users).set({ emailVerifiedAt: new Date() }).where(eq(users.id, result.user.id));
     const seller = result.user.seller;
     if (!seller) {
       throw new Error("Signup made no shop");
@@ -220,8 +217,20 @@ describe("Seller product endpoints over HTTP (integration)", () => {
         { name: "Colour", values: ["Red"] },
       ],
       variants: [
-        { optionValues: ["S", "Red"], priceKobo: 1_000_000, stock: 5, imageId: null, isEnabled: true },
-        { optionValues: ["M", "Red"], priceKobo: 1_200_000, stock: null, imageId: null, isEnabled: true },
+        {
+          optionValues: ["S", "Red"],
+          priceKobo: 1_000_000,
+          stock: 5,
+          imageId: null,
+          isEnabled: true,
+        },
+        {
+          optionValues: ["M", "Red"],
+          priceKobo: 1_200_000,
+          stock: null,
+          imageId: null,
+          isEnabled: true,
+        },
       ],
     };
   }
@@ -606,8 +615,20 @@ describe("Seller product endpoints over HTTP (integration)", () => {
       imageIds: images,
       options: created.options,
       variants: [
-        { optionValues: ["S", "Red"], priceKobo: 1_000_000, stock: null, imageId: null, isEnabled: true },
-        { optionValues: ["S", "Red"], priceKobo: 1_000_000, stock: null, imageId: null, isEnabled: true },
+        {
+          optionValues: ["S", "Red"],
+          priceKobo: 1_000_000,
+          stock: null,
+          imageId: null,
+          isEnabled: true,
+        },
+        {
+          optionValues: ["S", "Red"],
+          priceKobo: 1_000_000,
+          stock: null,
+          imageId: null,
+          isEnabled: true,
+        },
       ],
       version: created.version,
     };

@@ -11,6 +11,14 @@ import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { ENV, type Env } from "../env.js";
 import { TrackingService } from "./tracking.service.js";
 
+/** A query value that is exactly one string; anything else (missing, repeated) becomes "". */
+function oneString(value: unknown): string {
+  if (typeof value === "string") {
+    return value;
+  }
+  return "";
+}
+
 /** Public: no login. Customers prove it's their order with the key or code + phone digits. */
 @Controller("track")
 export class TrackingController {
@@ -26,22 +34,22 @@ export class TrackingController {
   }
 
   @Get(":code")
-  view(@Param("code") code: string, @Query("key") key: string | undefined) {
-    return this.tracking.view(code, key ?? "");
+  view(@Param("code") code: string, @Query("key") key: unknown) {
+    return this.tracking.view(code, oneString(key));
   }
 
   @Post(":code/pay")
   @HttpCode(200)
-  pay(@Param("code") code: string, @Query("key") key: string | undefined) {
-    return this.tracking.payLink(code, key ?? "");
+  pay(@Param("code") code: string, @Query("key") key: unknown) {
+    return this.tracking.payLink(code, oneString(key));
   }
 
   @Post(":code/issues")
   report(
     @Param("code") code: string,
-    @Query("key") key: string | undefined,
+    @Query("key") key: unknown,
     @Body(new ZodPipe(reportIssueSchema)) body: ReportIssueInput,
   ) {
-    return this.tracking.reportIssue(code, key ?? "", body);
+    return this.tracking.reportIssue(code, oneString(key), body);
   }
 }

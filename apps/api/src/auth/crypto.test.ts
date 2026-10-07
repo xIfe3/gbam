@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { hashPassword, hashToken, newEmailCode, newSessionToken, verifyPassword } from "./crypto.js";
+import {
+  hashPassword,
+  hashToken,
+  newEmailCode,
+  newSessionToken,
+  verifyPassword,
+} from "./crypto.js";
 
 describe("password hashing", () => {
   it("hashes to an Argon2id string that differs from the password", async () => {

@@ -6,14 +6,20 @@ import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
-import { PaymentsService } from "../payments/payments.service.js";
+import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 
 // One answer for every failed lookup, so nobody can tell "wrong code" from "wrong phone".
 const NOT_FOUND = "We couldn't find an order with that code and phone number";
 
-// Lookups per visitor IP per 15 minutes: plenty for a real customer, too few to guess codes.
-const LOOKUP_LIMIT = 10;
+// Lookups per visitor IP per 15 minutes. Generous, because Nigerian mobile networks put many
+// customers behind one IP address.
+const LOOKUP_LIMIT = 30;
 const LOOKUP_WINDOW_SECONDS = 15 * 60;
+
+// Wrong guesses per order code per hour, from ANY IP: with the code known (e.g. from a
+// screenshot) only 10,000 phone endings are possible, so this is what really stops guessing.
+const CODE_MISS_LIMIT = 20;
+const CODE_MISS_WINDOW_SECONDS = 60 * 60;
 
 // Problem reports per order per hour.
 const ISSUE_LIMIT = 3;
@@ -45,6 +51,10 @@ export class TrackingService {
     if (!limit.allowed) {
       throw new TooManyRequestsError(limit.retryAfterSeconds);
     }
+    const codeKey = `track-lookup-code:${input.code}`;
+    if ((await this.limiter.count(codeKey)) >= CODE_MISS_LIMIT) {
+      throw new TooManyRequestsError(CODE_MISS_WINDOW_SECONDS);
+    }
     // Codes are unique per shop only; with the phone digits as well, two matches are very
     // unlikely. If it happens, the newest order wins.
     const rows = await this.db
@@ -56,6 +66,8 @@ export class TrackingService {
       .limit(1);
     const found = rows[0];
     if (!found) {
+      // Only misses count towards the per-code limit.
+      await this.limiter.hit(codeKey, CODE_MISS_LIMIT, CODE_MISS_WINDOW_SECONDS);
       throw new NotFoundException(NOT_FOUND);
     }
     return { code: found.code, key: found.key };
@@ -142,8 +154,16 @@ export class TrackingService {
     if (order.status !== "awaiting_payment") {
       throw new ConflictException("This order isn't waiting for payment.");
     }
-    const link = await this.payments.ensurePaymentLink(order.id);
-    return { url: link.url };
+    try {
+      const link = await this.payments.ensurePaymentLink(order.id);
+      return { url: link.url };
+    } catch (error) {
+      // It changed between our check and the lock (e.g. just paid): say so, don't charge twice.
+      if (error instanceof OrderNotAwaitingPaymentError) {
+        throw new ConflictException("This order isn't waiting for payment.");
+      }
+      throw error;
+    }
   }
 
   /** "Report a problem": saved on the order, and the seller gets an email. */

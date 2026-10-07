@@ -188,12 +188,14 @@ describe("Order tracking over HTTP (integration)", () => {
     const shop = await newShop();
     const order = await placeOrder(shop);
     const ip = `test-${randomUUID()}`;
-    usedKeys.push(`track-lookup:${ip}`);
-    for (let i = 0; i < 10; i++) {
+    usedKeys.push(`track-lookup:${ip}`, "track-lookup-code:GB-2222");
+    // 30 per visitor per 15 minutes (mobile networks share one IP between many customers).
+    // Unknown codes, so the per-code limit below doesn't kick in first.
+    for (let i = 0; i < 30; i++) {
       await call(
         "POST",
         "/track/lookup",
-        { code: order.code, phoneLast4: "0000" },
+        { code: "GB-2222", phoneLast4: "0000" },
         { "x-client-ip": ip },
       );
     }
@@ -204,6 +206,35 @@ describe("Order tracking over HTTP (integration)", () => {
       { "x-client-ip": ip },
     );
     expect(blocked.status).toBe(429);
+  });
+
+  it("limits wrong guesses per order code, whatever IP they come from", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    usedKeys.push(`track-lookup-code:${order.code}`);
+    // 20 wrong phone digits for this code, each from a different visitor.
+    for (let i = 0; i < 20; i++) {
+      await call("POST", "/track/lookup", { code: order.code, phoneLast4: String(1000 + i) });
+    }
+    const blocked = await call("POST", "/track/lookup", { code: order.code, phoneLast4: "5678" });
+    expect(blocked.status).toBe(429);
+  });
+
+  it("accepts codes typed loosely: lowercase, missing dash, spaces, or without GB", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    const bare = order.code.slice(3);
+    for (const typed of [order.code.toLowerCase(), `GB${bare}`, ` gb ${bare} `, bare]) {
+      const found = await call("POST", "/track/lookup", { code: typed, phoneLast4: "5678" });
+      expect(found.status).toBe(200);
+    }
+  });
+
+  it("a doubled ?key= is just not found, never a server error", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    const res = await call("GET", `/track/${order.code}?key=${order.trackingKey}&key=other`);
+    expect(res.status).toBe(404);
   });
 
   it("the private link shows only its own order, without the customer's personal details", async () => {

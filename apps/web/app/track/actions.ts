@@ -14,6 +14,7 @@ export type LookupState = { error?: string; values?: { code: string; phoneLast4:
 const LOOKUP_NOT_FOUND = "We couldn't find an order with that code and phone number.";
 const TOO_MANY = "Too many tries. Please wait a few minutes and try again.";
 const GENERIC = "Something went wrong on our side. Please try again.";
+const GONE = "We can't find this order any more. Message the seller on WhatsApp for help.";
 
 function text(formData: FormData, name: string): string {
   const value = formData.get(name);
@@ -66,6 +67,9 @@ export async function payNowAction(
     if (error instanceof ApiError && error.status === 409) {
       return { error: "This order isn't waiting for payment any more. Refresh the page." };
     }
+    if (error instanceof ApiError && error.status === 404) {
+      return { error: GONE };
+    }
     console.error("track pay failed");
     return { error: GENERIC };
   }
@@ -101,6 +105,9 @@ export async function reportIssueAction(
     unstable_rethrow(error);
     if (error instanceof ApiError && error.status === 429) {
       return { error: "You've reported this order a few times already. The seller has been told." };
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      return { error: GONE };
     }
     console.error("track report failed");
     return { error: GENERIC };

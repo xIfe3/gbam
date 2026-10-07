@@ -7,7 +7,7 @@ import { UnrecoverableError, type Job } from "bullmq";
 import { eq } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { InjectWhatsApp, type WhatsAppClient } from "../integrations/integrations.module.js";
-import { PaymentsService } from "../payments/payments.service.js";
+import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 import { WhatsAppMessagesService } from "../whatsapp/whatsapp-messages.service.js";
 import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue.js";
 
@@ -66,7 +66,18 @@ export class NotificationsProcessor extends WorkerHost {
         params = [customerName, store, code, total];
         break;
       case "awaiting_payment": {
-        const link = await this.payments.ensurePaymentLink(orderId);
+        let link: { url: string };
+        try {
+          link = await this.payments.ensurePaymentLink(orderId);
+        } catch (error) {
+          // The order moved on (paid or cancelled) before this message went out: a payment
+          // request would now be wrong, so skip it instead of retrying.
+          if (error instanceof OrderNotAwaitingPaymentError) {
+            this.logger.log(`Skipping payment request for ${code}: order is ${error.status}`);
+            return;
+          }
+          throw error;
+        }
         template = "gbam_payment_request";
         params = [customerName, total, code, store, link.url];
         break;

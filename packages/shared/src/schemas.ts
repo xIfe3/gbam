@@ -105,12 +105,20 @@ export const createOrderSchema = z.object({
 });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 
-/** "gb-7b2q " → "GB-7B2Q". Order codes use 2–9 and A–Z (no 0/1/O/I, which look alike). */
+/**
+ * Order codes as people type them: "gb-7b2q", "GB7B2Q", "gb 7b2q" or just "7B2Q" all become
+ * "GB-7B2Q". The 4 characters use 2–9 and A–Z without 0, 1, I, L and O (they look alike).
+ */
 export const orderCodeSchema = z
   .string()
-  .trim()
-  .toUpperCase()
-  .regex(/^GB-[2-9A-Z]{4}$/, "Order codes look like GB-7B2Q");
+  .transform((value) => {
+    let text = value.toUpperCase().replace(/[\s-]/g, "");
+    if (text.startsWith("GB")) {
+      text = text.slice(2);
+    }
+    return `GB-${text}`;
+  })
+  .pipe(z.string().regex(/^GB-[2-9A-HJKMNP-Z]{4}$/, "Order codes look like GB-7B2Q"));
 
 /** The /track form: the order code plus the last 4 digits of the phone used to order. */
 export const trackLookupSchema = z.object({

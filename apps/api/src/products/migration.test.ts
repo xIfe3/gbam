@@ -14,7 +14,9 @@ import { createTestProduct, createTestSeller } from "../test-helpers.js";
 
 process.loadEnvFile?.("../../.env");
 
-const migrationsDir = fileURLToPath(new URL("../../../../packages/db/migrations/", import.meta.url));
+const migrationsDir = fileURLToPath(
+  new URL("../../../../packages/db/migrations/", import.meta.url),
+);
 
 /** Runs one migration file. Drizzle files hold several statements split by a marker. */
 async function applyMigration(handle: DbHandle, fileName: string) {
@@ -72,7 +74,9 @@ describe("migration 0006 backfill (throwaway database)", () => {
     migHandle = createDb(parsed.toString(), { max: 1 });
 
     // Apply 0000-0005 (every migration file except 0006), in order.
-    const files = readdirSync(migrationsDir).filter((name) => name.endsWith(".sql")).sort();
+    const files = readdirSync(migrationsDir)
+      .filter((name) => name.endsWith(".sql"))
+      .sort();
     for (const file of files) {
       if (file < "0006") {
         await applyMigration(mig(), file);
@@ -125,9 +129,7 @@ describe("migration 0006 backfill (throwaway database)", () => {
   });
 
   async function productRow(id: string) {
-    const rows = await mig().db.execute(
-      sql`SELECT slug, status FROM products WHERE id = ${id}`,
-    );
+    const rows = await mig().db.execute(sql`SELECT slug, status FROM products WHERE id = ${id}`);
     const row = rows[0];
     if (!row) {
       throw new Error("Product row missing");

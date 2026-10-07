@@ -23,7 +23,7 @@ export function PayNowButton({
     startTransition(async () => {
       const result = await payNowAction(code, trackingKey);
       if (result.url) {
-        // Paystack's secure page takes over; it sends the customer back here afterwards.
+        // Paystack's secure page takes over; afterwards it returns the customer to the shop.
         window.location.assign(result.url);
         return;
       }

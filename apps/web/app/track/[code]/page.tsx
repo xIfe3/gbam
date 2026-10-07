@@ -8,7 +8,12 @@ import { PayNowButton } from "./pay-now-button";
 import { ReportIssueForm } from "./report-issue-form";
 
 // Private page: keep it out of search results.
-export const metadata: Metadata = { title: "Track your order", robots: { index: false } };
+// no-referrer: the private key in this page's address is never passed to other sites.
+export const metadata: Metadata = {
+  title: "Track your order",
+  robots: { index: false },
+  referrer: "no-referrer",
+};
 
 /** The normal path an order takes, in order, with the words the customer sees. */
 const STEPS: { status: OrderStatus; label: string }[] = [
@@ -20,7 +25,12 @@ const STEPS: { status: OrderStatus; label: string }[] = [
 ];
 
 function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString("en-NG", { dateStyle: "medium", timeStyle: "short" });
+  // Lagos time, whatever timezone the server runs in.
+  return new Date(iso).toLocaleString("en-NG", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: "Africa/Lagos",
+  });
 }
 
 /** When the order reached each status (the latest time, if it happened more than once). */

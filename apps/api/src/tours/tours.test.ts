@@ -144,10 +144,7 @@ describe("Tour endpoints over HTTP (integration)", () => {
     ]);
     expect(a.status).toBe(200);
     expect(b.status).toBe(200);
-    const tours = (await call(seller, "GET", "/tours")).json as Record<
-      string,
-      { outcome: string }
-    >;
+    const tours = (await call(seller, "GET", "/tours")).json as Record<string, { outcome: string }>;
     const outcome = tours.editor?.outcome;
     expect(["completed", "skipped"]).toContain(outcome);
     // Both answers report the stored outcome, whichever request won.
@@ -160,9 +157,9 @@ describe("Tour endpoints over HTTP (integration)", () => {
     expect((await call(seller, "PUT", "/tours/editor/step", { step: 6 })).status).toBe(400);
     expect((await call(seller, "PUT", "/tours/order/step", { step: 4 })).status).toBe(400);
     expect((await call(seller, "PUT", "/tours/nope/step", { step: 1 })).status).toBe(400);
-    expect(
-      (await call(seller, "POST", "/tours/editor/finish", { outcome: "maybe" })).status,
-    ).toBe(400);
+    expect((await call(seller, "POST", "/tours/editor/finish", { outcome: "maybe" })).status).toBe(
+      400,
+    );
   });
 
   it("keeps each seller's tours separate", async () => {

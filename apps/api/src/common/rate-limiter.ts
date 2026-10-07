@@ -38,6 +38,15 @@ export class RateLimiter {
 
     return { allowed: count <= limit, retryAfterSeconds: Math.max(1, ttl) };
   }
+
+  /** How many hits a key has had in its current window, without adding one. */
+  async count(key: string): Promise<number> {
+    const value = await this.redis.get(key);
+    if (value === null) {
+      return 0;
+    }
+    return Number(value);
+  }
 }
 
 @Module({
