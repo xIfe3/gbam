@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useId, useRef, useState } from "react";
 import { Button } from "@/components/brand/button";
-import { TextField } from "@/components/brand/fields";
+import { PasswordField, TextField } from "@/components/brand/fields";
 import { FormError, SubmitButton } from "@/components/brand/form-bits";
 import {
   changePayoutAccountAction,
@@ -73,8 +73,14 @@ export function BankForm({ banks, mode = "create" }: { banks: Bank[]; mode?: "cr
     const checked = resolveState.values ?? {};
     const last4 = (checked.accountNumber ?? "").slice(-4);
     let createError = createState.error;
+    // Bank and account-number errors have no field on this screen, so show them up top.
+    // A password error already shows under the password field.
     if (!createError && createState.fieldErrors) {
-      createError = Object.values(createState.fieldErrors)[0];
+      for (const [field, message] of Object.entries(createState.fieldErrors)) {
+        if (field !== "currentPassword" && !createError) {
+          createError = message;
+        }
+      }
     }
 
     return (
@@ -99,6 +105,15 @@ export function BankForm({ banks, mode = "create" }: { banks: Bank[]; mode?: "cr
           <FormError message={createError} />
           <input type="hidden" name="bankCode" value={checked.bankCode ?? ""} />
           <input type="hidden" name="accountNumber" value={checked.accountNumber ?? ""} />
+          {/* Changing where the money goes needs the password, not just a signed-in browser. */}
+          {mode === "change" && (
+            <PasswordField
+              label="Your Gbam password"
+              name="currentPassword"
+              autoComplete="current-password"
+              error={createState.fieldErrors?.currentPassword}
+            />
+          )}
           <SubmitButton pendingLabel="Setting up payouts…">Yes, pay me here</SubmitButton>
         </form>
         <div>

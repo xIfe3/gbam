@@ -29,6 +29,13 @@ export type EmailJob =
       orderUrl: string;
     }
   | {
+      kind: "payout_account_changed";
+      to: string;
+      shopName: string;
+      bankName: string;
+      accountLast4: string;
+    }
+  | {
       kind: "account_closed";
       sellerId: string;
       shopName: string;
@@ -66,6 +73,9 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   }
   if (job.kind === "account_closed") {
     return accountClosedEmail(job);
+  }
+  if (job.kind === "payout_account_changed") {
+    return payoutChangedEmail(job);
   }
 
   // contact_message
@@ -178,4 +188,26 @@ function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>):
     html,
     replyTo: job.ownerEmail,
   };
+}
+
+/**
+ * To the seller after their payout bank account changes. If it wasn't them, this is how
+ * they find out before money goes to someone else.
+ */
+function payoutChangedEmail(job: Extract<EmailJob, { kind: "payout_account_changed" }>): SendEmailInput {
+  const account = `${job.bankName}, account ending ${job.accountLast4}`;
+  const warning = `If you didn't make this change, email support@gbam.app straight away and change your password.`;
+  const text = [
+    `The bank account for ${job.shopName}'s payouts was just changed.`,
+    ``,
+    `New payments will go to: ${account}`,
+    ``,
+    warning,
+  ].join("\n");
+  const html = [
+    `<p>The bank account for <strong>${escapeHtml(job.shopName)}</strong>'s payouts was just changed.</p>`,
+    `<p>New payments will go to: <strong>${escapeHtml(account)}</strong></p>`,
+    `<p>${escapeHtml(warning)}</p>`,
+  ].join("\n");
+  return { to: job.to, subject: `Your Gbam payout account was changed`, text, html };
 }

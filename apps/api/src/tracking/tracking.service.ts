@@ -95,13 +95,21 @@ export class TrackingService {
         slug: sellers.slug,
         businessName: sellers.businessName,
         whatsappPhone: sellers.whatsappPhone,
+        closedAt: sellers.closedAt,
       })
       .from(sellers)
       .where(eq(sellers.id, order.sellerId));
-    const shop = shopRows[0];
-    if (!shop) {
+    const shopRow = shopRows[0];
+    if (!shopRow) {
       throw new NotFoundException("Order not found");
     }
+    const shop = {
+      slug: shopRow.slug,
+      businessName: shopRow.businessName,
+      whatsappPhone: shopRow.whatsappPhone,
+    };
+    // A closed shop (owner deleted the account) takes no more payments.
+    const shopOpen = shopRow.closedAt === null;
     const items = await this.db
       .select({
         productName: orderItems.productName,
@@ -145,7 +153,7 @@ export class TrackingService {
         events,
       },
       issues,
-      canPay: order.status === "awaiting_payment",
+      canPay: order.status === "awaiting_payment" && shopOpen,
     };
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import { formatNaira } from "@gbam/shared";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { CopyLinkButton } from "../../copy-link-button";
 import { updateOrderStatus, type UpdateStatusState } from "../../actions";
 
@@ -24,6 +24,8 @@ export function RefundOrder({
     updateOrderStatus,
     {},
   );
+  // "Mark refunded" can't be undone and messages the customer, so it waits for this tick.
+  const [moneyReturned, setMoneyReturned] = useState(false);
   const mailSubject = encodeURIComponent(`Refund request ${reference}`);
 
   return (
@@ -58,13 +60,22 @@ export function RefundOrder({
         <CopyLinkButton url={reference} label="Copy reference" />
       </div>
 
-      <form action={formAction}>
+      <form action={formAction} className="space-y-3">
         <input type="hidden" name="orderId" value={orderId} />
+        <label className="flex min-h-11 items-center gap-3 text-sm text-zinc-700">
+          <input
+            type="checkbox"
+            checked={moneyReturned}
+            onChange={(event) => setMoneyReturned(event.target.checked)}
+            className="size-5"
+          />
+          The customer has their money back (this can&apos;t be undone)
+        </label>
         <button
           type="submit"
           name="status"
           value="refunded"
-          disabled={pending}
+          disabled={pending || !moneyReturned}
           className="min-h-11 rounded-lg border border-rose-300 px-4 py-2 font-medium text-rose-700 hover:bg-rose-50 disabled:opacity-50"
         >
           Mark refunded

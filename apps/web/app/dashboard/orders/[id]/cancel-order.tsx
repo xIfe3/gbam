@@ -22,6 +22,11 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
   const [, startTransition] = useTransition();
   // useRef: a handle on the <dialog> element so we can open and close it.
   const dialogRef = useRef<HTMLDialogElement>(null);
+  // Where keyboard focus goes: Undo while counting, back to the trigger after Undo.
+  const undoRef = useRef<HTMLButtonElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  // What screen readers hear. Said once at the start and once at the end, not every second.
+  const [announcement, setAnnouncement] = useState("");
 
   // The countdown: one tick per second while counting. The cleanup (the function returned)
   // stops the timer when Undo is pressed or the seller leaves the page, so nothing is sent.
@@ -36,6 +41,7 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
       }
       // Time's up: now actually cancel.
       setStep("sending");
+      setAnnouncement(`Cancelling ${code}…`);
       startTransition(async () => {
         const formData = new FormData();
         formData.set("orderId", orderId);
@@ -49,7 +55,7 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
       });
     }, 1000);
     return () => clearTimeout(timer);
-  }, [step, secondsLeft, orderId]);
+  }, [step, secondsLeft, orderId, code]);
 
   function openConfirm() {
     setError(undefined);
@@ -70,11 +76,24 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
     closeConfirm();
     setSecondsLeft(UNDO_SECONDS);
     setStep("counting");
+    setAnnouncement(`Cancelling ${code} in ${UNDO_SECONDS} seconds. Press Undo to keep it.`);
   }
 
   function undo() {
     setStep("idle");
+    setAnnouncement(`Not cancelled. ${code} is unchanged.`);
   }
+
+  // After the screen changes, put focus where the person needs it next: on Undo while the
+  // countdown runs (the button they pressed is gone), back on "Cancel order…" after Undo.
+  useEffect(() => {
+    if (step === "counting" && undoRef.current) {
+      undoRef.current.focus();
+    }
+    if (step === "idle" && announcement !== "" && triggerRef.current) {
+      triggerRef.current.focus();
+    }
+  }, [step, announcement]);
 
   return (
     <div className="space-y-3">
@@ -87,6 +106,7 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
 
       {step === "idle" && (
         <button
+          ref={triggerRef}
           type="button"
           onClick={openConfirm}
           className="min-h-11 rounded-lg border border-rose-300 px-4 py-2 font-medium text-rose-700 hover:bg-rose-50"
@@ -96,15 +116,14 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
       )}
 
       {step === "counting" && (
-        // role="status": screen readers announce the countdown without stealing focus.
-        <div
-          role="status"
-          className="flex flex-wrap items-center gap-3 rounded-lg bg-zinc-900 px-4 py-3 text-white"
-        >
-          <span>
+        <div className="flex flex-wrap items-center gap-3 rounded-lg bg-zinc-900 px-4 py-3 text-white">
+          {/* aria-hidden: the ticking number would be read out every second; the live
+              region below says it once instead. */}
+          <span aria-hidden="true">
             Cancelling {code} in {secondsLeft}…
           </span>
           <button
+            ref={undoRef}
             type="button"
             onClick={undo}
             className="min-h-11 rounded-lg bg-white px-4 font-bold text-zinc-900 hover:bg-zinc-100"
@@ -115,6 +134,11 @@ export function CancelOrder({ orderId, code }: { orderId: string; code: string }
       )}
 
       {step === "sending" && <p className="text-sm text-zinc-500">Cancelling…</p>}
+
+      {/* Always on the page, so screen readers notice when its text changes. */}
+      <p role="status" className="sr-only">
+        {announcement}
+      </p>
 
       <FormError message={error} />
 

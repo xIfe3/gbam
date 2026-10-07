@@ -1,4 +1,4 @@
-import { sellers } from "@gbam/db";
+import { sellers, users } from "@gbam/db";
 import { PaystackError, type Bank } from "@gbam/integrations";
 import type { PayoutAccountInput } from "@gbam/shared";
 import {
@@ -15,6 +15,7 @@ import type { Redis } from "ioredis";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
+import { EmailQueue } from "../email/email.queue.js";
 import { InjectDb, REDIS, type Db } from "../infra/infra.module.js";
 import { InjectPaystack, type PaystackClient } from "../integrations/integrations.module.js";
 
@@ -65,6 +66,7 @@ export class PayoutsService {
     @Inject(REDIS) private readonly redis: Redis,
     @InjectPaystack() private readonly paystack: PaystackClient,
     private readonly limiter: RateLimiter,
+    private readonly emails: EmailQueue,
   ) {}
 
   /** Nigerian banks, from Redis when we fetched them in the last 24 hours. */
@@ -256,6 +258,7 @@ export class PayoutsService {
     }
 
     this.logger.log(`Payout account changed for seller ${sellerId} (${seller.subaccountCode})`);
+    await this.alertOwner(sellerId, seller.businessName, saved);
     return saved;
   }
 
@@ -354,6 +357,34 @@ export class PayoutsService {
 
     this.logger.log(`Payout account added for seller ${sellerId} (${subaccountCode})`);
     return saved;
+  }
+
+  /**
+   * Emails the shop's owner that payouts now go somewhere new, so a change they didn't make
+   * doesn't go unnoticed. The change is already saved: a failure here is logged, not thrown.
+   */
+  private async alertOwner(sellerId: string, shopName: string, saved: SavedPayoutAccount) {
+    try {
+      const ownerRows = await this.db
+        .select({ email: users.email })
+        .from(sellers)
+        .innerJoin(users, eq(users.id, sellers.ownerUserId))
+        .where(eq(sellers.id, sellerId));
+      const owner = ownerRows[0];
+      if (!owner) {
+        return;
+      }
+      // The job id includes the time, so every change sends its own email.
+      await this.emails.send(`payout-changed-${sellerId}-${Date.now()}`, {
+        kind: "payout_account_changed",
+        to: owner.email,
+        shopName,
+        bankName: saved.bankName,
+        accountLast4: saved.accountLast4,
+      });
+    } catch (error) {
+      this.logger.error(`Could not queue the payout-change email for seller ${sellerId}`, error);
+    }
   }
 
   /**

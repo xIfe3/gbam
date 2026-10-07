@@ -576,7 +576,7 @@ async function createPayoutAccount(body: PayoutAccountBody) {
 }
 
 /** Settings → change bank account: the same Paystack subaccount, pointed at a new account. */
-async function changePayoutAccount(body: PayoutAccountBody) {
+async function changePayoutAccount(body: PayoutAccountBody & { currentPassword: string }) {
   return request<PayoutAccount>("/payouts/account", {
     method: "PUT",
     body: JSON.stringify(body),

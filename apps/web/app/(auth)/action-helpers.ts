@@ -44,8 +44,15 @@ function bodyMessage(body: unknown): string | null {
   return null;
 }
 
+/** True when the API's error body says `code: <code>`, e.g. "ACCOUNT_CLOSED". */
 function hasCode(body: unknown, code: string): boolean {
-  return typeof body === "object" && body !== null && "code" in body && body.code === code;
+  if (typeof body !== "object" || body === null) {
+    return false;
+  }
+  if (!("code" in body)) {
+    return false;
+  }
+  return body.code === code;
 }
 
 /** A message safe to show for an API failure. Logs only the status, never request data. */

@@ -204,8 +204,8 @@ export const closeAccountSchema = z.object({
 });
 export type CloseAccountInput = z.output<typeof closeAccountSchema>;
 
-/** The new password must meet the signup policy. */
 /**
+ * The new password must meet the signup policy.
  * `requestId` is what forgot-password returned to this browser. The reset code only works
  * together with it, so someone who knows just the email can't use or burn the code.
  */
@@ -247,3 +247,12 @@ export const payoutAccountSchema = z.object({
     .regex(/^\d{10}$/, "Enter your 10-digit account number"),
 });
 export type PayoutAccountInput = z.output<typeof payoutAccountSchema>;
+
+/**
+ * Settings → change bank account also needs the password: a signed-in browser alone (a
+ * stolen session, an unlocked laptop) must not be enough to redirect a seller's payouts.
+ */
+export const changePayoutAccountSchema = payoutAccountSchema.extend({
+  currentPassword: z.string().min(1, "Enter your password").max(200),
+});
+export type ChangePayoutAccountInput = z.output<typeof changePayoutAccountSchema>;

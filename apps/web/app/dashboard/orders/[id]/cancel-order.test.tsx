@@ -44,9 +44,14 @@ describe("CancelOrder", () => {
     render(<CancelOrder orderId="order-1" code="GB-ABC123" />);
     confirm();
 
-    expect(screen.getByRole("status")).toHaveTextContent("Cancelling GB-ABC123 in 5…");
+    expect(screen.getByText("Cancelling GB-ABC123 in 5…")).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Cancelling GB-ABC123 in 5 seconds. Press Undo to keep it.",
+    );
+    // Keyboard users land on Undo straight away.
+    expect(screen.getByRole("button", { name: "Undo" })).toHaveFocus();
     await waitSeconds(4);
-    expect(screen.getByRole("status")).toHaveTextContent("in 1…");
+    expect(screen.getByText("Cancelling GB-ABC123 in 1…")).toBeInTheDocument();
     expect(updateOrderStatus).not.toHaveBeenCalled();
 
     await waitSeconds(1);
@@ -63,7 +68,8 @@ describe("CancelOrder", () => {
     fireEvent.click(screen.getByRole("button", { name: "Undo" }));
     await waitSeconds(10);
     expect(updateOrderStatus).not.toHaveBeenCalled();
-    expect(screen.getByRole("button", { name: "Cancel order…" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Cancel order…" })).toHaveFocus();
+    expect(screen.getByRole("status")).toHaveTextContent("Not cancelled.");
   });
 
   it("Keep order closes the box without starting a countdown", async () => {
@@ -71,7 +77,7 @@ describe("CancelOrder", () => {
     fireEvent.click(screen.getByRole("button", { name: "Cancel order…" }));
     fireEvent.click(screen.getByRole("button", { name: "Keep order" }));
     await waitSeconds(10);
-    expect(screen.queryByRole("status")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Undo" })).not.toBeInTheDocument();
     expect(updateOrderStatus).not.toHaveBeenCalled();
   });
 

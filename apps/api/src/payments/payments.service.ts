@@ -63,6 +63,17 @@ export class PaymentsService {
       if (locked.status !== "awaiting_payment") {
         throw new OrderNotAwaitingPaymentError(orderId, locked.status);
       }
+      // The shop's owner deleted their account: they can't send the goods or give money
+      // back, so no new payments for it (old links, the /pay page, a queued WhatsApp).
+      const shopRows = await tx
+        .select({ closedAt: sellers.closedAt })
+        .from(orders)
+        .innerJoin(sellers, eq(sellers.id, orders.sellerId))
+        .where(eq(orders.id, orderId));
+      const shop = shopRows[0];
+      if (shop && shop.closedAt !== null) {
+        throw new OrderNotAwaitingPaymentError(orderId, "in a closed shop");
+      }
 
       // 2. Already have an unpaid link for this order? Reuse it.
       const existingRows = await tx

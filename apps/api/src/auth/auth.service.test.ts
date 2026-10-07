@@ -790,6 +790,28 @@ describe("AuthService signup and verification (integration)", () => {
       .login(input.email, input.password, freshMeta())
       .catch((e: unknown) => e);
     expect(loginError).toBeInstanceOf(ForbiddenException);
+
+    // A password reset doesn't bring it back either.
+    const { requestId } = await service.forgotPassword(input.email, freshMeta());
+    const code = lastCodeFor(input.email, "reset_password");
+    const resetError = await service
+      .resetPassword(input.email, requestId, code, "a brand new password", freshMeta())
+      .catch((e: unknown) => e);
+    expect(resetError).toBeInstanceOf(ForbiddenException);
+  });
+
+  it("confirmPassword accepts the right password and puts a wrong one on the named field", async () => {
+    const input = newInput();
+    const signedUp = await service.signup(input, meta);
+
+    await service.confirmPassword(signedUp.user.id, input.password, "currentPassword");
+    const error = await service
+      .confirmPassword(signedUp.user.id, "not my password", "currentPassword")
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+    expect((error as BadRequestException).getResponse()).toMatchObject({
+      field: "currentPassword",
+    });
   });
 
   it("closeAccount needs the right shop name and password, else nothing happens", async () => {

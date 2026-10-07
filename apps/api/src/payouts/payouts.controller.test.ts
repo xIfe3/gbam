@@ -42,9 +42,14 @@ describe("Payout endpoints over HTTP (integration)", () => {
   let orders: OrdersService;
   const createdEmails: string[] = [];
   const sellerIds: string[] = [];
+  const sentEmails: EmailJob[] = [];
 
   beforeAll(async () => {
-    const fakeQueue = { send: async (_jobId: string, _job: EmailJob) => {} };
+    const fakeQueue = {
+      send: async (_jobId: string, job: EmailJob) => {
+        sentEmails.push(job);
+      },
+    };
     const paystack = new FakePaystackClient(
       async () => undefined,
       () => {},
@@ -76,7 +81,11 @@ describe("Payout endpoints over HTTP (integration)", () => {
     }
     const keys: string[] = [];
     for (const id of sellerIds) {
-      keys.push(`payouts:resolve:seller:${id}`, `payouts:create:seller:${id}`);
+      keys.push(
+        `payouts:resolve:seller:${id}`,
+        `payouts:create:seller:${id}`,
+        `payouts:change:seller:${id}`,
+      );
     }
     if (keys.length > 0) {
       await redis.del(...keys);
@@ -115,6 +124,7 @@ describe("Payout endpoints over HTTP (integration)", () => {
     }
     sellerIds.push(seller.id);
     return {
+      email,
       authorization: `Bearer ${result.sessionToken}`,
       sellerId: seller.id,
       slug: seller.slug,
@@ -236,5 +246,48 @@ describe("Payout endpoints over HTTP (integration)", () => {
     });
     expect(allowed.status).toBe(200);
     expect(allowed.json).toMatchObject({ status: "awaiting_payment" });
+  });
+
+  it("changing the bank account needs the password, and the owner is emailed", async () => {
+    const seller = await newSeller(true);
+    const created = await call("POST", "/payouts/account", {
+      authorization: seller.authorization,
+      body: { bankCode: "058", accountNumber: ACCOUNT },
+    });
+    expect(created.status).toBe(201);
+
+    const noPassword = await call("PUT", "/payouts/account", {
+      authorization: seller.authorization,
+      body: { bankCode: "044", accountNumber: "9876543210" },
+    });
+    expect(noPassword.status).toBe(400);
+
+    const wrongPassword = await call("PUT", "/payouts/account", {
+      authorization: seller.authorization,
+      body: { bankCode: "044", accountNumber: "9876543210", currentPassword: "nope nope" },
+    });
+    expect(wrongPassword.status).toBe(400);
+    expect(wrongPassword.json).toMatchObject({ field: "currentPassword" });
+    const unchanged = await db.select().from(sellers).where(eq(sellers.id, seller.sellerId));
+    expect(unchanged[0]?.accountLast4).toBe("6789");
+
+    const changed = await call("PUT", "/payouts/account", {
+      authorization: seller.authorization,
+      body: {
+        bankCode: "044",
+        accountNumber: "9876543210",
+        currentPassword: "correct horse battery",
+      },
+    });
+    expect(changed.status).toBe(200);
+    expect(changed.json).toMatchObject({ bankName: "Access Bank", accountLast4: "3210" });
+
+    let alert: EmailJob | undefined = undefined;
+    for (const job of sentEmails) {
+      if (job.kind === "payout_account_changed" && job.to === seller.email) {
+        alert = job;
+      }
+    }
+    expect(alert).toMatchObject({ bankName: "Access Bank", accountLast4: "3210" });
   });
 });

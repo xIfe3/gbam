@@ -151,6 +151,19 @@ describe("PaymentsService (integration)", () => {
     );
   });
 
+  it("refuses a link (even an existing one) once the shop is closed", async () => {
+    const { order } = await orderAwaitingPayment();
+    await db.update(sellers).set({ closedAt: new Date() }).where(eq(sellers.id, order.sellerId));
+    try {
+      await expect(service.ensurePaymentLink(order.id)).rejects.toBeInstanceOf(
+        OrderNotAwaitingPaymentError,
+      );
+    } finally {
+      // The other tests in this file share this shop.
+      await db.update(sellers).set({ closedAt: null }).where(eq(sellers.id, order.sellerId));
+    }
+  });
+
   it("creates only one link when two calls race", async () => {
     // Links are only made for orders awaiting payment (the real flow).
     const order = await orderMovedToAwaitingPayment();

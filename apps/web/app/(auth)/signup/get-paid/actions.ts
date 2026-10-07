@@ -1,6 +1,6 @@
 "use server";
 
-import { payoutAccountSchema } from "@gbam/shared";
+import { changePayoutAccountSchema, payoutAccountSchema } from "@gbam/shared";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import {
@@ -125,7 +125,11 @@ export async function changePayoutAccountAction(
   formData: FormData,
 ): Promise<FormState> {
   const values = readValues(formData);
-  const input = payoutAccountSchema.safeParse(values);
+  // The password is checked by the API; it's never sent back to the form.
+  const input = changePayoutAccountSchema.safeParse({
+    ...values,
+    currentPassword: text(formData, "currentPassword"),
+  });
   if (!input.success) {
     return { fieldErrors: fieldErrorsFrom(input.error), values };
   }
@@ -134,6 +138,10 @@ export async function changePayoutAccountAction(
     await api.changePayoutAccount(input.data);
   } catch (error) {
     unstable_rethrow(error);
+    const passwordError = apiFieldError(error, "currentPassword");
+    if (passwordError !== null) {
+      return { fieldErrors: { currentPassword: passwordError }, values };
+    }
     if (isConflict(error, "PAYOUT_SETUP_IN_PROGRESS")) {
       return { error: "We're already saving a change. Refresh in a minute.", values };
     }

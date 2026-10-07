@@ -12,9 +12,11 @@ export function ShopForm({ businessName, phone }: { businessName: string; phone:
   // After a submit, show what was sent (React resets the form); before that, what's saved.
   let nameValue = businessName;
   let phoneValue = phone;
-  if (state.values) {
-    nameValue = state.values.businessName ?? businessName;
-    phoneValue = state.values.phone ?? phone;
+  if (state.values && state.values.businessName !== undefined) {
+    nameValue = state.values.businessName;
+  }
+  if (state.values && state.values.phone !== undefined) {
+    phoneValue = state.values.phone;
   }
 
   return (

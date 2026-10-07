@@ -111,6 +111,14 @@ function badCode(): BadRequestException {
   });
 }
 
+/** The owner deleted this account (Settings → Delete my account). */
+function accountClosed(): ForbiddenException {
+  return new ForbiddenException({
+    code: "ACCOUNT_CLOSED",
+    message: "This account was deleted. To reopen it, email support@gbam.app.",
+  });
+}
+
 /** Accounts, sessions and codes. Never log passwords, tokens or codes here. */
 @Injectable()
 export class AuthService implements OnModuleInit {
@@ -337,10 +345,7 @@ export class AuthService implements OnModuleInit {
     // A shop whose owner deleted the account stays closed. Checked only after the right
     // password, so this answer tells a stranger nothing.
     if (row.seller && row.seller.closedAt !== null) {
-      throw new ForbiddenException({
-        code: "ACCOUNT_CLOSED",
-        message: "This account was deleted. To reopen it, email support@gbam.app.",
-      });
+      throw accountClosed();
     }
 
     const sessionToken = await this.createSession(this.db, user.id, meta);
@@ -460,6 +465,17 @@ export class AuthService implements OnModuleInit {
     // Only the code issued to this requestId is looked at; a wrong or unknown requestId
     // finds nothing and gets the same error as a wrong code.
     const codeId = await this.checkCode(user.id, "reset_password", code, hashToken(requestId));
+
+    // A deleted account stays deleted: a new password must not sign it back in. Checked
+    // after the code, so only the email's owner learns the account is closed.
+    const closedRows = await this.db
+      .select({ closedAt: sellers.closedAt })
+      .from(sellers)
+      .where(eq(sellers.ownerUserId, user.id));
+    const ownShop = closedRows[0];
+    if (ownShop && ownShop.closedAt !== null) {
+      throw accountClosed();
+    }
 
     // Slow on purpose, so it runs outside the transaction (see signup).
     const passwordHash = await hashPassword(newPassword);
@@ -589,6 +605,16 @@ export class AuthService implements OnModuleInit {
     } catch (error) {
       this.logger.error(`Could not queue the deletion request for seller ${seller.id}`, error);
     }
+  }
+
+  /**
+   * For other sensitive settings (e.g. changing the payout bank account): proves the person
+   * at the keyboard knows the password, not just that a browser is signed in. Rate-limited
+   * so it can't be used to guess the password.
+   */
+  async confirmPassword(userId: string, password: string, field: string): Promise<void> {
+    await this.limit(`confirm-password:${userId}`, SETTINGS_PASSWORD_TRIES_PER_HOUR, 3600);
+    await this.checkOwnPassword(userId, password, field);
   }
 
   /** A field error (not a 401: they ARE signed in) when the password is wrong. */
