@@ -7,6 +7,8 @@ import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminGuard } from "./admin.guard.js";
 import { AuditService } from "./audit.service.js";
+import { MoneyAdminService } from "./money-admin.service.js";
+import { NumbersAdminController } from "./numbers-admin.controller.js";
 import { OrdersAdminController } from "./orders-admin.controller.js";
 import { OrdersAdminService } from "./orders-admin.service.js";
 import { SessionsAdminService } from "./sessions-admin.service.js";
@@ -29,6 +31,7 @@ import { TeamService } from "./team.service.js";
     OrdersAdminController,
     SupportAdminController,
     SettingsAdminController,
+    NumbersAdminController,
   ],
   providers: [
     AdminAuthService,
@@ -40,6 +43,7 @@ import { TeamService } from "./team.service.js";
     OrdersAdminService,
     SupportAdminService,
     SettingsAdminService,
+    MoneyAdminService,
   ],
   exports: [AdminAuthService, AdminGuard, AuditService],
 })
