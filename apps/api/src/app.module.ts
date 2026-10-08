@@ -1,6 +1,6 @@
 import { Module } from "@nestjs/common";
 import { AdminModule } from "./admin/admin.module.js";
-import { APP_FILTER } from "@nestjs/core";
+import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AuthModule } from "./auth/auth.module.js";
 import { ContactModule } from "./contact/contact.module.js";
@@ -12,6 +12,7 @@ import { NotificationsModule } from "./notifications/notifications.module.js";
 import { OrdersModule } from "./orders/orders.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
 import { PayoutsModule } from "./payouts/payouts.module.js";
+import { MaintenanceGuard } from "./platform/maintenance.guard.js";
 import { PlatformModule } from "./platform/platform.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { ProductsModule } from "./products/products.module.js";
@@ -46,6 +47,8 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     // Reports unexpected errors (500s) to Sentry, then answers as Nest normally would.
     // Expected ones (404, 400, 409...) are not reported: they're the app working correctly.
     { provide: APP_FILTER, useClass: SentryGlobalFilter },
+    // Maintenance mode: refuses blocked requests with 503 (webhooks and admin always pass).
+    { provide: APP_GUARD, useClass: MaintenanceGuard },
   ],
 })
 export class AppModule {}
