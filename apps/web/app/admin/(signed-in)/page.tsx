@@ -1,0 +1,57 @@
+import type { Metadata } from "next";
+import Link from "next/link";
+import { adminCan } from "@/components/admin/admin-nav";
+import { adminApi } from "@/lib/admin-api";
+
+export const metadata: Metadata = { title: "Admin" };
+
+type Tile = { label: string; count: number; href: string };
+
+/** The admin home: what needs attention, limited to what this admin's role can see. */
+export default async function OverviewPage() {
+  const me = await adminApi.me();
+  const tiles: Tile[] = [];
+
+  if (adminCan(me, "refunds.handle")) {
+    const refunds = await adminApi.refunds("open");
+    tiles.push({ label: "Refunds waiting", count: refunds.length, href: "/admin/refunds" });
+  }
+  if (adminCan(me, "support.view")) {
+    const messages = await adminApi.messages("new");
+    tiles.push({ label: "Contact messages", count: messages.length, href: "/admin/support" });
+    const issues = await adminApi.issues("open");
+    tiles.push({
+      label: "Open problem reports",
+      count: issues.length,
+      href: "/admin/support?tab=issues",
+    });
+  }
+  if (adminCan(me, "shops.view")) {
+    const suspended = await adminApi.shops({ status: "suspended" });
+    tiles.push({
+      label: "Suspended shops",
+      count: suspended.total,
+      href: "/admin/shops?status=suspended",
+    });
+  }
+
+  return (
+    <div className="space-y-6">
+      <h1 className="font-display text-ink text-3xl font-black">Hello, {me.name}</h1>
+      {tiles.length === 0 && <p className="text-ink-muted">Nothing to show for your role yet.</p>}
+      <ul className="grid gap-4 sm:grid-cols-2">
+        {tiles.map((tile) => (
+          <li key={tile.label}>
+            <Link
+              href={tile.href}
+              className="block rounded-xl border border-zinc-200 bg-white p-5 hover:border-zinc-300"
+            >
+              <span className="text-ink-muted block text-sm">{tile.label}</span>
+              <span className="font-display text-ink block text-4xl font-black">{tile.count}</span>
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
