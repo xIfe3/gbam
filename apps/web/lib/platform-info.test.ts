@@ -35,6 +35,16 @@ describe("getPlatformInfo", () => {
     );
     expect(await getPlatformInfo()).toBeNull();
   });
+
+  it("a failed lookup isn't retried for 10 seconds (so a down API can't slow every page)", async () => {
+    const fetchMock = vi.fn(async () => {
+      throw new Error("API down");
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await getPlatformInfo()).toBeNull();
+    expect(await getPlatformInfo()).toBeNull();
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("maintenanceRewrites", () => {

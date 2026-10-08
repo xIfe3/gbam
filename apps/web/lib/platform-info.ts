@@ -5,7 +5,9 @@ const CACHE_MS = 10_000;
 /** Don't hold a page up waiting: give up after 2 seconds. */
 const TIMEOUT_MS = 2_000;
 
-let cache: { value: PublicPlatformInfo; fetchedAt: number } | null = null;
+// value null = the last lookup failed; that's remembered too, so a down API isn't retried
+// (with its 2-second wait) on every single page.
+let cache: { value: PublicPlatformInfo | null; fetchedAt: number } | null = null;
 
 function apiBase(): string {
   const fromEnv = process.env.API_URL;
@@ -33,12 +35,14 @@ export async function getPlatformInfo(): Promise<PublicPlatformInfo | null> {
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
     if (!res.ok) {
+      cache = { value: null, fetchedAt: now };
       return null;
     }
     const value = (await res.json()) as PublicPlatformInfo;
     cache = { value, fetchedAt: now };
     return value;
   } catch {
+    cache = { value: null, fetchedAt: now };
     return null;
   }
 }
