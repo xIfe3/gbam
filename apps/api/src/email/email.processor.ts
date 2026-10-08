@@ -5,6 +5,7 @@ import { EmailError } from "@gbam/integrations";
 import { InjectEmail, type EmailClient } from "../integrations/integrations.module.js";
 import { EMAILS_QUEUE } from "./email.queue.js";
 import { renderEmail, type EmailJob } from "./templates.js";
+import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { reportJobFailure } from "../instrument.js";
 
 /**
@@ -23,7 +24,10 @@ export const PERMANENT_STATUSES = [400, 401, 403, 404, 422];
 export class EmailProcessor extends WorkerHost {
   private readonly logger = new Logger(EmailProcessor.name);
 
-  constructor(@InjectEmail() private readonly email: EmailClient) {
+  constructor(
+    @InjectEmail() private readonly email: EmailClient,
+    private readonly platform: PlatformSettingsService,
+  ) {
     super(); // required because we extend WorkerHost
   }
 
@@ -34,7 +38,13 @@ export class EmailProcessor extends WorkerHost {
   }
 
   async process(job: Job<EmailJob>) {
-    const message = renderEmail(job.data);
+    // Gbam's own inbox addresses come from Admin → Settings.
+    const settings = await this.platform.get();
+    const message = renderEmail(job.data, {
+      support: settings.supportEmail,
+      contact: settings.contactEmail,
+      privacy: settings.privacyEmail,
+    });
     try {
       const sent = await this.email.send(message);
       return { id: sent.id };

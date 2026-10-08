@@ -16,16 +16,16 @@ import { Global, Inject, Injectable, Module, type OnApplicationShutdown } from "
 import { Redis } from "ioredis";
 import { ENV, loadEnv, type Env } from "../env.js";
 
-// Provider names. A Symbol is a value guaranteed to be unique, so names can't collide.
-const DB_HANDLE = Symbol("DB_HANDLE"); // { db, close }, used to close the pool on shutdown
-export const DB = Symbol("DB"); // the Drizzle client itself
-export const REDIS = Symbol("REDIS");
+import { DB, REDIS } from "./tokens.js";
+import {
+  PLATFORM_SETTINGS_NAMESPACE,
+  PlatformSettingsService,
+} from "./platform-settings.service.js";
 
-/** Use in a constructor to receive the database: `@InjectDb() private readonly db: Db` */
-export function InjectDb() {
-  return Inject(DB);
-}
-export type { Db };
+// The provider names live in tokens.ts; re-exported here so existing imports keep working.
+export { DB, InjectDb, REDIS, type Db } from "./tokens.js";
+
+const DB_HANDLE = Symbol("DB_HANDLE"); // { db, close }, used to close the pool on shutdown
 
 // ---- Factories: each runs once at startup ----
 
@@ -108,7 +108,10 @@ class CoreModule {}
     { provide: DB_HANDLE, inject: [ENV], useFactory: createDbHandle },
     { provide: DB, inject: [DB_HANDLE], useFactory: getDbClient },
     DbLifecycle,
+    // Admin → Settings, readable everywhere. The namespace is empty except in tests.
+    { provide: PLATFORM_SETTINGS_NAMESPACE, useValue: "" },
+    PlatformSettingsService,
   ],
-  exports: [CoreModule, DB],
+  exports: [CoreModule, DB, PlatformSettingsService],
 })
 export class InfraModule {}

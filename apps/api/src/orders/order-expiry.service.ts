@@ -3,14 +3,11 @@ import { InvalidOrderTransitionError } from "@gbam/shared";
 import { Injectable, Logger } from "@nestjs/common";
 import { and, eq, isNull, sql } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { OrdersService } from "./orders.service.js";
 
 const HOUR_MS = 60 * 60 * 1000;
-/** Unpaid this long after the payment request: send one reminder. */
-export const REMIND_AFTER_MS = 24 * HOUR_MS;
-/** Unpaid this long after the payment request: cancel the order. */
-export const EXPIRE_AFTER_MS = 48 * HOUR_MS;
 /** At most this many orders per run, so one run never takes too long. The next run does the rest. */
 const BATCH_SIZE = 100;
 
@@ -29,6 +26,7 @@ export class OrderExpiryService {
     @InjectDb() private readonly db: Db,
     private readonly orders: OrdersService,
     private readonly notifications: NotificationsQueue,
+    private readonly platform: PlatformSettingsService,
   ) {}
 
   /** Ids of orders awaiting payment since before `cutoff`. */
@@ -58,9 +56,11 @@ export class OrderExpiryService {
     return ids;
   }
 
-  /** Sends one WhatsApp payment reminder to each order unpaid for 24 hours. Returns their ids. */
+  /** Sends one WhatsApp payment reminder to each order unpaid long enough. Returns their ids. */
   async sendDueReminders(now: Date): Promise<string[]> {
-    const cutoff = new Date(now.getTime() - REMIND_AFTER_MS);
+    // How long to wait comes from Admin → Settings (24 hours unless changed).
+    const settings = await this.platform.get();
+    const cutoff = new Date(now.getTime() - settings.reminderAfterHours * HOUR_MS);
     const dueIds = await this.awaitingPaymentSince(cutoff, true);
 
     const reminded: string[] = [];
@@ -96,9 +96,10 @@ export class OrderExpiryService {
     return reminded;
   }
 
-  /** Cancels every order unpaid for 48 hours. Returns their ids. */
+  /** Cancels every order unpaid for too long. Returns their ids. */
   async expireOverdue(now: Date): Promise<string[]> {
-    const cutoff = new Date(now.getTime() - EXPIRE_AFTER_MS);
+    const settings = await this.platform.get();
+    const cutoff = new Date(now.getTime() - settings.cancelAfterHours * HOUR_MS);
     const overdueIds = await this.awaitingPaymentSince(cutoff, false);
 
     const cancelled: string[] = [];

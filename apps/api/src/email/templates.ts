@@ -122,9 +122,14 @@ export type EmailJob =
       settingsUrl: string;
     };
 
-const CONTACT_INBOX = "hello@gbam.app";
-const PRIVACY_INBOX = "privacy@gbam.app";
-const SUPPORT_INBOX = "support@gbam.app";
+/** Where Gbam's own emails go. The live addresses come from Admin → Settings. */
+export type Inboxes = { support: string; contact: string; privacy: string };
+
+const DEFAULT_INBOXES: Inboxes = {
+  support: "support@gbam.app",
+  contact: "hello@gbam.app",
+  privacy: "privacy@gbam.app",
+};
 
 /** Makes user-typed text safe to put inside HTML, so "<b>" shows as text, not markup. */
 export function escapeHtml(value: string): string {
@@ -243,7 +248,7 @@ function emailLayout(contentHtml: string): string {
 }
 
 /** Turns a job into the finished email (recipient, subject, plain text and HTML). */
-export function renderEmail(job: EmailJob): SendEmailInput {
+export function renderEmail(job: EmailJob, inboxes: Inboxes = DEFAULT_INBOXES): SendEmailInput {
   if (job.kind === "verify_email") {
     return codeEmail(job.to, job.code, "Use this code to verify your email address.");
   }
@@ -258,13 +263,13 @@ export function renderEmail(job: EmailJob): SendEmailInput {
     return issueEmail(job);
   }
   if (job.kind === "account_closed") {
-    return accountClosedEmail(job);
+    return accountClosedEmail(job, inboxes.privacy);
   }
   if (job.kind === "payout_account_changed") {
     return payoutChangedEmail(job);
   }
   if (job.kind === "needs_refund") {
-    return needsRefundEmail(job);
+    return needsRefundEmail(job, inboxes.support);
   }
   if (job.kind === "password_changed") {
     return passwordChangedEmail(job);
@@ -321,7 +326,7 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   );
 
   return {
-    to: CONTACT_INBOX,
+    to: inboxes.contact,
     subject: `Gbam contact form: ${job.name}`,
     text,
     html: emailLayout(htmlLines.join("\n")),
@@ -426,7 +431,10 @@ function issueEmail(job: Extract<EmailJob, { kind: "issue_reported" }>): SendEma
 }
 
 /** To our privacy inbox: a seller deleted their account, so their data must be dealt with. */
-function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>): SendEmailInput {
+function accountClosedEmail(
+  job: Extract<EmailJob, { kind: "account_closed" }>,
+  privacyInbox: string,
+): SendEmailInput {
   const lines = [
     `A seller deleted their account. The shop is already hidden and they are signed out.`,
     ``,
@@ -452,7 +460,7 @@ function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>):
   ].join("\n");
   const html = emailLayout(content);
   return {
-    to: PRIVACY_INBOX,
+    to: privacyInbox,
     subject: `Account deletion request: ${job.shopName}`,
     text: lines.join("\n"),
     html,
@@ -491,7 +499,10 @@ function payoutChangedEmail(
  * To our support inbox: a customer paid but the order can't take the money (the seller
  * cancelled it while they were paying, or the stock ran out). Someone has to refund them.
  */
-function needsRefundEmail(job: Extract<EmailJob, { kind: "needs_refund" }>): SendEmailInput {
+function needsRefundEmail(
+  job: Extract<EmailJob, { kind: "needs_refund" }>,
+  supportInbox: string,
+): SendEmailInput {
   const total = formatNaira(job.totalKobo);
   let reference = "unknown";
   if (job.paymentReference !== null) {
@@ -521,7 +532,7 @@ function needsRefundEmail(job: Extract<EmailJob, { kind: "needs_refund" }>): Sen
     paragraph(`Refund the customer from the Paystack dashboard, then mark the order refunded.`),
   ].join("\n");
   return {
-    to: SUPPORT_INBOX,
+    to: supportInbox,
     subject: `NEEDS REFUND: ${job.orderCode} (${job.shopName})`,
     text,
     html: emailLayout(content),

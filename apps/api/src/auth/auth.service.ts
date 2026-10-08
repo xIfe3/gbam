@@ -16,6 +16,7 @@ import { isUniqueViolation } from "../common/db-errors.js";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { ENV, type Env } from "../env.js";
+import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import {
   hashPassword,
@@ -139,6 +140,7 @@ export class AuthService implements OnModuleInit {
     private readonly emails: EmailQueue,
     private readonly limiter: RateLimiter,
     @Inject(ENV) private readonly env: Env,
+    private readonly platform: PlatformSettingsService,
   ) {}
 
   /** Nest calls this at startup: make the dummy hash now, not during the first login. */
@@ -150,6 +152,14 @@ export class AuthService implements OnModuleInit {
     input: SignupInput,
     meta: SessionMeta,
   ): Promise<{ sessionToken: string; user: PublicUser }> {
+    // Admin → Settings can pause new sign-ups (e.g. during a busy launch).
+    const settings = await this.platform.get();
+    if (!settings.signupsOpen) {
+      throw new ForbiddenException({
+        code: "SIGNUPS_CLOSED",
+        message: "New sign-ups are paused for now. Please try again soon.",
+      });
+    }
     // Defence in depth: the API's own schema already trims and lowercases, but this is the
     // one place that decides what gets stored, and the email column must be lowercase.
     const email = input.email.trim().toLowerCase();

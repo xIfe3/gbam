@@ -1,6 +1,8 @@
 import { EmailError, type EmailClient, type SendEmailInput } from "@gbam/integrations";
 import { UnrecoverableError, type Job } from "bullmq";
+import { DEFAULT_PLATFORM_SETTINGS } from "@gbam/shared";
 import { describe, expect, it } from "vitest";
+import type { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { EmailProcessor } from "./email.processor.js";
 import type { EmailJob } from "./templates.js";
 
@@ -15,7 +17,11 @@ function makeProcessor(failure: Error | null) {
       return { id: "email_1" };
     },
   };
-  return { processor: new EmailProcessor(client), sent };
+  // Only get() is used: the inbox addresses for Gbam's own emails.
+  const platform = {
+    get: async () => DEFAULT_PLATFORM_SETTINGS,
+  } as unknown as PlatformSettingsService;
+  return { processor: new EmailProcessor(client, platform), sent };
 }
 
 const job = {

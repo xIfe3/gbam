@@ -12,6 +12,7 @@ import { NotificationsModule } from "./notifications/notifications.module.js";
 import { OrdersModule } from "./orders/orders.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
 import { PayoutsModule } from "./payouts/payouts.module.js";
+import { PlatformModule } from "./platform/platform.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
 import { ProductsModule } from "./products/products.module.js";
 import { SettingsModule } from "./settings/settings.module.js";
@@ -33,6 +34,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     OrdersModule,
     PaymentsModule,
     PayoutsModule,
+    PlatformModule,
     ProductsModule,
     SettingsModule,
     ToursModule,

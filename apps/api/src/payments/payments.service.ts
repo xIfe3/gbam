@@ -5,6 +5,7 @@ import { and, desc, eq, isNotNull } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { InjectPaystack, type PaystackClient } from "../integrations/integrations.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 
@@ -37,6 +38,7 @@ export class PaymentsService {
     @InjectPaystack() private readonly paystack: PaystackClient,
     @Inject(ENV) private readonly env: Env,
     private readonly orders: OrdersService,
+    private readonly platform: PlatformSettingsService,
   ) {}
 
   /**
@@ -113,7 +115,15 @@ export class PaymentsService {
       // gbam's cut for this order (1.5%, capped, or 0 for founding sellers). The rules
       // live in packages/shared/src/fees.ts.
       // Worked out on the items only (subtotal): Gbam takes no cut of the delivery fee.
-      const platformFeeKobo = calculatePlatformFee(order.subtotalKobo, order.seller.feeWaivedUntil);
+      // The rates in force now (Admin → Settings). The fee is stored on the payment, so a
+      // later change never alters a link that already exists.
+      const settings = await this.platform.get();
+      const platformFeeKobo = calculatePlatformFee(
+        order.subtotalKobo,
+        order.seller.feeWaivedUntil,
+        new Date(),
+        { percentBasisPoints: settings.feePercentBasisPoints, capKobo: settings.feeCapKobo },
+      );
 
       // If the seller has a Paystack subaccount, Paystack pays them directly and keeps
       // our cut in our account. Without one, the whole amount lands in our account.
