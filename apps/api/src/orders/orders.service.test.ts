@@ -3,13 +3,16 @@
  * Each run creates its own seller, so it never collides with seed data.
  */
 import "reflect-metadata";
-import { orderEvents, payments, productVariants, products, sellers } from "@gbam/db";
+import { orderEvents, payments, productVariants, products, sellers, users } from "@gbam/db";
 import { createOrderSchema, InvalidOrderTransitionError } from "@gbam/shared";
+import { getQueueToken } from "@nestjs/bullmq";
 import { ConflictException, NotFoundException } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
+import type { Queue } from "bullmq";
 import { randomUUID } from "node:crypto";
-import { eq } from "drizzle-orm";
+import { desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { EMAILS_QUEUE } from "../email/email.queue.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { createTestProduct, createTestSeller } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
@@ -334,5 +337,127 @@ describe("OrdersService (integration)", () => {
     expect(item?.variantId).toBe(made.variant.id);
     expect(item?.productName).toBe("Hat");
     expect(detail.stockShortfall).toBe(false);
+  });
+});
+
+describe("OrdersService emails (integration)", () => {
+  let moduleRef: TestingModule;
+  let service: OrdersService;
+  let db: Db;
+  let emailQueue: Queue;
+  let sellerId: string;
+  let slug: string;
+  let userId: string;
+  let variantId: string;
+  const ownerEmail = `owner-${randomUUID().slice(0, 8)}@example.com`;
+
+  beforeAll(async () => {
+    moduleRef = await Test.createTestingModule({ imports: [InfraModule, OrdersModule] }).compile();
+    moduleRef.enableShutdownHooks();
+    service = moduleRef.get(OrdersService);
+    db = moduleRef.get(DB);
+    // The BullMQ queue itself, so we can look up the jobs the service added.
+    emailQueue = moduleRef.get<Queue>(getQueueToken(EMAILS_QUEUE));
+
+    // These emails go to the shop's owner, so this shop needs a user who owns it.
+    const userRows = await db
+      .insert(users)
+      .values({ email: ownerEmail, passwordHash: "not-a-real-hash" })
+      .returning({ id: users.id });
+    const user = userRows[0];
+    if (!user) {
+      throw new Error("Failed to create the test user");
+    }
+    userId = user.id;
+
+    const seller = await createTestSeller(db, "emails");
+    slug = seller.slug;
+    sellerId = seller.id;
+    await db
+      .update(sellers)
+      .set({ ownerUserId: userId, paystackSubaccountCode: "ACCT_test123" })
+      .where(eq(sellers.id, sellerId));
+    const created = await createTestProduct(db, sellerId, { name: "Puff-puff" });
+    variantId = created.variant.id;
+  });
+
+  afterAll(async () => {
+    await db.delete(sellers).where(eq(sellers.id, sellerId)); // cascades to everything
+    await db.delete(users).where(eq(users.id, userId));
+    await moduleRef.close();
+  });
+
+  const placeOrder = () =>
+    service.createFromStorefront(slug, {
+      customer: { name: "Ada", phone: "2348011112222", email: "ada@example.com" },
+      items: [{ variantId, quantity: 1 }],
+    });
+
+  /** The id of the newest status event for an order (the emails' job ids use it). */
+  async function latestEventId(orderId: string): Promise<string> {
+    const rows = await db
+      .select({ id: orderEvents.id })
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      .orderBy(desc(orderEvents.createdAt))
+      .limit(1);
+    const event = rows[0];
+    if (!event) {
+      throw new Error("Expected the order to have an event");
+    }
+    return event.id;
+  }
+
+  it("emails the owner about a new order", async () => {
+    const order = await placeOrder();
+
+    const job = await emailQueue.getJob(`new-order-${order.id}`);
+    expect(job?.data).toMatchObject({ kind: "new_order", to: ownerEmail, code: order.code });
+  });
+
+  it("sends no new-order email when the owner turned them off", async () => {
+    await db.update(sellers).set({ newOrderEmails: false }).where(eq(sellers.id, sellerId));
+    try {
+      const order = await placeOrder();
+      const job = await emailQueue.getJob(`new-order-${order.id}`);
+      expect(job).toBeUndefined();
+    } finally {
+      await db.update(sellers).set({ newOrderEmails: true }).where(eq(sellers.id, sellerId));
+    }
+  });
+
+  it("emails both sides when an order is paid", async () => {
+    const order = await placeOrder();
+    await service.transition({ orderId: order.id, to: "awaiting_payment", actor: "seller", sellerId });
+    await service.transition({ orderId: order.id, to: "paid", actor: "system" });
+    const eventId = await latestEventId(order.id);
+
+    const toSeller = await emailQueue.getJob(`paid-seller-${eventId}`);
+    expect(toSeller?.data).toMatchObject({ kind: "payment_received", to: ownerEmail });
+    const toCustomer = await emailQueue.getJob(`paid-customer-${eventId}`);
+    expect(toCustomer?.data).toMatchObject({ kind: "payment_confirmed", to: "ada@example.com" });
+  });
+
+  it("emails the customer when the order is cancelled", async () => {
+    const order = await placeOrder();
+    await service.transition({ orderId: order.id, to: "cancelled", actor: "seller", sellerId });
+    const eventId = await latestEventId(order.id);
+
+    const job = await emailQueue.getJob(`cancelled-${eventId}`);
+    expect(job?.data).toMatchObject({ kind: "order_cancelled", to: "ada@example.com" });
+  });
+
+  it("emails support when a paid order needs a refund", async () => {
+    const order = await placeOrder();
+    await service.emailSupportNeedsRefund(order.id, "Test reason", "gbam_test_ref");
+
+    const job = await emailQueue.getJob("needs-refund-gbam_test_ref");
+    expect(job?.data).toMatchObject({
+      kind: "needs_refund",
+      orderCode: order.code,
+      reason: "Test reason",
+    });
+    // Remove it so the next run can add it again under the same id.
+    await job?.remove();
   });
 });

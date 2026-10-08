@@ -4,7 +4,12 @@ import { useActionState } from "react";
 import { PasswordField, TextField } from "@/components/brand/fields";
 import { FormError, FormNotice, SubmitButton } from "@/components/brand/form-bits";
 import type { FormState } from "@/app/(auth)/action-helpers";
-import { changePasswordAction, closeAccountAction, updateShopAction } from "./actions";
+import {
+  changePasswordAction,
+  closeAccountAction,
+  updateEmailsAction,
+  updateShopAction,
+} from "./actions";
 
 /** Shop name and WhatsApp number. */
 export function ShopForm({ businessName, phone }: { businessName: string; phone: string }) {
@@ -43,6 +48,32 @@ export function ShopForm({ businessName, phone }: { businessName: string; phone:
         hint="Customers' order messages and your notifications use this number."
         error={state.fieldErrors?.phone}
       />
+      <div>
+        <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
+      </div>
+    </form>
+  );
+}
+
+/**
+ * Optional emails. Payment, password and bank-account emails always go out (they're about
+ * money and safety); only the "new order" email can be turned off.
+ */
+export function EmailsForm({ newOrderEmails }: { newOrderEmails: boolean }) {
+  const [state, formAction] = useActionState<FormState, FormData>(updateEmailsAction, {});
+  return (
+    <form action={formAction} className="flex flex-col gap-4">
+      <FormError message={state.error} />
+      <FormNotice message={state.notice} />
+      <label className="flex min-h-11 items-center gap-3 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          name="newOrderEmails"
+          defaultChecked={newOrderEmails}
+          className="accent-brand size-5"
+        />
+        Email me when a new order comes in
+      </label>
       <div>
         <SubmitButton pendingLabel="Saving…">Save</SubmitButton>
       </div>

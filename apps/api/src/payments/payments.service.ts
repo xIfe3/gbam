@@ -227,5 +227,11 @@ export class PaymentsService {
     this.logger.error(
       `Payment ${reference} succeeded but the order is "${status}" (store ${store}). NEEDS REFUND.`,
     );
+    // The log is a backup; the email is what makes sure someone actually refunds them.
+    await this.orders.emailSupportNeedsRefund(
+      orderId,
+      `The customer paid, but the order was already "${status}", so the money can't be kept.`,
+      reference,
+    );
   }
 }

@@ -12,7 +12,12 @@ const { apiMock, FakeApiError, refresh, redirect, clearSessionCookie } = vi.hois
     }
   }
   return {
-    apiMock: { updateShopSettings: vi.fn(), changePassword: vi.fn(), closeAccount: vi.fn() },
+    apiMock: {
+      updateShopSettings: vi.fn(),
+      updateEmailSettings: vi.fn(),
+      changePassword: vi.fn(),
+      closeAccount: vi.fn(),
+    },
     FakeApiError,
     refresh: vi.fn(),
     // Like Next's redirect: it stops the action by throwing.
@@ -34,7 +39,12 @@ vi.mock("next/cache", () => ({ refresh }));
 vi.mock("@/lib/api", () => ({ api: apiMock, ApiError: FakeApiError }));
 vi.mock("@/lib/session", () => ({ clearSessionCookie }));
 
-import { changePasswordAction, closeAccountAction, updateShopAction } from "./actions";
+import {
+  changePasswordAction,
+  closeAccountAction,
+  updateEmailsAction,
+  updateShopAction,
+} from "./actions";
 
 function form(fields: Record<string, string>): FormData {
   const data = new FormData();
@@ -46,6 +56,22 @@ function form(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("updateEmailsAction", () => {
+  it("a ticked box turns new-order emails on", async () => {
+    apiMock.updateEmailSettings.mockResolvedValue({});
+    const state = await updateEmailsAction({}, form({ newOrderEmails: "on" }));
+    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({ newOrderEmails: true });
+    expect(state.notice).toContain("We'll email you");
+  });
+
+  it("an unticked box (missing from the form) turns them off", async () => {
+    apiMock.updateEmailSettings.mockResolvedValue({});
+    const state = await updateEmailsAction({}, form({}));
+    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({ newOrderEmails: false });
+    expect(state.notice).toContain("won't email you");
+  });
 });
 
 describe("updateShopAction", () => {

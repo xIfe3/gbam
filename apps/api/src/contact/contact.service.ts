@@ -43,6 +43,11 @@ export class ContactService {
       phone,
       message: input.message,
     });
+    // "We got your message" to the sender. Its job id is tied to the message, so it's sent once.
+    await this.emails.send(`contact-reply-${row.id}`, {
+      kind: "contact_auto_reply",
+      to: input.email,
+    });
     return { received: true };
   }
 }

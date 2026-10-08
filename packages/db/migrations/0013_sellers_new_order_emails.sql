@@ -1,0 +1,1 @@
+ALTER TABLE "sellers" ADD COLUMN "new_order_emails" boolean DEFAULT true NOT NULL;

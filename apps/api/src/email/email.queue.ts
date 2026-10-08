@@ -26,7 +26,10 @@ export class EmailQueue {
     if (
       job.kind === "verify_email" ||
       job.kind === "reset_password" ||
-      job.kind === "order_receipt"
+      job.kind === "order_receipt" ||
+      job.kind === "payment_confirmed" ||
+      job.kind === "order_cancelled" ||
+      job.kind === "order_refunded"
     ) {
       options.removeOnComplete = true;
       options.removeOnFail = { age: 3600 };

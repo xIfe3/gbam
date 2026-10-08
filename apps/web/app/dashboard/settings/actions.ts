@@ -1,6 +1,11 @@
 "use server";
 
-import { changePasswordSchema, closeAccountSchema, shopSettingsSchema } from "@gbam/shared";
+import {
+  changePasswordSchema,
+  closeAccountSchema,
+  emailSettingsSchema,
+  shopSettingsSchema,
+} from "@gbam/shared";
 import { refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import {
@@ -35,6 +40,33 @@ export async function updateShopAction(_prev: FormState, formData: FormData): Pr
   // The shop name also shows in the dashboard header: re-render it with the new one.
   refresh();
   return { notice: "Saved.", values };
+}
+
+/**
+ * Which optional emails the seller wants. A ticked checkbox sends "on"; an unticked one
+ * sends nothing at all, so "not in the form" means off.
+ */
+export async function updateEmailsAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const ticked = formData.get("newOrderEmails") === "on";
+  const input = emailSettingsSchema.safeParse({ newOrderEmails: ticked });
+  if (!input.success) {
+    return { error: "Something went wrong. Please try again." };
+  }
+
+  try {
+    await api.updateEmailSettings(input.data);
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: failureMessage(error, "update email settings") };
+  }
+  let notice = "Saved. We won't email you about new orders.";
+  if (input.data.newOrderEmails) {
+    notice = "Saved. We'll email you when a new order comes in.";
+  }
+  return { notice };
 }
 
 /** New password. Passwords are never sent back to the form, even after an error. */

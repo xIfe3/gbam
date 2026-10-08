@@ -190,6 +190,12 @@ export const shopSettingsSchema = z.object({
 });
 export type ShopSettingsInput = z.output<typeof shopSettingsSchema>;
 
+/** Which optional emails the seller wants. */
+export const emailSettingsSchema = z.object({
+  newOrderEmails: z.boolean(),
+});
+export type EmailSettingsInput = z.output<typeof emailSettingsSchema>;
+
 /** The current password proves it's really the owner; the new one meets the signup policy. */
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password").max(200),

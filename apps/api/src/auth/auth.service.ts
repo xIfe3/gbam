@@ -4,6 +4,7 @@ import {
   BadRequestException,
   ConflictException,
   ForbiddenException,
+  Inject,
   Injectable,
   Logger,
   UnauthorizedException,
@@ -14,6 +15,7 @@ import { randomBytes, timingSafeEqual } from "node:crypto";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
+import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import {
   hashPassword,
@@ -128,6 +130,7 @@ export class AuthService implements OnModuleInit {
     @InjectDb() private readonly db: Db,
     private readonly emails: EmailQueue,
     private readonly limiter: RateLimiter,
+    @Inject(ENV) private readonly env: Env,
   ) {}
 
   /** Nest calls this at startup: make the dummy hash now, not during the first login. */
@@ -240,6 +243,48 @@ export class AuthService implements OnModuleInit {
       await this.consumeCode(tx, codeId, now);
       await tx.update(users).set({ emailVerifiedAt: now }).where(eq(users.id, userId));
     });
+    await this.sendWelcome(userId);
+  }
+
+  /** "Welcome, here's what to do next", once the seller's email is verified. */
+  private async sendWelcome(userId: string): Promise<void> {
+    try {
+      const [row] = await this.db
+        .select({ email: users.email, shopName: sellers.businessName, slug: sellers.slug })
+        .from(users)
+        .innerJoin(sellers, eq(sellers.ownerUserId, users.id))
+        .where(eq(users.id, userId));
+      if (!row) {
+        return;
+      }
+      // One welcome per user, even if this runs twice.
+      await this.emails.send(`welcome-${userId}`, {
+        kind: "welcome",
+        to: row.email,
+        shopName: row.shopName,
+        shopUrl: `${this.env.WEB_URL}/${row.slug}`,
+        dashboardUrl: `${this.env.WEB_URL}/dashboard`,
+      });
+    } catch (error) {
+      this.logger.error(`Could not queue the welcome email for user ${userId}`, error);
+    }
+  }
+
+  /**
+   * "Your password was changed", so a change the owner didn't make doesn't go unnoticed.
+   * The change is already saved: a failure here is logged, not thrown.
+   */
+  private async sendPasswordChanged(userId: string, email: string): Promise<void> {
+    try {
+      // The job id includes the time, so every change sends its own email.
+      await this.emails.send(`password-changed-${userId}-${Date.now()}`, {
+        kind: "password_changed",
+        to: email,
+        resetUrl: `${this.env.WEB_URL}/forgot-password`,
+      });
+    } catch (error) {
+      this.logger.error(`Could not queue the password-changed email for user ${userId}`, error);
+    }
   }
 
   /** Verify-email codes only; a new reset code comes from forgotPassword (it needs a requestId). */
@@ -513,6 +558,8 @@ export class AuthService implements OnModuleInit {
       return { updated, sessionToken };
     });
 
+    await this.sendPasswordChanged(user.id, user.email);
+
     const [seller] = await this.db.select().from(sellers).where(eq(sellers.ownerUserId, user.id));
     return { sessionToken: result.sessionToken, user: toPublicUser(result.updated, seller) };
   }
@@ -556,6 +603,14 @@ export class AuthService implements OnModuleInit {
           ),
         );
     });
+
+    const [user] = await this.db
+      .select({ email: users.email })
+      .from(users)
+      .where(eq(users.id, userId));
+    if (user) {
+      await this.sendPasswordChanged(userId, user.email);
+    }
   }
 
   /**
@@ -604,6 +659,16 @@ export class AuthService implements OnModuleInit {
       });
     } catch (error) {
       this.logger.error(`Could not queue the deletion request for seller ${seller.id}`, error);
+    }
+    // And a confirmation to the owner: their record of it, or the alarm if it wasn't them.
+    try {
+      await this.emails.send(`account-closed-owner-${seller.id}`, {
+        kind: "account_closed_owner",
+        to: row.user.email,
+        shopName: seller.businessName,
+      });
+    } catch (error) {
+      this.logger.error(`Could not queue the deletion confirmation for seller ${seller.id}`, error);
     }
   }
 

@@ -1,5 +1,5 @@
 import { sellers } from "@gbam/db";
-import type { ShopSettingsInput } from "@gbam/shared";
+import type { EmailSettingsInput, ShopSettingsInput } from "@gbam/shared";
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import { eq } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
@@ -11,6 +11,8 @@ export type ShopSettings = {
   phone: string;
   /** Only what's safe to show: bank, last 4 digits, account holder's name. */
   payoutAccount: { bankName: string; accountLast4: string; bankAccountName: string } | null;
+  /** Email the owner when a new order comes in. */
+  newOrderEmails: boolean;
 };
 
 /**
@@ -41,6 +43,7 @@ export class SettingsService {
       businessName: seller.businessName,
       phone: seller.whatsappPhone,
       payoutAccount,
+      newOrderEmails: seller.newOrderEmails,
     };
   }
 
@@ -61,6 +64,15 @@ export class SettingsService {
       }
       throw error;
     }
+    return this.get(sellerId);
+  }
+
+  /** Turns optional emails (like "new order") on or off. */
+  async updateEmails(sellerId: string, input: EmailSettingsInput): Promise<ShopSettings> {
+    await this.db
+      .update(sellers)
+      .set({ newOrderEmails: input.newOrderEmails })
+      .where(eq(sellers.id, sellerId));
     return this.get(sellerId);
   }
 }

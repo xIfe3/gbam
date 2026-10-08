@@ -54,7 +54,18 @@ describe("SettingsService (integration)", () => {
       businessName: seller.businessName,
       phone: seller.whatsappPhone,
       payoutAccount: { bankName: "Access Bank", accountLast4: "6789", bankAccountName: "ADA OBI" },
+      newOrderEmails: true,
     });
+  });
+
+  it("turns new-order emails off and back on", async () => {
+    const seller = await newSeller();
+
+    const off = await service.updateEmails(seller.id, { newOrderEmails: false });
+    expect(off.newOrderEmails).toBe(false);
+
+    const on = await service.updateEmails(seller.id, { newOrderEmails: true });
+    expect(on.newOrderEmails).toBe(true);
   });
 
   it("has no payout account when none is set up", async () => {

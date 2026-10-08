@@ -173,6 +173,8 @@ export const sellers = pgTable("sellers", {
    * can't sign in. The rows are kept (orders are business records) until deletion is done.
    */
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  /** Email the owner when a new order comes in. Busy shops can turn it off in Settings. */
+  newOrderEmails: boolean("new_order_emails").notNull().default(true),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });

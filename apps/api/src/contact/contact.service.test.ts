@@ -64,7 +64,8 @@ describe("ContactService (integration)", () => {
     expect(rows[0]?.status).toBe("new");
     expect(rows[0]?.phone).toBe("2348031234567");
 
-    expect(sent).toHaveLength(1);
+    // Two emails: the message to our inbox, and "we got your message" to the sender.
+    expect(sent).toHaveLength(2);
     expect(sent[0]?.jobId).toBe(`contact-${rows[0]?.id}`);
     expect(sent[0]?.job).toEqual({
       kind: "contact_message",
@@ -73,6 +74,8 @@ describe("ContactService (integration)", () => {
       phone: "2348031234567",
       message: input.message,
     });
+    expect(sent[1]?.jobId).toBe(`contact-reply-${rows[0]?.id}`);
+    expect(sent[1]?.job).toEqual({ kind: "contact_auto_reply", to: emailAddress });
   });
 
   it("rejects the 6th submission from the same IP within the hour", async () => {
@@ -86,7 +89,7 @@ describe("ContactService (integration)", () => {
       .from(contactMessages)
       .where(eq(contactMessages.email, emailAddress));
     expect(rows).toHaveLength(5); // the blocked one was not stored
-    expect(sent).toHaveLength(5); // ...and no email was queued for it
+    expect(sent).toHaveLength(10); // two emails each, and none for the blocked one
   });
 
   it("does not limit a different IP", async () => {

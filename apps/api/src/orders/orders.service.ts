@@ -9,6 +9,7 @@ import {
   productVariants,
   products,
   sellers,
+  users,
   type DbTransaction,
 } from "@gbam/db";
 import {
@@ -29,6 +30,7 @@ import {
 import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { EmailQueue } from "../email/email.queue.js";
+import type { EmailJob } from "../email/templates.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
@@ -120,6 +122,7 @@ export class OrdersService {
         if (input.customer.email) {
           await this.sendReceipt(created.order, input.customer.email);
         }
+        await this.emailSellerNewOrder(created.order.id);
         return created.order;
       } catch (error) {
         const codeWasTaken = isUniqueViolation(error, "orders_seller_code_uq");
@@ -327,11 +330,200 @@ export class OrdersService {
       } catch (error) {
         this.logger.error(`STOCK SHORTFALL on order ${result.order.code}. NEEDS REFUND.`, error);
       }
+      await this.emailSupportNeedsRefund(
+        orderId,
+        "The customer paid, but there wasn't enough stock left for this order.",
+        null,
+      );
     }
 
-    // Only after the transaction has committed: queue the WhatsApp message.
+    // Only after the transaction has committed: queue the WhatsApp message and emails.
     await this.notify(result.eventId, { orderId, from: result.from, to });
+    await this.emailAfterStatusChange(orderId, to, result.eventId);
     return result.order;
+  }
+
+  // ---- Emails ----
+  //
+  // Every email below is sent AFTER the database change has committed, and a failure is
+  // logged, never thrown: the order is already saved, and an email problem must not turn
+  // a successful action into an error. Each job id is fixed for that event, so if the same
+  // email is queued twice (a retry), the queue keeps only one and it is sent once.
+
+  /** The seller's dashboard page for an order. */
+  private dashboardOrderUrl(orderId: string): string {
+    return `${this.env.WEB_URL}/dashboard/orders/${orderId}`;
+  }
+
+  /** Everything the order emails need, in one query. null if the order is gone. */
+  private async loadEmailDetails(orderId: string) {
+    const rows = await this.db
+      .select({
+        code: orders.code,
+        totalKobo: orders.totalKobo,
+        trackingKey: orders.trackingKey,
+        customerEmail: orders.customerEmail,
+        customerName: customers.name,
+        shopName: sellers.businessName,
+        slug: sellers.slug,
+        newOrderEmails: sellers.newOrderEmails,
+        // A left join: a shop with no owner account (like test shops) gets no email.
+        ownerEmail: users.email,
+      })
+      .from(orders)
+      .innerJoin(customers, eq(customers.id, orders.customerId))
+      .innerJoin(sellers, eq(sellers.id, orders.sellerId))
+      .leftJoin(users, eq(users.id, sellers.ownerUserId))
+      .where(eq(orders.id, orderId));
+    const details = rows[0];
+    if (!details) {
+      return null;
+    }
+    return details;
+  }
+
+  /** Queues one email; logs instead of throwing if the queue can't take it. */
+  private async queueEmail(jobId: string, job: EmailJob) {
+    try {
+      await this.emails.send(jobId, job);
+    } catch (error) {
+      let reason = "error";
+      if (error instanceof Error) {
+        reason = error.message;
+      }
+      this.logger.error(`Could not queue the ${job.kind} email (${jobId}): ${reason}`);
+    }
+  }
+
+  /** "New order" to the seller, unless they turned these off in Settings. */
+  private async emailSellerNewOrder(orderId: string) {
+    try {
+      const details = await this.loadEmailDetails(orderId);
+      if (!details || !details.ownerEmail || !details.newOrderEmails) {
+        return;
+      }
+      await this.queueEmail(`new-order-${orderId}`, {
+        kind: "new_order",
+        to: details.ownerEmail,
+        shopName: details.shopName,
+        code: details.code,
+        customerName: details.customerName,
+        totalKobo: details.totalKobo,
+        orderUrl: this.dashboardOrderUrl(orderId),
+        settingsUrl: `${this.env.WEB_URL}/dashboard/settings`,
+      });
+    } catch (error) {
+      this.logger.error(`Could not prepare the new-order email for order ${orderId}`, error);
+    }
+  }
+
+  /**
+   * Emails that go out when an order moves to a new status:
+   * - paid: "payment received" to the seller, "payment confirmed" to the customer
+   * - cancelled / refunded: to the customer
+   * Customers only get emails if they gave an address at checkout.
+   */
+  private async emailAfterStatusChange(orderId: string, to: OrderStatus, eventId: string) {
+    const statusesWithEmails: OrderStatus[] = ["paid", "cancelled", "refunded"];
+    if (!statusesWithEmails.includes(to)) {
+      return;
+    }
+    try {
+      const details = await this.loadEmailDetails(orderId);
+      if (!details) {
+        return;
+      }
+      const trackingUrl = this.trackingUrl(details.code, details.trackingKey);
+
+      if (to === "paid" && details.ownerEmail) {
+        await this.queueEmail(`paid-seller-${eventId}`, {
+          kind: "payment_received",
+          to: details.ownerEmail,
+          shopName: details.shopName,
+          code: details.code,
+          customerName: details.customerName,
+          totalKobo: details.totalKobo,
+          orderUrl: this.dashboardOrderUrl(orderId),
+        });
+      }
+
+      const customerEmail = details.customerEmail;
+      if (!customerEmail) {
+        return;
+      }
+      if (to === "paid") {
+        await this.queueEmail(`paid-customer-${eventId}`, {
+          kind: "payment_confirmed",
+          to: customerEmail,
+          shopName: details.shopName,
+          code: details.code,
+          totalKobo: details.totalKobo,
+          trackingUrl,
+        });
+      } else if (to === "cancelled") {
+        await this.queueEmail(`cancelled-${eventId}`, {
+          kind: "order_cancelled",
+          to: customerEmail,
+          shopName: details.shopName,
+          code: details.code,
+          trackingUrl,
+        });
+      } else if (to === "refunded") {
+        await this.queueEmail(`refunded-${eventId}`, {
+          kind: "order_refunded",
+          to: customerEmail,
+          shopName: details.shopName,
+          code: details.code,
+          totalKobo: details.totalKobo,
+          trackingUrl,
+        });
+      }
+    } catch (error) {
+      this.logger.error(`Could not prepare the "${to}" emails for order ${orderId}`, error);
+    }
+  }
+
+  /**
+   * Tells our support inbox that a customer paid money we can't keep, so someone refunds
+   * them. Before, this was only a log line, which nobody reads in time.
+   * `paymentReference` null = use the order's successful payment, if there is one.
+   */
+  async emailSupportNeedsRefund(orderId: string, reason: string, paymentReference: string | null) {
+    try {
+      const details = await this.loadEmailDetails(orderId);
+      if (!details) {
+        return;
+      }
+      let reference = paymentReference;
+      if (reference === null) {
+        const paidRows = await this.db
+          .select({ reference: payments.reference })
+          .from(payments)
+          .where(and(eq(payments.orderId, orderId), eq(payments.status, "success")))
+          .orderBy(desc(payments.createdAt))
+          .limit(1);
+        const paid = paidRows[0];
+        if (paid) {
+          reference = paid.reference;
+        }
+      }
+      // One email per payment (a repeated webhook for the same payment sends nothing new).
+      let jobId = `needs-refund-${orderId}`;
+      if (reference !== null) {
+        jobId = `needs-refund-${reference}`;
+      }
+      await this.queueEmail(jobId, {
+        kind: "needs_refund",
+        orderCode: details.code,
+        shopName: details.shopName,
+        slug: details.slug,
+        totalKobo: details.totalKobo,
+        reason,
+        paymentReference: reference,
+      });
+    } catch (error) {
+      this.logger.error(`Could not prepare the needs-refund email for order ${orderId}`, error);
+    }
   }
 
   /** Writes a new order. Runs inside the transaction started by createFromStorefront. */

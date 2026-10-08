@@ -5,11 +5,11 @@ import { BankForm } from "@/app/(auth)/signup/get-paid/bank-form";
 import { FormError, FormNotice } from "@/components/brand/form-bits";
 import { api, ApiError, type Bank } from "@/lib/api";
 import { SITE_HOST } from "@/lib/site";
-import { CloseAccountForm, PasswordForm, ShopForm } from "./settings-forms";
+import { CloseAccountForm, EmailsForm, PasswordForm, ShopForm } from "./settings-forms";
 
 export const metadata: Metadata = {
   title: "Settings",
-  description: "Your shop details, payout bank account, password and account.",
+  description: "Your shop details, payout bank account, emails, password and account.",
 };
 
 /** The bank list, or null when it can't be loaded right now (the rest of the page still works). */
@@ -93,6 +93,17 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
             </details>
           </div>
         )}
+      </section>
+
+      <section aria-labelledby="emails-heading" className={sectionClass}>
+        <h2 id="emails-heading" className="mb-1 font-semibold">
+          Emails
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          We always email you about payments, password and bank account changes. New-order emails
+          are up to you.
+        </p>
+        <EmailsForm newOrderEmails={settings.newOrderEmails} />
       </section>
 
       <section aria-labelledby="security-heading" className={sectionClass}>

@@ -74,16 +74,27 @@ describe("AuthService signup and verification (integration)", () => {
   function sentTo(email: string): number {
     let count = 0;
     for (const entry of sent) {
-      // Contact messages and deletion requests go to our own inboxes, not to a user.
+      // Contact messages, deletion requests and refund alerts go to our own inboxes.
       if (
         entry.job.kind !== "contact_message" &&
         entry.job.kind !== "account_closed" &&
+        entry.job.kind !== "needs_refund" &&
         entry.job.to === email
       ) {
         count = count + 1;
       }
     }
     return count;
+  }
+
+  /** Did an email of this kind go to this address? */
+  function wasSent(email: string, kind: EmailJob["kind"]): boolean {
+    for (const entry of sent) {
+      if (entry.job.kind === kind && "to" in entry.job && entry.job.to === email) {
+        return true;
+      }
+    }
+    return false;
   }
 
   beforeAll(async () => {
@@ -193,9 +204,12 @@ describe("AuthService signup and verification (integration)", () => {
   it("verifies with the right code and marks the email verified", async () => {
     const input = newInput();
     const { user } = await service.signup(input, meta);
+    expect(wasSent(input.email, "welcome")).toBe(false);
     await service.verifyEmail(user.id, lastCodeFor(input.email));
     const [row] = await db.select().from(users).where(eq(users.id, user.id));
     expect(row?.emailVerifiedAt).not.toBeNull();
+    // Verified: now they get the welcome email.
+    expect(wasSent(input.email, "welcome")).toBe(true);
   });
 
   it("kills the code after 5 wrong attempts, even for the right value", async () => {
@@ -522,6 +536,7 @@ describe("AuthService signup and verification (integration)", () => {
       freshMeta(),
     );
     expect(result.user.id).toBe(signedUp.user.id);
+    expect(wasSent(input.email, "password_changed")).toBe(true);
     await expect(service.me(signedUp.sessionToken)).rejects.toBeInstanceOf(UnauthorizedException);
     await expect(service.me(otherDevice.sessionToken)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -731,6 +746,7 @@ describe("AuthService signup and verification (integration)", () => {
       "a brand new password",
     );
 
+    expect(wasSent(input.email, "password_changed")).toBe(true);
     expect((await service.me(thisDevice.sessionToken)).id).toBe(thisDevice.user.id);
     await expect(service.me(otherDevice.sessionToken)).rejects.toBeInstanceOf(
       UnauthorizedException,
@@ -785,6 +801,8 @@ describe("AuthService signup and verification (integration)", () => {
       }
     }
     expect(request).toMatchObject({ shopName: "Ada Bakes", slug: input.slug });
+    // The owner gets their own confirmation too.
+    expect(wasSent(input.email, "account_closed_owner")).toBe(true);
 
     const loginError = await service
       .login(input.email, input.password, freshMeta())

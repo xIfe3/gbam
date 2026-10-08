@@ -92,6 +92,13 @@
       "when": 1791375076993,
       "tag": "0012_sellers_closed_at",
       "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "7",
+      "when": 1791439921807,
+      "tag": "0013_sellers_new_order_emails",
+      "breakpoints": true
     }
   ]
 }

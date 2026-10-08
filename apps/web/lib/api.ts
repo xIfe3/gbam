@@ -591,6 +591,8 @@ export type ShopSettings = {
   businessName: string;
   phone: string;
   payoutAccount: PayoutAccount | null;
+  /** Email the owner when a new order comes in. */
+  newOrderEmails: boolean;
 };
 
 async function getSettings() {
@@ -599,6 +601,14 @@ async function getSettings() {
 
 async function updateShopSettings(body: { businessName: string; phone: string }) {
   return request<ShopSettings>("/settings/shop", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function updateEmailSettings(body: { newOrderEmails: boolean }) {
+  return request<ShopSettings>("/settings/emails", {
     method: "PATCH",
     body: JSON.stringify(body),
     auth: "session",
@@ -715,6 +725,7 @@ export const api = {
   changePayoutAccount,
   getSettings,
   updateShopSettings,
+  updateEmailSettings,
   changePassword,
   closeAccount,
   signup,

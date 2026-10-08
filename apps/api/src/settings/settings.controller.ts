@@ -1,4 +1,9 @@
-import { shopSettingsSchema, type ShopSettingsInput } from "@gbam/shared";
+import {
+  emailSettingsSchema,
+  shopSettingsSchema,
+  type EmailSettingsInput,
+  type ShopSettingsInput,
+} from "@gbam/shared";
 import { Body, Controller, Get, Patch, UseGuards } from "@nestjs/common";
 import { CurrentSellerId } from "../auth/current-user.js";
 import { SessionGuard } from "../auth/session.guard.js";
@@ -22,5 +27,13 @@ export class SettingsController {
     @Body(new ZodPipe(shopSettingsSchema)) body: ShopSettingsInput,
   ) {
     return this.settings.updateShop(sellerId, body);
+  }
+
+  @Patch("emails")
+  updateEmails(
+    @CurrentSellerId() sellerId: string,
+    @Body(new ZodPipe(emailSettingsSchema)) body: EmailSettingsInput,
+  ) {
+    return this.settings.updateEmails(sellerId, body);
   }
 }
