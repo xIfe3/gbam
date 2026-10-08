@@ -1,10 +1,17 @@
 "use server";
 
-import { reasonSchema } from "@gbam/shared";
+import {
+  ADMIN_PERMISSIONS,
+  inviteAdminSchema,
+  reasonSchema,
+  roleInputSchema,
+  updateAdminSchema,
+  type AdminPermission,
+} from "@gbam/shared";
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
-import { text, type FormState } from "@/app/(auth)/action-helpers";
+import { apiFieldError, fieldErrorsFrom, text, type FormState } from "@/app/(auth)/action-helpers";
 import { adminApi, type BulkResult } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 
@@ -132,5 +139,150 @@ export async function resolveRefundAction(id: string, _prev: FormState, formData
     formData,
     (reason) => adminApi.resolveRefund(id, reason),
     "Marked as refunded.",
+  );
+}
+
+// ---- Support ----
+
+export async function handleMessageAction(id: string, _prev: FormState, formData: FormData) {
+  return withReason(formData, (reason) => adminApi.handleMessage(id, reason), "Marked handled.");
+}
+
+export async function bulkHandleMessagesAction(ids: string[], note: string): Promise<BulkResult> {
+  const result = await adminApi.bulkHandleMessages(ids, note);
+  refresh();
+  return result;
+}
+
+export async function resolveIssueAction(id: string, _prev: FormState, formData: FormData) {
+  return withReason(formData, (reason) => adminApi.resolveIssue(id, reason), "Marked resolved.");
+}
+
+// ---- Team (superadmin) ----
+
+/** A form's roleId: "" (none picked) becomes null. */
+function roleIdFrom(formData: FormData): string | null {
+  const value = text(formData, "roleId");
+  if (value === "") {
+    return null;
+  }
+  return value;
+}
+
+export async function inviteAdminAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const values = { name: text(formData, "name"), email: text(formData, "email") };
+  const input = inviteAdminSchema.safeParse({
+    ...values,
+    roleId: roleIdFrom(formData),
+    isSuperadmin: text(formData, "isSuperadmin") === "on",
+  });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error), values };
+  }
+  try {
+    await adminApi.inviteAdmin(input.data);
+  } catch (error) {
+    const emailError = apiFieldError(error, "email");
+    if (emailError !== null) {
+      return { fieldErrors: { email: emailError }, values };
+    }
+    return { error: adminFailure(error), values };
+  }
+  refresh();
+  return { notice: `Invite sent to ${input.data.email}.` };
+}
+
+export async function updateAdminAction(id: string, _prev: FormState, formData: FormData) {
+  const input = updateAdminSchema.safeParse({
+    roleId: roleIdFrom(formData),
+    isSuperadmin: text(formData, "isSuperadmin") === "on",
+  });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  return simple(() => adminApi.updateAdmin(id, input.data), "Saved.");
+}
+
+export async function resetAuthenticatorAction(id: string): Promise<FormState> {
+  return simple(
+    () => adminApi.resetAuthenticator(id),
+    "They're signed out and a new setup link was emailed.",
+  );
+}
+
+export async function removeAdminAction(id: string): Promise<FormState> {
+  return simple(() => adminApi.removeAdmin(id), "Removed. They're signed out everywhere.");
+}
+
+// ---- Roles (superadmin) ----
+
+/** The ticked permission checkboxes (all named "permissions"), keeping only real names. */
+function permissionsFrom(formData: FormData): AdminPermission[] {
+  const ticked: AdminPermission[] = [];
+  for (const value of formData.getAll("permissions")) {
+    for (const permission of ADMIN_PERMISSIONS) {
+      if (value === permission && !ticked.includes(permission)) {
+        ticked.push(permission);
+      }
+    }
+  }
+  return ticked;
+}
+
+async function saveRole(
+  formData: FormData,
+  call: (input: { name: string; permissions: AdminPermission[] }) => Promise<unknown>,
+): Promise<FormState> {
+  const input = roleInputSchema.safeParse({
+    name: text(formData, "name"),
+    permissions: permissionsFrom(formData),
+  });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  try {
+    await call(input.data);
+  } catch (error) {
+    const nameError = apiFieldError(error, "name");
+    if (nameError !== null) {
+      return { fieldErrors: { name: nameError } };
+    }
+    return { error: adminFailure(error) };
+  }
+  refresh();
+  return { notice: "Role saved." };
+}
+
+export async function createRoleAction(_prev: FormState, formData: FormData) {
+  return saveRole(formData, (input) => adminApi.createRole(input));
+}
+
+export async function updateRoleAction(id: string, _prev: FormState, formData: FormData) {
+  return saveRole(formData, (input) => adminApi.updateRole(id, input));
+}
+
+export async function deleteRoleAction(id: string): Promise<FormState> {
+  return simple(() => adminApi.deleteRole(id), "Moved to the bin for 30 days.");
+}
+
+export async function restoreRoleAction(id: string): Promise<FormState> {
+  return simple(() => adminApi.restoreRole(id), "Role restored.");
+}
+
+// ---- Sessions (superadmin) ----
+
+export async function endAdminSessionAction(id: string): Promise<FormState> {
+  return simple(() => adminApi.endAdminSession(id), "Signed out on that device.");
+}
+
+export async function endAllAdminSessionsAction(adminId: string): Promise<FormState> {
+  return simple(() => adminApi.endAllAdminSessions(adminId), "Signed out everywhere.");
+}
+
+export async function endSellerSessionAction(id: string, _prev: FormState, formData: FormData) {
+  return withReason(
+    formData,
+    (reason) => adminApi.endSellerSession(id, reason),
+    "Seller signed out on that device.",
   );
 }
