@@ -1,35 +1,55 @@
 // @vitest-environment node
 import { NextRequest } from "next/server";
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+
+// The maintenance status the proxy reads (from the API in real life).
+const { getPlatformInfo } = vi.hoisted(() => ({ getPlatformInfo: vi.fn() }));
+vi.mock("./lib/platform-info", () => ({ getPlatformInfo }));
+
 import { config, proxy } from "./proxy";
 
+function maintenance(level: "off" | "full" | "pause") {
+  return {
+    whatsappNumber: null,
+    signupsOpen: true,
+    feePercentBasisPoints: 150,
+    feeCapKobo: 100_000,
+    maintenance: { level, message: null, backBy: null },
+  };
+}
+
+beforeEach(() => {
+  getPlatformInfo.mockResolvedValue(maintenance("off"));
+});
+
 describe("proxy", () => {
-  it("only runs on the dashboard and the get-paid step", () => {
-    expect(config.matcher).toEqual(["/dashboard/:path*", "/signup/get-paid", "/admin/:path*"]);
+  it("only runs on the dashboard and the get-paid step", async () => {
+    // Every page (for maintenance mode), but not Next's own files, the API proxy or files.
+    expect(config.matcher).toEqual(["/((?!_next/|api/|.*\\..*).*)"]);
   });
 
-  it("admin pages without the cookie go to /admin/login", () => {
-    const res = proxy(new NextRequest("http://localhost:3000/admin/shops"));
+  it("admin pages without the cookie go to /admin/login", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/admin/shops"));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe("http://localhost:3000/admin/login");
   });
 
-  it("a seller cookie doesn't open admin pages", () => {
-    const res = proxy(
+  it("a seller cookie doesn't open admin pages", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/admin", { headers: { cookie: "gbam_session=abc" } }),
     );
     expect(res.headers.get("location")).toBe("http://localhost:3000/admin/login");
   });
 
-  it("admin sign-in and invite pages are open without the cookie", () => {
+  it("admin sign-in and invite pages are open without the cookie", async () => {
     for (const path of ["/admin/login", "/admin/invite/some-token"]) {
-      const res = proxy(new NextRequest(`http://localhost:3000${path}`));
+      const res = await proxy(new NextRequest(`http://localhost:3000${path}`));
       expect(res.headers.get("location")).toBeNull();
     }
   });
 
-  it("admin pages with the admin cookie go through, without touching gbam_session", () => {
-    const res = proxy(
+  it("admin pages with the admin cookie go through, without touching gbam_session", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/admin/shops", {
         headers: { cookie: "gbam_admin=xyz" },
       }),
@@ -38,38 +58,38 @@ describe("proxy", () => {
     expect(res.cookies.get("gbam_session")).toBeUndefined();
   });
 
-  it("sends a logged-out visitor on get-paid to /login with next=/signup/get-paid", () => {
-    const res = proxy(new NextRequest("http://localhost:3000/signup/get-paid"));
+  it("sends a logged-out visitor on get-paid to /login with next=/signup/get-paid", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/signup/get-paid"));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
       "http://localhost:3000/login?next=%2Fsignup%2Fget-paid",
     );
   });
 
-  it("redirects to /login with the original path when there is no session cookie", () => {
-    const res = proxy(new NextRequest("http://localhost:3000/dashboard/orders/1"));
+  it("redirects to /login with the original path when there is no session cookie", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/dashboard/orders/1"));
     expect(res.status).toBe(307);
     expect(res.headers.get("location")).toBe(
       "http://localhost:3000/login?next=%2Fdashboard%2Forders%2F1",
     );
   });
 
-  it("keeps the query string in next", () => {
-    const res = proxy(new NextRequest("http://localhost:3000/dashboard?status=paid"));
+  it("keeps the query string in next", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/dashboard?status=paid"));
     expect(res.headers.get("location")).toBe(
       "http://localhost:3000/login?next=%2Fdashboard%3Fstatus%3Dpaid",
     );
   });
 
-  it("treats an empty cookie as no cookie", () => {
-    const res = proxy(
+  it("treats an empty cookie as no cookie", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/dashboard", { headers: { cookie: "gbam_session=" } }),
     );
     expect(res.status).toBe(307);
   });
 
-  it("re-sets gbam_session with the same attributes and a fresh 30-day maxAge", () => {
-    const res = proxy(
+  it("re-sets gbam_session with the same attributes and a fresh 30-day maxAge", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/dashboard", {
         headers: { cookie: "gbam_session=abc" },
       }),
@@ -82,13 +102,13 @@ describe("proxy", () => {
     expect(cookie?.maxAge).toBe(60 * 60 * 24 * 30);
   });
 
-  it("sets no cookie when redirecting to login", () => {
-    const res = proxy(new NextRequest("http://localhost:3000/dashboard"));
+  it("sets no cookie when redirecting to login", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/dashboard"));
     expect(res.cookies.get("gbam_session")).toBeUndefined();
   });
 
-  it("overwrites a client-sent x-gbam-path", () => {
-    const res = proxy(
+  it("overwrites a client-sent x-gbam-path", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/dashboard/orders/1", {
         headers: { cookie: "gbam_session=abc", "x-gbam-path": "//evil.com" },
       }),
@@ -96,8 +116,8 @@ describe("proxy", () => {
     expect(res.headers.get("x-middleware-request-x-gbam-path")).toBe("/dashboard/orders/1");
   });
 
-  it("passes through when the cookie is present", () => {
-    const res = proxy(
+  it("passes through when the cookie is present", async () => {
+    const res = await proxy(
       new NextRequest("http://localhost:3000/dashboard/orders/1", {
         headers: { cookie: "gbam_session=abc" },
       }),
@@ -106,5 +126,40 @@ describe("proxy", () => {
     expect(res.headers.get("location")).toBeNull();
     // NextResponse.next() marks pass-through with this header.
     expect(res.headers.get("x-middleware-next")).toBe("1");
+  });
+
+  it("full rewrites a shop page to the maintenance page", async () => {
+    getPlatformInfo.mockResolvedValue(maintenance("full"));
+    const res = await proxy(new NextRequest("http://localhost:3000/ada"));
+    expect(res.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/maintenance");
+  });
+
+  it("admin pages are not rewritten in full maintenance", async () => {
+    getPlatformInfo.mockResolvedValue(maintenance("full"));
+    const res = await proxy(
+      new NextRequest("http://localhost:3000/admin/shops", { headers: { cookie: "gbam_admin=x" } }),
+    );
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+  });
+
+  it("pause rewrites checkout but not the shop", async () => {
+    getPlatformInfo.mockResolvedValue(maintenance("pause"));
+    const checkout = await proxy(new NextRequest("http://localhost:3000/ada/order"));
+    expect(checkout.headers.get("x-middleware-rewrite")).toBe("http://localhost:3000/maintenance");
+    const shop = await proxy(new NextRequest("http://localhost:3000/ada"));
+    expect(shop.headers.get("x-middleware-rewrite")).toBeNull();
+  });
+
+  it("fails open when the status can't be loaded", async () => {
+    getPlatformInfo.mockResolvedValue(null);
+    const res = await proxy(new NextRequest("http://localhost:3000/ada"));
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
+    expect(res.headers.get("location")).toBeNull();
+  });
+
+  it("public pages pass straight through when maintenance is off", async () => {
+    const res = await proxy(new NextRequest("http://localhost:3000/pricing"));
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.headers.get("x-middleware-rewrite")).toBeNull();
   });
 });

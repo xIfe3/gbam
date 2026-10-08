@@ -1,4 +1,4 @@
-import { estimatePaystackFee, formatNaira, PLATFORM_FEE } from "@gbam/shared";
+import { estimatePaystackFee, formatNaira } from "@gbam/shared";
 import type { OrderDetail } from "@/lib/api";
 
 /**
@@ -36,8 +36,9 @@ export function MoneyBreakdown({ payments }: { payments: OrderDetail["payments"]
     paystackLabel = "Paystack fee (estimate)";
   }
 
-  // e.g. 150 basis points → "1.5%"
-  let gbamLabel = `gbam fee (${PLATFORM_FEE.percentBasisPoints / 100}%)`;
+  // The fee was worked out when the payment link was made (the rate can change since, in
+  // Admin → Settings), so the label shows no percentage, just the amount charged.
+  let gbamLabel = "gbam fee";
   if (payment.platformFeeKobo === 0) {
     gbamLabel = "gbam fee (founding seller: free)";
   }

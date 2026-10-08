@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { BentoGrid, BentoTile } from "@/components/brand/bento";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
-import { platformFeeCap, platformFeePercent } from "@/lib/fees";
+import { connection } from "next/server";
+import { liveFees, platformFeeCap, platformFeePercent } from "@/lib/fees";
 import { FeeCalculator } from "./fee-calculator";
 
 export const metadata: Metadata = {
@@ -10,7 +11,12 @@ export const metadata: Metadata = {
   description: `${platformFeePercent}% per paid order, never more than ${platformFeeCap}. Free for founding sellers.`,
 };
 
-export default function PricingPage() {
+export default async function PricingPage() {
+  // The fee comes from Admin → Settings, so read it on each visit (not at build time).
+  await connection();
+  const fees = await liveFees();
+  const platformFeePercent = fees.percent;
+  const platformFeeCap = fees.cap;
   return (
     <>
       <PageHeader
@@ -55,7 +61,7 @@ export default function PricingPage() {
             The Paystack figure is an estimate.
           </p>
           <div className="max-w-md">
-            <FeeCalculator />
+            <FeeCalculator rates={fees.rates} />
           </div>
         </section>
       </div>

@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { connection } from "next/server";
+import { getPlatformInfo } from "@/lib/platform-info";
 import { ContactForm } from "./contact-form";
 
 export const metadata: Metadata = {
@@ -10,11 +11,15 @@ export const metadata: Metadata = {
 const linkClasses =
   "text-brand focus-visible:outline-brand rounded font-bold underline focus-visible:outline-2 focus-visible:outline-offset-2";
 
-// Server component: reads the WhatsApp number from the environment at request time.
-// Digits only, international format (e.g. 2348031234567). No link is shown until it is set,
-// so we never publish a made-up number.
-function whatsappHref(): string | undefined {
-  const digits = (process.env.GBAM_WHATSAPP_NUMBER ?? "").replace(/\D/g, "");
+// The WhatsApp number comes from Admin → Settings (or, if the API can't be reached, from the
+// environment). Digits only, international format (e.g. 2348031234567). No link is shown
+// until one is set, so we never publish a made-up number.
+function whatsappHref(stored: string | null): string | undefined {
+  let number = process.env.GBAM_WHATSAPP_NUMBER ?? "";
+  if (stored) {
+    number = stored;
+  }
+  const digits = number.replace(/\D/g, "");
   if (digits === "") {
     return undefined;
   }
@@ -24,7 +29,12 @@ function whatsappHref(): string | undefined {
 export default async function ContactPage() {
   // Opts out of build-time prerendering, otherwise the env var would be frozen at build.
   await connection();
-  const whatsapp = whatsappHref();
+  const info = await getPlatformInfo();
+  let stored: string | null = null;
+  if (info !== null) {
+    stored = info.whatsappNumber;
+  }
+  const whatsapp = whatsappHref(stored);
 
   return (
     <div className="mx-auto grid max-w-5xl gap-10 px-4 py-12 md:grid-cols-2">

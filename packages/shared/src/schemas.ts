@@ -28,6 +28,7 @@ export const RESERVED_SLUGS = new Set([
   "about",
   "acceptable-use",
   "admin",
+  "maintenance",
   "api",
   "app",
   "apple-icon",

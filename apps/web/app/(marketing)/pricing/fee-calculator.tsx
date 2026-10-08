@@ -1,11 +1,16 @@
 "use client";
 
-import { calculatePlatformFee, estimatePaystackFee, formatNaira } from "@gbam/shared";
+import { calculatePlatformFee, estimatePaystackFee, formatNaira, PLATFORM_FEE } from "@gbam/shared";
 import { useState } from "react";
 
 // "What would I receive?" calculator. The amount is typed in naira; fees are worked out
 // in kobo (₦1 = 100 kobo) with the same functions the real checkout uses.
-export function FeeCalculator() {
+export function FeeCalculator({
+  rates = PLATFORM_FEE,
+}: {
+  /** The live rates from Admin → Settings (today's defaults when not given). */
+  rates?: { percentBasisPoints: number; capKobo: number };
+}) {
   const [naira, setNaira] = useState("10000");
 
   const amountKobo = Math.round(Number(naira) * 100);
@@ -14,7 +19,7 @@ export function FeeCalculator() {
   let result = null;
   if (valid) {
     // null = no founding-seller waiver, so this shows the standard fee.
-    const gbamFee = calculatePlatformFee(amountKobo, null);
+    const gbamFee = calculatePlatformFee(amountKobo, null, new Date(), rates);
     const paystackFee = estimatePaystackFee(amountKobo);
     result = { gbamFee, paystackFee, receive: amountKobo - gbamFee - paystackFee };
   }

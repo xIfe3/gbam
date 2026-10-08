@@ -19,4 +19,10 @@ describe("FeeCalculator", () => {
     enter("200000");
     expect(screen.getByTestId("gbam-fee")).toHaveTextContent("₦1,000");
   });
+
+  it("uses the live rates when given", () => {
+    render(<FeeCalculator rates={{ percentBasisPoints: 200, capKobo: 500_000 }} />);
+    fireEvent.change(screen.getByLabelText(/order amount/i), { target: { value: "10000" } });
+    expect(screen.getByTestId("gbam-fee")).toHaveTextContent("₦200");
+  });
 });

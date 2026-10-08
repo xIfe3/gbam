@@ -1,27 +1,30 @@
 import Link from "next/link";
-import { platformFeeCap, platformFeePercent } from "@/lib/fees";
+import type { LiveFees } from "@/lib/fees";
 
-const FAQS = [
-  {
-    question: "Do my customers need to install an app?",
-    answer: "No. They open your shop link in their browser, order, and pay with Paystack.",
-  },
-  {
-    question: "How do I get paid?",
-    answer:
-      "Payments are made with Paystack and paid out to the bank account you add during setup.",
-  },
-  {
-    question: "What does Gbam cost?",
-    answer: `${platformFeePercent}% per paid order, never more than ${platformFeeCap}. It is free for founding sellers.`,
-  },
-  {
-    question: "Will my customers hear from me on WhatsApp?",
-    answer: "Yes. Gbam sends order and payment updates on WhatsApp automatically.",
-  },
-];
+function faqs(fees: LiveFees) {
+  return [
+    {
+      question: "Do my customers need to install an app?",
+      answer: "No. They open your shop link in their browser, order, and pay with Paystack.",
+    },
+    {
+      question: "How do I get paid?",
+      answer:
+        "Payments are made with Paystack and paid out to the bank account you add during setup.",
+    },
+    {
+      question: "What does Gbam cost?",
+      answer: `${fees.percent}% per paid order, never more than ${fees.cap}. It is free for founding sellers.`,
+    },
+    {
+      question: "Will my customers hear from me on WhatsApp?",
+      answer: "Yes. Gbam sends order and payment updates on WhatsApp automatically.",
+    },
+  ];
+}
 
-export function FaqHighlights() {
+export function FaqHighlights({ fees }: { fees: LiveFees }) {
+  const FAQS = faqs(fees);
   return (
     <section className="mx-auto max-w-3xl px-4 py-12">
       <h2 className="font-display text-ink mb-8 text-center text-3xl font-black sm:text-4xl">
