@@ -95,10 +95,10 @@ sections:
   - id: cookies-children-changes
     heading: Cookies, children and changes
     body: |
-      We use only one essential login cookie. See the [Cookie Policy](/legal/cookies).
+      We use only essential login cookies: one for sellers, and one for Gbam staff in our admin area. See the [Cookie Policy](/legal/cookies).
 
       Gbam is for people aged 18 and over only. We do not knowingly collect data from anyone under 18, and if we learn we have, we will delete it.
 
       If we change this policy we will update the date at the top of the page.
-    short: One login cookie, 18+ only, and we will update the date when this changes.
+    short: Only essential login cookies, 18+ only, and we will update the date when this changes.
 ---
