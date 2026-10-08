@@ -104,6 +104,7 @@ export type EmailJob =
       dashboardUrl: string;
     }
   | { kind: "contact_auto_reply"; to: string }
+  | { kind: "admin_invite"; to: string; name: string; inviteUrl: string }
   | {
       kind: "new_order";
       to: string;
@@ -287,6 +288,9 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   if (job.kind === "contact_auto_reply") {
     return contactAutoReplyEmail(job);
   }
+  if (job.kind === "admin_invite") {
+    return adminInviteEmail(job);
+  }
   if (job.kind === "new_order") {
     return newOrderEmail(job);
   }
@@ -304,7 +308,9 @@ export function renderEmail(job: EmailJob): SendEmailInput {
     htmlLines.push(paragraph(`${strong("Phone:")} ${escapeHtml(job.phone)}`));
   }
   // white-space: pre-wrap keeps the sender's line breaks.
-  htmlLines.push(paragraph(`<span style="white-space: pre-wrap">${escapeHtml(job.message)}</span>`));
+  htmlLines.push(
+    paragraph(`<span style="white-space: pre-wrap">${escapeHtml(job.message)}</span>`),
+  );
 
   return {
     to: CONTACT_INBOX,
@@ -320,7 +326,9 @@ function codeEmail(to: string, code: string, intro: string): SendEmailInput {
   const content = [
     paragraph(escapeHtml(intro)),
     codeBox(code),
-    smallPrint(`This code expires in 15 minutes. If you didn't ask for it, you can ignore this email.`),
+    smallPrint(
+      `This code expires in 15 minutes. If you didn't ask for it, you can ignore this email.`,
+    ),
   ].join("\n");
   const html = emailLayout(content);
   return { to, subject: `Your Gbam code: ${code}`, text, html };
@@ -426,9 +434,13 @@ function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>):
     `${strong("Owner email:")} ${strong(escapeHtml(job.ownerEmail))}`,
   ].join("\n");
   const content = [
-    paragraph(`A seller deleted their account. The shop is already hidden and they are signed out.`),
+    paragraph(
+      `A seller deleted their account. The shop is already hidden and they are signed out.`,
+    ),
     paragraph(details),
-    paragraph(`Delete or anonymise their data as the privacy policy says (keep what the law requires).`),
+    paragraph(
+      `Delete or anonymise their data as the privacy policy says (keep what the law requires).`,
+    ),
   ].join("\n");
   const html = emailLayout(content);
   return {
@@ -444,7 +456,9 @@ function accountClosedEmail(job: Extract<EmailJob, { kind: "account_closed" }>):
  * To the seller after their payout bank account changes. If it wasn't them, this is how
  * they find out before money goes to someone else.
  */
-function payoutChangedEmail(job: Extract<EmailJob, { kind: "payout_account_changed" }>): SendEmailInput {
+function payoutChangedEmail(
+  job: Extract<EmailJob, { kind: "payout_account_changed" }>,
+): SendEmailInput {
   const account = `${job.bankName}, account ending ${job.accountLast4}`;
   const warning = `If you didn't make this change, email support@gbam.app straight away and change your password.`;
   const text = [
@@ -455,7 +469,9 @@ function payoutChangedEmail(job: Extract<EmailJob, { kind: "payout_account_chang
     warning,
   ].join("\n");
   const content = [
-    paragraph(`The bank account for ${strong(escapeHtml(job.shopName))}'s payouts was just changed.`),
+    paragraph(
+      `The bank account for ${strong(escapeHtml(job.shopName))}'s payouts was just changed.`,
+    ),
     paragraph(`New payments will go to: ${strong(escapeHtml(account))}`),
     warningBox(withBoldEmails(warning)),
   ].join("\n");
@@ -505,7 +521,9 @@ function needsRefundEmail(job: Extract<EmailJob, { kind: "needs_refund" }>): Sen
 }
 
 /** To the seller after their password changes, so a change they didn't make is noticed. */
-function passwordChangedEmail(job: Extract<EmailJob, { kind: "password_changed" }>): SendEmailInput {
+function passwordChangedEmail(
+  job: Extract<EmailJob, { kind: "password_changed" }>,
+): SendEmailInput {
   const warning = `If you didn't do this, reset your password now and email support@gbam.app.`;
   const text = [
     `Your Gbam password was just changed. Any other phones or computers were signed out.`,
@@ -520,11 +538,18 @@ function passwordChangedEmail(job: Extract<EmailJob, { kind: "password_changed" 
     warningBox(withBoldEmails(warning)),
     button(job.resetUrl, "Reset my password"),
   ].join("\n");
-  return { to: job.to, subject: `Your Gbam password was changed`, text, html: emailLayout(content) };
+  return {
+    to: job.to,
+    subject: `Your Gbam password was changed`,
+    text,
+    html: emailLayout(content),
+  };
 }
 
 /** To the seller: a customer has paid for an order. */
-function paymentReceivedEmail(job: Extract<EmailJob, { kind: "payment_received" }>): SendEmailInput {
+function paymentReceivedEmail(
+  job: Extract<EmailJob, { kind: "payment_received" }>,
+): SendEmailInput {
   const total = formatNaira(job.totalKobo);
   const text = [
     `${job.customerName} paid ${total} for order ${job.code}.`,
@@ -744,6 +769,34 @@ function newOrderEmail(job: Extract<EmailJob, { kind: "new_order" }>): SendEmail
   return {
     to: job.to,
     subject: `New order ${job.code} (${total})`,
+    text,
+    html: emailLayout(content),
+  };
+}
+
+/** To someone invited to the Gbam admin area: the link to set their password and app. */
+function adminInviteEmail(job: Extract<EmailJob, { kind: "admin_invite" }>): SendEmailInput {
+  const steps = `You'll choose a password and set up an authenticator app (like Google Authenticator) on your phone.`;
+  const expiry = `The link works once and expires in 48 hours. If you weren't expecting this, ignore this email.`;
+  const text = [
+    `Hi ${job.name},`,
+    ``,
+    `You've been invited to the Gbam admin area.`,
+    steps,
+    ``,
+    `Accept the invite: ${job.inviteUrl}`,
+    ``,
+    expiry,
+  ].join("\n");
+  const content = [
+    paragraph(`Hi ${strong(escapeHtml(job.name))},`),
+    paragraph(`You've been invited to the Gbam admin area. ${escapeHtml(steps)}`),
+    button(job.inviteUrl, "Accept the invite"),
+    smallPrint(escapeHtml(expiry)),
+  ].join("\n");
+  return {
+    to: job.to,
+    subject: `You're invited to the Gbam admin area`,
     text,
     html: emailLayout(content),
   };

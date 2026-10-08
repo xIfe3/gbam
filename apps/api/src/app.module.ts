@@ -1,4 +1,5 @@
 import { Module } from "@nestjs/common";
+import { AdminModule } from "./admin/admin.module.js";
 import { APP_FILTER } from "@nestjs/core";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AuthModule } from "./auth/auth.module.js";
@@ -22,6 +23,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
   imports: [
     // Error alerts. Does nothing unless SENTRY_DSN is set (see instrument.ts).
     SentryModule.forRoot(),
+    AdminModule,
     AuthModule,
     ContactModule,
     ContentModule,

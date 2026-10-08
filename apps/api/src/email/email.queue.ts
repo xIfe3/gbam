@@ -29,7 +29,8 @@ export class EmailQueue {
       job.kind === "order_receipt" ||
       job.kind === "payment_confirmed" ||
       job.kind === "order_cancelled" ||
-      job.kind === "order_refunded"
+      job.kind === "order_refunded" ||
+      job.kind === "admin_invite"
     ) {
       options.removeOnComplete = true;
       options.removeOnFail = { age: 3600 };

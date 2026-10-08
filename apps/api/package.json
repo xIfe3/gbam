@@ -13,7 +13,9 @@
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "test": "vitest run",
-    "simulate:payment": "node --env-file-if-exists=../../.env dist/scripts/simulate-payment.js"
+    "simulate:payment": "node --env-file-if-exists=../../.env dist/scripts/simulate-payment.js",
+    "admin:create-superadmin": "node --env-file-if-exists=../../.env dist/scripts/create-superadmin.js",
+    "admin:reset-totp": "node --env-file-if-exists=../../.env dist/scripts/reset-admin-totp.js"
   },
   "dependencies": {
     "@gbam/db": "workspace:*",
