@@ -120,6 +120,13 @@
       "when": 1791466541392,
       "tag": "0016_admin_foundation",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1791478828235,
+      "tag": "0017_platform_settings",
+      "breakpoints": true
     }
   ]
 }

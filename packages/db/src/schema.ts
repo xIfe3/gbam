@@ -710,3 +710,14 @@ export const refundCases = pgTable("refund_cases", {
 export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
   role: one(adminRoles, { fields: [adminUsers.roleId], references: [adminRoles.id] }),
 }));
+
+/**
+ * Admin → Settings: one row per key ("settings", "maintenance"), the value as JSON checked
+ * by the schemas in packages/shared/src/platform-settings.ts. No row = the defaults apply.
+ */
+export const platformSettings = pgTable("platform_settings", {
+  key: text("key").primaryKey(),
+  value: jsonb("value").notNull(),
+  updatedBy: uuid("updated_by").references(() => adminUsers.id),
+  updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
+});
