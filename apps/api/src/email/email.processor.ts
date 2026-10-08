@@ -1,10 +1,11 @@
-import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Logger } from "@nestjs/common";
 import { UnrecoverableError, type Job } from "bullmq";
 import { EmailError } from "@gbam/integrations";
 import { InjectEmail, type EmailClient } from "../integrations/integrations.module.js";
 import { EMAILS_QUEUE } from "./email.queue.js";
 import { renderEmail, type EmailJob } from "./templates.js";
+import { reportJobFailure } from "../instrument.js";
 
 /**
  * HTTP statuses where retrying can never help. A bad request (400/422) or missing
@@ -24,6 +25,12 @@ export class EmailProcessor extends WorkerHost {
 
   constructor(@InjectEmail() private readonly email: EmailClient) {
     super(); // required because we extend WorkerHost
+  }
+
+  /** Tells Sentry when a job has failed for good (see reportJobFailure in instrument.ts). */
+  @OnWorkerEvent("failed")
+  onFailed(job: Job | undefined, error: Error) {
+    reportJobFailure(job, error);
   }
 
   async process(job: Job<EmailJob>) {

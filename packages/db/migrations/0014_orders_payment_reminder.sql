@@ -1,0 +1,1 @@
+ALTER TABLE "orders" ADD COLUMN "payment_reminder_sent_at" timestamp with time zone;

@@ -5,8 +5,12 @@ import type { Queue } from "bullmq";
 
 export const NOTIFICATIONS_QUEUE = "notifications";
 
+/**
+ * `to` picks which WhatsApp message the processor sends. A payment reminder uses
+ * to: "awaiting_payment", so it sends the same payment request again (with the same link).
+ */
 export type NotificationJob = {
-  kind: "order.status_changed";
+  kind: "order.status_changed" | "order.payment_reminder";
   orderId: string;
   from: OrderStatus | null;
   to: OrderStatus;
@@ -24,6 +28,25 @@ export class NotificationsQueue {
       { kind: "order.status_changed", ...job },
       {
         jobId: eventId,
+        attempts: 5,
+        backoff: { type: "exponential", delay: 2_000 },
+        removeOnComplete: 1_000,
+        removeOnFail: 5_000,
+      },
+    );
+  }
+
+  /**
+   * Sends the payment request again to a customer who hasn't paid. The job id is fixed per
+   * order, so an order can only ever be reminded once. If the customer paid in the meantime,
+   * the processor sees the order is no longer awaiting payment and sends nothing.
+   */
+  async paymentReminder(orderId: string) {
+    await this.queue.add(
+      "order.payment_reminder",
+      { kind: "order.payment_reminder", orderId, from: "awaiting_payment", to: "awaiting_payment" },
+      {
+        jobId: `reminder-${orderId}`,
         attempts: 5,
         backoff: { type: "exponential", delay: 2_000 },
         removeOnComplete: 1_000,

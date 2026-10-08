@@ -19,6 +19,9 @@ ENV NEXT_TELEMETRY_DISABLED=1
 # Unset → https://gbam.app.
 ARG NEXT_PUBLIC_SITE_URL
 ENV NEXT_PUBLIC_SITE_URL=$NEXT_PUBLIC_SITE_URL
+# Browser error alerts: copied into the browser code at build time (see instrumentation-client.ts).
+ARG NEXT_PUBLIC_SENTRY_DSN
+ENV NEXT_PUBLIC_SENTRY_DSN=$NEXT_PUBLIC_SENTRY_DSN
 RUN turbo run build --filter=@gbam/web...
 
 # output: "standalone" traces exactly the files `next start` needs into .next/standalone.

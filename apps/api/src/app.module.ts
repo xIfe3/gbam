@@ -1,4 +1,6 @@
 import { Module } from "@nestjs/common";
+import { APP_FILTER } from "@nestjs/core";
+import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AuthModule } from "./auth/auth.module.js";
 import { ContactModule } from "./contact/contact.module.js";
 import { ContentModule } from "./content/content.module.js";
@@ -18,6 +20,8 @@ import { TrackingModule } from "./tracking/tracking.module.js";
 /** HTTP process. Enqueues jobs but never processes them. */
 @Module({
   imports: [
+    // Error alerts. Does nothing unless SENTRY_DSN is set (see instrument.ts).
+    SentryModule.forRoot(),
     AuthModule,
     ContactModule,
     ContentModule,
@@ -34,5 +38,10 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     WhatsAppModule,
   ],
   controllers: [HealthController],
+  providers: [
+    // Reports unexpected errors (500s) to Sentry, then answers as Nest normally would.
+    // Expected ones (404, 400, 409...) are not reported: they're the app working correctly.
+    { provide: APP_FILTER, useClass: SentryGlobalFilter },
+  ],
 })
 export class AppModule {}

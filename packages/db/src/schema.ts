@@ -317,6 +317,8 @@ export const orders = pgTable(
       .$defaultFn(() => randomBytes(32).toString("base64url")),
     /** Optional: the customer asked for an emailed receipt with the tracking link. */
     customerEmail: text("customer_email"),
+    /** When the "you haven't paid yet" WhatsApp reminder went out. Set once, so it's sent once. */
+    paymentReminderSentAt: timestamp("payment_reminder_sent_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },

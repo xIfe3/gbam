@@ -5,6 +5,8 @@ import { InfraModule } from "./infra/infra.module.js";
 import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
 import { NotificationsProcessor } from "./notifications/notifications.processor.js";
+import { OrderExpiryProcessor } from "./orders/order-expiry.processor.js";
+import { OrdersModule } from "./orders/orders.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
 import { PhotoCleanupProcessor } from "./products/photo-cleanup.processor.js";
 import { ProductsModule } from "./products/products.module.js";
@@ -18,10 +20,17 @@ import { PaymentsProcessor } from "./payments/payments.processor.js";
     IntegrationsModule,
     EmailModule,
     NotificationsModule,
+    OrdersModule,
     PaymentsModule,
     ProductsModule,
     WhatsAppModule,
   ],
-  providers: [NotificationsProcessor, PaymentsProcessor, EmailProcessor, PhotoCleanupProcessor],
+  providers: [
+    NotificationsProcessor,
+    PaymentsProcessor,
+    EmailProcessor,
+    PhotoCleanupProcessor,
+    OrderExpiryProcessor,
+  ],
 })
 export class WorkerModule {}

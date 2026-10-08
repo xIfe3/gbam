@@ -1,11 +1,18 @@
 // Error boundaries must be client components: React calls them in the browser.
 "use client";
 
+import * as Sentry from "@sentry/nextjs";
+import { useEffect } from "react";
 import { Button } from "@/components/brand/button";
 import { Logo } from "@/components/brand/logo";
 
 // `error` is deliberately never shown: its message could leak internal details.
-export default function ErrorPage({ reset }: { error: Error; reset: () => void }) {
+export default function ErrorPage({ error, reset }: { error: Error; reset: () => void }) {
+  // Report it to Sentry once when this page appears (does nothing if Sentry is off).
+  useEffect(() => {
+    Sentry.captureException(error);
+  }, [error]);
+
   return (
     <main className="flex min-h-dvh flex-col items-center justify-center px-4 py-12 text-center">
       <Logo size="md" />

@@ -1,3 +1,5 @@
+// Must be the first import: error alerts (Sentry) start before anything else loads.
+import "./instrument.js";
 import "reflect-metadata";
 import path from "node:path";
 import { Logger } from "@nestjs/common";

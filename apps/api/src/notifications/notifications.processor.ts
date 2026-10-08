@@ -1,7 +1,7 @@
 import { orders } from "@gbam/db";
 import { WhatsAppError, type WhatsAppTemplateName } from "@gbam/integrations";
 import { formatNaira } from "@gbam/shared";
-import { Processor, WorkerHost } from "@nestjs/bullmq";
+import { OnWorkerEvent, Processor, WorkerHost } from "@nestjs/bullmq";
 import { Inject, Logger } from "@nestjs/common";
 import { UnrecoverableError, type Job } from "bullmq";
 import { eq } from "drizzle-orm";
@@ -12,6 +12,7 @@ import { payPageUrl } from "../payments/checkout-links.js";
 import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 import { WhatsAppMessagesService } from "../whatsapp/whatsapp-messages.service.js";
 import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue.js";
+import { reportJobFailure } from "../instrument.js";
 
 // WhatsApp (Meta) error codes where trying again can never work.
 const PERMANENT_WHATSAPP_ERRORS = [
@@ -39,6 +40,12 @@ export class NotificationsProcessor extends WorkerHost {
     @Inject(ENV) private readonly env: Env,
   ) {
     super(); // required because we extend WorkerHost
+  }
+
+  /** Tells Sentry when a job has failed for good (see reportJobFailure in instrument.ts). */
+  @OnWorkerEvent("failed")
+  onFailed(job: Job | undefined, error: Error) {
+    reportJobFailure(job, error);
   }
 
   async process(job: Job<NotificationJob>) {

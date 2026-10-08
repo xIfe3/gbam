@@ -110,6 +110,33 @@ you're done testing.
 `WHATSAPP_ACCESS_TOKEN` and `WHATSAPP_PHONE_NUMBER_ID`, so production can never silently
 run on the fakes. Use the **live** Paystack key (`sk_live_…`) there.
 
+## Error alerts (Sentry)
+
+Sentry emails you when something breaks: an API error, a background job that failed for
+good (a payment confirmation, an email, a WhatsApp message), or a page that crashed in a
+visitor's browser. Without it, errors only sit in the Railway logs where nobody sees them.
+
+With no DSN set, nothing is sent (local development and tests stay quiet).
+
+1. Sign up at https://sentry.io (the free plan is enough to start).
+2. Create a project. Pick **Node.js** as the platform; one project for all of Gbam is fine.
+3. Copy the project's **DSN** (Settings → Client Keys). It looks like
+   `https://abc123@o456.ingest.sentry.io/789`.
+4. In Railway, set these variables:
+   - API service and worker service: `SENTRY_DSN=<the DSN>`
+   - Web service: `SENTRY_DSN=<the DSN>` and `NEXT_PUBLIC_SENTRY_DSN=<the same DSN>`.
+     The `NEXT_PUBLIC_` one is copied into the browser code **when the site is built**, so
+     redeploy the web service after adding it.
+5. In Sentry → Alerts, check that "email me on new issues" is on.
+
+What is never sent: request bodies, cookies and headers (so no passwords, codes or session
+tokens), the logged-in user, and any email address, phone number or tracking-link key in an
+error message (they are replaced with `[email]`, `[phone]` and `[key]`).
+
+Only unexpected errors are reported. A 404, a wrong password or a refused order change is the
+app working correctly, so those are not. A background job that fails once and then succeeds
+on retry is not reported either; only its final failure is.
+
 ## Product photos (Cloudflare R2)
 
 In dev you need nothing: with the R2 values empty, photos are saved under `apps/api/uploads/photos`
