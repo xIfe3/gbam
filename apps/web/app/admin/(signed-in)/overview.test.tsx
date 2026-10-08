@@ -35,7 +35,7 @@ beforeEach(() => {
 describe("admin overview", () => {
   it("overview shows waiting refunds", async () => {
     adminApiMock.me.mockResolvedValue(ME);
-    render(await OverviewPage());
+    render(await OverviewPage({}));
     const refunds = screen.getByRole("link", { name: /Refunds waiting/ });
     expect(refunds).toHaveTextContent("2");
     expect(refunds).toHaveAttribute("href", "/admin/refunds");
@@ -43,15 +43,21 @@ describe("admin overview", () => {
 
   it("only shows what the role allows", async () => {
     adminApiMock.me.mockResolvedValue(ME);
-    render(await OverviewPage());
+    render(await OverviewPage({}));
     expect(screen.queryByText(/Contact messages/)).toBeNull();
     expect(adminApiMock.messages).not.toHaveBeenCalled();
   });
 
   it("a superadmin sees every count", async () => {
     adminApiMock.me.mockResolvedValue({ ...ME, isSuperadmin: true, permissions: [] });
-    render(await OverviewPage());
+    render(await OverviewPage({}));
     expect(screen.getByRole("link", { name: /Contact messages/ })).toHaveTextContent("1");
     expect(screen.getByRole("link", { name: /Suspended shops/ })).toHaveTextContent("4");
+  });
+
+  it("explains when a page wasn't allowed", async () => {
+    adminApiMock.me.mockResolvedValue(ME);
+    render(await OverviewPage({ searchParams: Promise.resolve({ denied: "1" }) }));
+    expect(screen.getByRole("status")).toHaveTextContent("Your role doesn't allow that page");
   });
 });

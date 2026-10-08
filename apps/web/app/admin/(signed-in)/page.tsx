@@ -8,7 +8,14 @@ export const metadata: Metadata = { title: "Admin" };
 type Tile = { label: string; count: number; href: string };
 
 /** The admin home: what needs attention, limited to what this admin's role can see. */
-export default async function OverviewPage() {
+type SearchParams = Promise<Record<string, string | string[] | undefined>>;
+
+export default async function OverviewPage(props: { searchParams?: SearchParams }) {
+  let denied = false;
+  if (props.searchParams) {
+    const searchParams = await props.searchParams;
+    denied = searchParams.denied === "1";
+  }
   const me = await adminApi.me();
   const tiles: Tile[] = [];
 
@@ -38,6 +45,11 @@ export default async function OverviewPage() {
   return (
     <div className="space-y-6">
       <h1 className="font-display text-ink text-3xl font-black">Hello, {me.name}</h1>
+      {denied && (
+        <p role="status" className="bg-coral-wash text-ink rounded-lg p-4 text-sm">
+          Your role doesn&apos;t allow that page. Ask a superadmin if you need it.
+        </p>
+      )}
       {tiles.length === 0 && <p className="text-ink-muted">Nothing to show for your role yet.</p>}
       <ul className="grid gap-4 sm:grid-cols-2">
         {tiles.map((tile) => (

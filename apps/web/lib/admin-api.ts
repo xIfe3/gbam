@@ -58,6 +58,12 @@ async function adminRequest<T>(path: string, options: AdminRequestOptions = {}):
   if (res.status === 401 && signedIn) {
     redirect("/admin/login");
   }
+  // Loading a page their role doesn't allow (e.g. an old bookmark): back to the overview,
+  // which explains. A refused change (POST, PATCH...) is left to the form to show instead.
+  const isPageLoad = options.method === undefined || options.method === "GET";
+  if (res.status === 403 && signedIn && isPageLoad) {
+    redirect("/admin?denied=1");
+  }
   if (!res.ok) {
     throw new ApiError(res.status, json);
   }
