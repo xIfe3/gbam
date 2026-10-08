@@ -183,7 +183,9 @@ describe("Orders with delivery (integration)", () => {
   });
 
   it("free delivery zone still needs address", async () => {
-    const { seller, variantId, zones } = await shop([{ name: "Ikeja", feeKobo: 0, isPickup: false }]);
+    const { seller, variantId, zones } = await shop([
+      { name: "Ikeja", feeKobo: 0, isPickup: false },
+    ]);
     const error = await place(seller.slug, variantId, {
       zoneId: zones[0]?.id ?? null,
       expectedFeeKobo: 0,
@@ -278,5 +280,4 @@ describe("Orders with delivery (integration)", () => {
       .catch((e: unknown) => e);
     expect(error).toBeInstanceOf(BadRequestException);
   });
-
 });

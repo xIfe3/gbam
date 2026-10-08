@@ -86,5 +86,4 @@ describe("orders page empty states", () => {
     render(await OrdersPage(props()));
     expect(screen.queryByRole("link", { name: "Add delivery zones" })).not.toBeInTheDocument();
   });
-
 });

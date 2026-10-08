@@ -14,7 +14,10 @@ describe("deliverySettingsSchema", () => {
 
   it("duplicate names refused ignoring case and spaces", () => {
     const result = deliverySettingsSchema.safeParse({
-      zones: [{ ...lekki, name: "Lekki" }, { ...lekki, name: " lekki" }],
+      zones: [
+        { ...lekki, name: "Lekki" },
+        { ...lekki, name: " lekki" },
+      ],
       pickupNote: null,
     });
     expect(result.success).toBe(false);

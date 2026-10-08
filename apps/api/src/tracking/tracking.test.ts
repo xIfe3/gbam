@@ -282,7 +282,10 @@ describe("Order tracking over HTTP (integration)", () => {
 
   it("includes delivery for a zone order, with the pickup note for pickup", async () => {
     const shop = await newShop();
-    await db.update(sellers).set({ pickupNote: "Back gate, Shop 4" }).where(eq(sellers.id, shop.sellerId));
+    await db
+      .update(sellers)
+      .set({ pickupNote: "Back gate, Shop 4" })
+      .where(eq(sellers.id, shop.sellerId));
     const zoneRows = await db
       .insert(deliveryZones)
       .values({ sellerId: shop.sellerId, name: "Pickup at shop", feeKobo: 0, isPickup: true })

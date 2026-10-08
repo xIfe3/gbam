@@ -293,9 +293,19 @@ describe("PaymentsService (integration)", () => {
       const order = await ordersService.createFromStorefront(slug, {
         customer: { name: "Bisi", phone: "2348022223333" },
         items: [{ variantId, quantity: 2 }],
-        delivery: { zoneId: zone.id, expectedFeeKobo: 5_000_000, address: "1 Test Road", landmark: null },
+        delivery: {
+          zoneId: zone.id,
+          expectedFeeKobo: 5_000_000,
+          address: "1 Test Road",
+          landmark: null,
+        },
       });
-      await ordersService.transition({ orderId: order.id, to: "awaiting_payment", actor: "seller", sellerId });
+      await ordersService.transition({
+        orderId: order.id,
+        to: "awaiting_payment",
+        actor: "seller",
+        sellerId,
+      });
       await service.ensurePaymentLink(order.id);
 
       const paymentRows = await db.select().from(payments).where(eq(payments.orderId, order.id));
