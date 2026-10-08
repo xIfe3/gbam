@@ -3,6 +3,7 @@ import { relations, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import {
   bigint,
+  date,
   boolean,
   index,
   integer,
@@ -11,6 +12,7 @@ import {
   pgTable,
   text,
   timestamp,
+  unique,
   uniqueIndex,
   uuid,
 } from "drizzle-orm/pg-core";
@@ -721,3 +723,22 @@ export const platformSettings = pgTable("platform_settings", {
   updatedBy: uuid("updated_by").references(() => adminUsers.id),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 });
+
+/**
+ * Storefront visits per Lagos day, per shop (null = pages not tied to a shop) and kind of page
+ * ("storefront", "product", "checkout"). Counted in Redis from the page beacon and copied here
+ * every 15 minutes, so history survives Redis. No visitor details are stored, only counts.
+ */
+export const dailyVisits = pgTable(
+  "daily_visits",
+  {
+    id: id(),
+    day: date("day", { mode: "string" }).notNull(),
+    sellerId: uuid("seller_id").references(() => sellers.id, { onDelete: "cascade" }),
+    kind: text("kind").notNull(),
+    visits: integer("visits").notNull().default(0),
+  },
+  // One row per day, shop and kind. "Nulls not distinct" makes rows with no shop count as
+  // the same shop, so they can't be duplicated either.
+  (t) => [unique("daily_visits_day_seller_kind_uq").on(t.day, t.sellerId, t.kind).nullsNotDistinct()],
+);

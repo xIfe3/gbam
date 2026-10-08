@@ -6,6 +6,7 @@ import { OrdersModule } from "../orders/orders.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminGuard } from "./admin.guard.js";
+import { AnalyticsAdminService } from "./analytics-admin.service.js";
 import { AuditService } from "./audit.service.js";
 import { MoneyAdminService } from "./money-admin.service.js";
 import { NumbersAdminController } from "./numbers-admin.controller.js";
@@ -44,6 +45,7 @@ import { TeamService } from "./team.service.js";
     SupportAdminService,
     SettingsAdminService,
     MoneyAdminService,
+    AnalyticsAdminService,
   ],
   exports: [AdminAuthService, AdminGuard, AuditService],
 })

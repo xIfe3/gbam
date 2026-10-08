@@ -127,6 +127,13 @@
       "when": 1791478828235,
       "tag": "0017_platform_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1791481785585,
+      "tag": "0018_daily_visits",
+      "breakpoints": true
     }
   ]
 }

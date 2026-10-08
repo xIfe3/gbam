@@ -2,6 +2,7 @@ import { BadRequestException, Controller, Get, Query, UseGuards } from "@nestjs/
 import { z } from "zod";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { AdminGuard, RequirePermission } from "./admin.guard.js";
+import { AnalyticsAdminService } from "./analytics-admin.service.js";
 import { daysBetween, MoneyAdminService, type DayRange } from "./money-admin.service.js";
 
 const rangeSchema = z.object({
@@ -41,11 +42,20 @@ export function rangeFrom(query: z.output<typeof rangeSchema>): DayRange {
 @Controller("admin")
 @UseGuards(AdminGuard)
 export class NumbersAdminController {
-  constructor(private readonly money: MoneyAdminService) {}
+  constructor(
+    private readonly money: MoneyAdminService,
+    private readonly analytics: AnalyticsAdminService,
+  ) {}
 
   @Get("money")
   @RequirePermission("money.view")
   moneyOverview(@Query(new ZodPipe(rangeSchema)) query: z.output<typeof rangeSchema>) {
     return this.money.overview(rangeFrom(query));
+  }
+
+  @Get("analytics")
+  @RequirePermission("analytics.view")
+  analyticsOverview(@Query(new ZodPipe(rangeSchema)) query: z.output<typeof rangeSchema>) {
+    return this.analytics.overview(rangeFrom(query));
   }
 }
