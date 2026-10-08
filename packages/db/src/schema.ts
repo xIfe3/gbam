@@ -124,6 +124,9 @@ export const contactMessages = pgTable("contact_messages", {
   phone: text("phone"),
   message: text("message").notNull(),
   status: contactStatusEnum("status").notNull().default("new"),
+  /** What the admin who handled it wrote, and when. */
+  handledNote: text("handled_note"),
+  handledAt: timestamp("handled_at", { withTimezone: true }),
   createdAt: createdAt(),
 });
 
@@ -173,6 +176,12 @@ export const sellers = pgTable("sellers", {
    * can't sign in. The rows are kept (orders are business records) until deletion is done.
    */
   closedAt: timestamp("closed_at", { withTimezone: true }),
+  /**
+   * Set by an admin to stop a shop taking orders (e.g. a fraud report). The shop page says it
+   * isn't taking orders and no payments go through; the seller can still sign in.
+   */
+  suspendedAt: timestamp("suspended_at", { withTimezone: true }),
+  suspendedReason: text("suspended_reason"),
   /** Email the owner when a new order comes in. Busy shops can turn it off in Settings. */
   newOrderEmails: boolean("new_order_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */
@@ -570,4 +579,134 @@ export const whatsappMessagesRelations = relations(whatsappMessages, ({ one }) =
 
 export const orderEventsRelations = relations(orderEvents, ({ one }) => ({
   order: one(orders, { fields: [orderEvents.orderId], references: [orders.id] }),
+}));
+
+// ---- Admin area (see docs/superpowers/specs/2026-10-08-admin-design.md) ----
+
+/** A named set of permissions (e.g. "Support"). Each admin has one role. */
+export const adminRoles = pgTable("admin_roles", {
+  id: id(),
+  name: text("name").notNull().unique(),
+  /** Names from ADMIN_PERMISSIONS in packages/shared/src/admin.ts. */
+  permissions: text("permissions").array().notNull().default(sql`'{}'::text[]`),
+  /** Set when deleted: kept 30 days so it can be restored. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** A Gbam staff account. Completely separate from seller accounts (users). */
+export const adminUsers = pgTable("admin_users", {
+  id: id(),
+  /** Stored lowercase. */
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  passwordHash: text("password_hash").notNull(),
+  /** The authenticator app's secret, encrypted with ADMIN_TOTP_KEY. */
+  totpSecretEnc: text("totp_secret_enc").notNull(),
+  /** The last 30-second step a code was accepted for, so a code can't be used twice. */
+  totpLastStep: bigint("totp_last_step", { mode: "number" }),
+  isSuperadmin: boolean("is_superadmin").notNull().default(false),
+  roleId: uuid("role_id").references(() => adminRoles.id),
+  failedCount: integer("failed_count").notNull().default(0),
+  lockedUntil: timestamp("locked_until", { withTimezone: true }),
+  /** Set when removed: they can't sign in, but the audit log still names them. */
+  removedAt: timestamp("removed_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/** An emailed invitation to become an admin. Single use, expires after 48 hours. */
+export const adminInvites = pgTable("admin_invites", {
+  id: id(),
+  email: text("email").notNull(),
+  name: text("name").notNull(),
+  roleId: uuid("role_id").references(() => adminRoles.id),
+  isSuperadmin: boolean("is_superadmin").notNull().default(false),
+  tokenHash: text("token_hash").notNull().unique(),
+  /** Made when the invite page is first opened, so the QR code stays the same on reload. */
+  totpSecretEnc: text("totp_secret_enc"),
+  invitedBy: uuid("invited_by").references(() => adminUsers.id),
+  expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+  usedAt: timestamp("used_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+/** A signed-in admin. Only a hash of the token is stored. Ends 12 hours after sign-in. */
+export const adminSessions = pgTable(
+  "admin_sessions",
+  {
+    id: id(),
+    adminId: uuid("admin_id")
+      .notNull()
+      .references(() => adminUsers.id, { onDelete: "cascade" }),
+    tokenHash: text("token_hash").notNull().unique(),
+    expiresAt: timestamp("expires_at", { withTimezone: true }).notNull(),
+    lastUsedAt: timestamp("last_used_at", { withTimezone: true }),
+    userAgent: text("user_agent"),
+    ip: text("ip"),
+    createdAt: createdAt(),
+  },
+  (t) => [index("admin_sessions_admin_idx").on(t.adminId)],
+);
+
+/** One-time codes for when an admin loses their phone. Only hashes are stored. */
+export const adminBackupCodes = pgTable(
+  "admin_backup_codes",
+  {
+    id: id(),
+    adminId: uuid("admin_id")
+      .notNull()
+      .references(() => adminUsers.id, { onDelete: "cascade" }),
+    codeHash: text("code_hash").notNull(),
+    usedAt: timestamp("used_at", { withTimezone: true }),
+  },
+  (t) => [index("admin_backup_codes_admin_idx").on(t.adminId)],
+);
+
+/**
+ * Every admin action, newest last. Append-only: nothing in the app updates or deletes these
+ * rows, so it can be trusted to say who did what.
+ */
+export const adminAuditLog = pgTable(
+  "admin_audit_log",
+  {
+    id: id(),
+    adminId: uuid("admin_id").references(() => adminUsers.id),
+    /** e.g. "shop.suspend", "admin.sign_in". */
+    action: text("action").notNull(),
+    targetType: text("target_type"),
+    targetId: text("target_id"),
+    note: text("note"),
+    before: jsonb("before"),
+    after: jsonb("after"),
+    ip: text("ip"),
+    /** Shared by every entry from one bulk action. */
+    batchId: uuid("batch_id"),
+    createdAt: createdAt(),
+  },
+  (t) => [
+    index("admin_audit_created_idx").on(t.createdAt),
+    index("admin_audit_admin_idx").on(t.adminId),
+    index("admin_audit_target_idx").on(t.targetType, t.targetId),
+  ],
+);
+
+/** A customer paid money that has to go back (order already cancelled, or stock ran out). */
+export const refundCases = pgTable("refund_cases", {
+  id: id(),
+  orderId: uuid("order_id")
+    .notNull()
+    .references(() => orders.id, { onDelete: "cascade" }),
+  /** One case per payment: a repeated webhook adds nothing. */
+  paymentReference: text("payment_reference").unique(),
+  reason: text("reason").notNull(),
+  amountKobo: bigint("amount_kobo", { mode: "number" }).notNull(),
+  createdAt: createdAt(),
+  resolvedAt: timestamp("resolved_at", { withTimezone: true }),
+  resolvedBy: uuid("resolved_by").references(() => adminUsers.id),
+});
+
+export const adminUsersRelations = relations(adminUsers, ({ one }) => ({
+  role: one(adminRoles, { fields: [adminUsers.roleId], references: [adminRoles.id] }),
 }));
