@@ -66,6 +66,11 @@ const envSchema = z
      * common/client-ip.ts. Unset in dev → x-client-ip is ignored.
      */
     INTERNAL_API_SECRET: optional,
+    /**
+     * Encrypts admins' authenticator secrets in the database: 32 random bytes, base64
+     * (`openssl rand -base64 32`). Unset → admin sign-in is switched off (503).
+     */
+    ADMIN_TOTP_KEY: optional,
 
     // Product photos. All five R2 values unset in dev → photos go to PHOTOS_LOCAL_DIR.
     R2_ACCOUNT_ID: optional,
