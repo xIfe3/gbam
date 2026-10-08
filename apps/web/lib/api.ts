@@ -186,6 +186,8 @@ export type Storefront = {
     businessName: string;
     /** Checkout shows these zones; an empty list means "address only, no delivery fee". */
     delivery: DeliverySettings;
+    /** Gbam paused the shop: no products are listed and nothing can be ordered. */
+    suspended?: boolean;
   };
   products: StorefrontProductCard[];
 };
@@ -472,7 +474,14 @@ export type PublicUser = {
   email: string;
   emailVerified: boolean;
   role: "seller" | "admin";
-  seller: { id: string; slug: string; businessName: string; hasPayoutAccount: boolean } | null;
+  seller: {
+    id: string;
+    slug: string;
+    businessName: string;
+    hasPayoutAccount: boolean;
+    /** Gbam paused the shop: the dashboard shows why orders stopped. Missing on older APIs. */
+    suspended?: boolean;
+  } | null;
 };
 
 export type AuthResult = { sessionToken: string; user: PublicUser };

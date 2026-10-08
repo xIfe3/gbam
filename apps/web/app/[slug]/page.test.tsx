@@ -30,4 +30,16 @@ describe("storefront page", () => {
       screen.getByText("Check back soon, or message the seller on WhatsApp."),
     ).toBeInTheDocument();
   });
+
+  it("suspended shop shows the notice and no products", async () => {
+    vi.mocked(api.storefront).mockResolvedValue({
+      store: { slug: "mama-ngozi", businessName: "Mama Ngozi Styles", suspended: true },
+      products: [],
+    } as never);
+    render(await StorefrontPage(props()));
+    expect(
+      screen.getByRole("heading", { name: "This shop isn't taking orders right now" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "This shop is still setting up" })).toBeNull();
+  });
 });

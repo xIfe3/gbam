@@ -58,55 +58,68 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           Pick something you like. You&apos;ll get updates on WhatsApp.
         </p>
       </header>
-      {products.length === 0 ? (
+      {store.suspended === true && (
         <EmptyState
           art={
             <span aria-hidden="true" className="text-4xl">
-              🛍️
+              ⏸️
             </span>
           }
-          title="This shop is still setting up"
-          description="Check back soon, or message the seller on WhatsApp."
+          title="This shop isn't taking orders right now"
+          description="Please check back later, or message the seller on WhatsApp."
         />
-      ) : (
-        <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
-          {products.map((product) => {
-            let price = formatNaira(product.minPriceKobo);
-            if (product.minPriceKobo !== product.maxPriceKobo) {
-              price = `from ${price}`;
-            }
-            return (
-              <li key={product.slug}>
-                <Link
-                  href={`/${store.slug}/${product.slug}`}
-                  className="focus-visible:outline-brand block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2"
-                >
-                  <div className="bg-blush relative aspect-square overflow-hidden rounded-2xl">
-                    {product.photoUrl && (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img
-                        src={product.photoUrl}
-                        alt={product.name}
-                        width={400}
-                        height={400}
-                        loading="lazy"
-                        className="size-full object-cover"
-                      />
-                    )}
-                    {product.soldOut && (
-                      <span className="text-ink absolute top-2 left-2 rounded-full bg-white px-3 py-1 text-xs font-bold">
-                        Sold out
-                      </span>
-                    )}
-                  </div>
-                  <h2 className="text-ink mt-2 font-bold">{product.name}</h2>
-                  <p className="text-ink-muted">{price}</p>
-                </Link>
-              </li>
-            );
-          })}
-        </ul>
       )}
+      {/* A paused (suspended) shop shows only the notice above. */}
+      {store.suspended !== true &&
+        (products.length === 0 ? (
+          <EmptyState
+            art={
+              <span aria-hidden="true" className="text-4xl">
+                🛍️
+              </span>
+            }
+            title="This shop is still setting up"
+            description="Check back soon, or message the seller on WhatsApp."
+          />
+        ) : (
+          <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+            {products.map((product) => {
+              let price = formatNaira(product.minPriceKobo);
+              if (product.minPriceKobo !== product.maxPriceKobo) {
+                price = `from ${price}`;
+              }
+              return (
+                <li key={product.slug}>
+                  <Link
+                    href={`/${store.slug}/${product.slug}`}
+                    className="focus-visible:outline-brand block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2"
+                  >
+                    <div className="bg-blush relative aspect-square overflow-hidden rounded-2xl">
+                      {product.photoUrl && (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={product.photoUrl}
+                          alt={product.name}
+                          width={400}
+                          height={400}
+                          loading="lazy"
+                          className="size-full object-cover"
+                        />
+                      )}
+                      {product.soldOut && (
+                        <span className="text-ink absolute top-2 left-2 rounded-full bg-white px-3 py-1 text-xs font-bold">
+                          Sold out
+                        </span>
+                      )}
+                    </div>
+                    <h2 className="text-ink mt-2 font-bold">{product.name}</h2>
+                    <p className="text-ink-muted">{price}</p>
+                  </Link>
+                </li>
+              );
+            })}
+          </ul>
+        ))}
       <footer className="text-ink-muted mt-10 pb-20 text-sm">
         Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
         Paystack.{" "}

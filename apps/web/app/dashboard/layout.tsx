@@ -7,6 +7,7 @@ import { Logo } from "@/components/brand/logo";
 import { api, type TourStates } from "@/lib/api";
 import { DashboardNav } from "./dashboard-nav";
 import { PayoutBanner } from "./payout-banner";
+import { SuspendedBanner } from "./suspended-banner";
 import { HelpButton } from "./tours/help-button";
 import { ToursProvider } from "./tours/tours-provider";
 
@@ -37,9 +38,11 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   let shopName = user.email;
   let needsPayoutAccount = false;
+  let suspended = false;
   if (user.seller) {
     shopName = user.seller.businessName;
     needsPayoutAccount = !user.seller.hasPayoutAccount;
+    suspended = user.seller.suspended === true;
   }
 
   return (
@@ -66,6 +69,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
           </div>
         </header>
         <DashboardNav />
+        {suspended && <SuspendedBanner />}
         {needsPayoutAccount && <PayoutBanner />}
         {children}
       </div>
