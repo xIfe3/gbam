@@ -5,6 +5,7 @@ import {
   orderIssues,
   orderItems,
   payments,
+  refundCases,
   whatsappMessages,
   orders,
   productVariants,
@@ -537,6 +538,8 @@ export class OrdersService {
       if (reference !== null) {
         jobId = `needs-refund-${reference}`;
       }
+      // A case for the admin Refunds list. One per payment: a repeated webhook adds nothing.
+      await this.openRefundCase(orderId, reference, reason, details.totalKobo);
       await this.queueEmail(jobId, {
         kind: "needs_refund",
         orderCode: details.code,
@@ -805,6 +808,30 @@ export class OrdersService {
       throw new BadRequestException({ field: "address", message: "Enter the delivery address" });
     }
     return { zoneName, feeKobo, isPickup, address, landmark: input.landmark };
+  }
+
+  /** Adds the order to the admin Refunds list, unless this payment is already on it. */
+  private async openRefundCase(
+    orderId: string,
+    paymentReference: string | null,
+    reason: string,
+    amountKobo: number,
+  ) {
+    if (paymentReference === null) {
+      // No payment reference to tell cases apart: one open case per order is enough.
+      const open = await this.db
+        .select({ id: refundCases.id })
+        .from(refundCases)
+        .where(and(eq(refundCases.orderId, orderId), isNull(refundCases.resolvedAt)));
+      if (open.length > 0) {
+        return;
+      }
+    }
+    await this.db
+      .insert(refundCases)
+      .values({ orderId, paymentReference, reason, amountKobo })
+      // "ON CONFLICT DO NOTHING": the same payment reference again is quietly skipped.
+      .onConflictDoNothing({ target: refundCases.paymentReference });
   }
 
   /**
