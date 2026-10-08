@@ -47,7 +47,14 @@ export type PublicUser = {
   email: string;
   emailVerified: boolean;
   role: "seller" | "admin";
-  seller: { id: string; slug: string; businessName: string; hasPayoutAccount: boolean } | null;
+  seller: {
+    id: string;
+    slug: string;
+    businessName: string;
+    hasPayoutAccount: boolean;
+    /** Gbam suspended the shop: the dashboard explains why orders stopped. */
+    suspended: boolean;
+  } | null;
 };
 
 export type SessionMeta = { ip: string; userAgent: string | null };
@@ -64,6 +71,7 @@ function toPublicUser(user: UserRow, seller: SellerRow | null | undefined): Publ
       slug: seller.slug,
       businessName: seller.businessName,
       hasPayoutAccount: seller.paystackSubaccountCode !== null,
+      suspended: seller.suspendedAt !== null,
     };
   }
   return {

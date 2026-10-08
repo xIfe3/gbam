@@ -554,13 +554,17 @@ export class OrdersService {
   /** Writes a new order. Runs inside the transaction started by createFromStorefront. */
   private async insertOrder(tx: DbTransaction, slug: string, input: CreateOrderInput) {
     const sellerRows = await tx
-      .select({ id: sellers.id })
+      .select({ id: sellers.id, suspendedAt: sellers.suspendedAt })
       .from(sellers)
       // No new orders for a closed shop (its owner deleted the account).
       .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));
     const seller = sellerRows[0];
     if (!seller) {
       throw new NotFoundException("Store not found");
+    }
+    // Suspended by Gbam (e.g. while a report is checked): the shop exists but takes no orders.
+    if (seller.suspendedAt !== null) {
+      throw new ConflictException("This shop isn't taking orders right now");
     }
 
     // Add up quantities per variant, in case the same variant appears on two lines.

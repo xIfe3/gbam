@@ -147,6 +147,7 @@ describe("Storefront endpoints over HTTP (integration)", () => {
       businessName: seller.businessName,
       // No zones set up yet: checkout asks for an address with no delivery fee.
       delivery: { zones: [], pickupNote: null },
+      suspended: false,
     });
     expect(body.products).toHaveLength(1);
     const card = body.products[0];

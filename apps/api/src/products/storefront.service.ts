@@ -26,6 +26,18 @@ export class StorefrontService {
   /** The shop's active products as cards. Products with nothing buyable are left out. */
   async list(slug: string) {
     const seller = await this.findSeller(slug);
+    // Suspended: the page says the shop isn't taking orders, and shows nothing to buy.
+    if (seller.suspendedAt !== null) {
+      return {
+        store: {
+          slug,
+          businessName: seller.businessName,
+          delivery: { zones: [], pickupNote: null },
+          suspended: true,
+        },
+        products: [],
+      };
+    }
 
     const productRows = await this.db
       .select({ id: products.id, slug: products.slug, name: products.name })
@@ -121,12 +133,18 @@ export class StorefrontService {
 
     // Checkout needs the shop's delivery zones (with prices) and its pickup note.
     const delivery = await this.delivery.get(seller.id);
-    return { store: { slug, businessName: seller.businessName, delivery }, products: cards };
+    return {
+      store: { slug, businessName: seller.businessName, delivery, suspended: false },
+      products: cards,
+    };
   }
 
   /** One product page. Anything not visible to buyers is the same 404 as a missing product. */
   async product(slug: string, productSlug: string) {
     const seller = await this.findSeller(slug);
+    if (seller.suspendedAt !== null) {
+      throw new NotFoundException("Product not found");
+    }
 
     // Filtering by sellerId too means another shop's product slug finds nothing here.
     const [product] = await this.db
@@ -205,7 +223,11 @@ export class StorefrontService {
 
   private async findSeller(slug: string) {
     const [seller] = await this.db
-      .select({ id: sellers.id, businessName: sellers.businessName })
+      .select({
+        id: sellers.id,
+        businessName: sellers.businessName,
+        suspendedAt: sellers.suspendedAt,
+      })
       .from(sellers)
       // A closed shop (owner deleted the account) looks the same as one that never existed.
       .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));

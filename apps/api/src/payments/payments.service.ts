@@ -65,14 +65,18 @@ export class PaymentsService {
       }
       // The shop's owner deleted their account: they can't send the goods or give money
       // back, so no new payments for it (old links, the /pay page, a queued WhatsApp).
+      // A shop Gbam suspended takes no payments either, until it's reopened.
       const shopRows = await tx
-        .select({ closedAt: sellers.closedAt })
+        .select({ closedAt: sellers.closedAt, suspendedAt: sellers.suspendedAt })
         .from(orders)
         .innerJoin(sellers, eq(sellers.id, orders.sellerId))
         .where(eq(orders.id, orderId));
       const shop = shopRows[0];
       if (shop && shop.closedAt !== null) {
         throw new OrderNotAwaitingPaymentError(orderId, "in a closed shop");
+      }
+      if (shop && shop.suspendedAt !== null) {
+        throw new OrderNotAwaitingPaymentError(orderId, "in a suspended shop");
       }
 
       // 2. Already have an unpaid link for this order? Reuse it.

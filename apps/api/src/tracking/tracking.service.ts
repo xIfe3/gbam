@@ -96,6 +96,7 @@ export class TrackingService {
         businessName: sellers.businessName,
         whatsappPhone: sellers.whatsappPhone,
         closedAt: sellers.closedAt,
+        suspendedAt: sellers.suspendedAt,
         pickupNote: sellers.pickupNote,
       })
       .from(sellers)
@@ -110,7 +111,8 @@ export class TrackingService {
       whatsappPhone: shopRow.whatsappPhone,
     };
     // A closed shop (owner deleted the account) takes no more payments.
-    const shopOpen = shopRow.closedAt === null;
+    // ...and neither does a shop Gbam suspended.
+    const shopOpen = shopRow.closedAt === null && shopRow.suspendedAt === null;
     const items = await this.db
       .select({
         productName: orderItems.productName,

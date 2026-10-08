@@ -105,6 +105,8 @@ export type EmailJob =
     }
   | { kind: "contact_auto_reply"; to: string }
   | { kind: "admin_invite"; to: string; name: string; inviteUrl: string }
+  | { kind: "shop_suspended"; to: string; shopName: string }
+  | { kind: "shop_reopened"; to: string; shopName: string }
   | {
       kind: "new_order";
       to: string;
@@ -290,6 +292,12 @@ export function renderEmail(job: EmailJob): SendEmailInput {
   }
   if (job.kind === "admin_invite") {
     return adminInviteEmail(job);
+  }
+  if (job.kind === "shop_suspended") {
+    return shopSuspendedEmail(job);
+  }
+  if (job.kind === "shop_reopened") {
+    return shopReopenedEmail(job);
   }
   if (job.kind === "new_order") {
     return newOrderEmail(job);
@@ -799,5 +807,29 @@ function adminInviteEmail(job: Extract<EmailJob, { kind: "admin_invite" }>): Sen
     subject: `You're invited to the Gbam admin area`,
     text,
     html: emailLayout(content),
+  };
+}
+
+/** To the owner: Gbam paused their shop (e.g. while a report is looked into). */
+function shopSuspendedEmail(job: Extract<EmailJob, { kind: "shop_suspended" }>): SendEmailInput {
+  const what = `Your shop ${job.shopName} is paused: customers can't place orders or pay for now. Orders already paid can still be delivered and refunded.`;
+  const help = `To find out why, or if you think this is a mistake, email support@gbam.app.`;
+  const content = [paragraph(escapeHtml(what)), warningBox(withBoldEmails(help))].join("\n");
+  return {
+    to: job.to,
+    subject: `Your Gbam shop is paused`,
+    text: `${what}\n\n${help}`,
+    html: emailLayout(content),
+  };
+}
+
+/** To the owner: their shop is taking orders again. */
+function shopReopenedEmail(job: Extract<EmailJob, { kind: "shop_reopened" }>): SendEmailInput {
+  const what = `Good news: ${job.shopName} is taking orders again.`;
+  return {
+    to: job.to,
+    subject: `Your Gbam shop is open again`,
+    text: what,
+    html: emailLayout(paragraph(escapeHtml(what))),
   };
 }
