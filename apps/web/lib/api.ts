@@ -607,6 +607,25 @@ async function updateShopSettings(body: { businessName: string; phone: string })
   });
 }
 
+export type DeliveryZone = { id: string; name: string; feeKobo: number; isPickup: boolean };
+export type DeliverySettings = { zones: DeliveryZone[]; pickupNote: string | null };
+
+async function getDeliverySettings() {
+  return request<DeliverySettings>("/settings/delivery", { auth: "session" });
+}
+
+/** Saves the whole list of zones at once; zones left out are removed. */
+async function saveDeliverySettings(body: {
+  zones: { id?: string; name: string; feeKobo: number; isPickup: boolean }[];
+  pickupNote: string | null;
+}) {
+  return request<DeliverySettings>("/settings/delivery", {
+    method: "PUT",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
 async function updateEmailSettings(body: { newOrderEmails: boolean }) {
   return request<ShopSettings>("/settings/emails", {
     method: "PATCH",
@@ -695,7 +714,11 @@ async function trackPay(code: string, key: string) {
   });
 }
 
-async function trackReportIssue(code: string, key: string, body: { reason: IssueReason; note?: string }) {
+async function trackReportIssue(
+  code: string,
+  key: string,
+  body: { reason: IssueReason; note?: string },
+) {
   return request<{ ok: true }>(trackPath(code, key, "/issues"), {
     method: "POST",
     body: JSON.stringify(body),
@@ -726,6 +749,8 @@ export const api = {
   getSettings,
   updateShopSettings,
   updateEmailSettings,
+  getDeliverySettings,
+  saveDeliverySettings,
   changePassword,
   closeAccount,
   signup,

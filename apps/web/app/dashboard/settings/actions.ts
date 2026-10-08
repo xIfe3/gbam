@@ -3,6 +3,8 @@
 import {
   changePasswordSchema,
   closeAccountSchema,
+  deliverySettingsSchema,
+  parseNairaInput,
   emailSettingsSchema,
   shopSettingsSchema,
 } from "@gbam/shared";
@@ -46,10 +48,7 @@ export async function updateShopAction(_prev: FormState, formData: FormData): Pr
  * Which optional emails the seller wants. A ticked checkbox sends "on"; an unticked one
  * sends nothing at all, so "not in the form" means off.
  */
-export async function updateEmailsAction(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function updateEmailsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const ticked = formData.get("newOrderEmails") === "on";
   const input = emailSettingsSchema.safeParse({ newOrderEmails: ticked });
   if (!input.success) {
@@ -67,6 +66,74 @@ export async function updateEmailsAction(
     notice = "Saved. We'll email you when a new order comes in.";
   }
   return { notice };
+}
+
+/** One zone row as the delivery form sends it: the fee is still the text the seller typed. */
+type ZoneRow = { id?: string; name: string; fee: string; isPickup: boolean };
+
+/**
+ * Settings → Delivery. The form sends every zone as one JSON field ("zones"), with fees as
+ * typed ("2,500", "₦2500"); they become kobo here, then the shared schema checks the list.
+ */
+export async function saveDeliveryAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  let rows: ZoneRow[] = [];
+  try {
+    rows = JSON.parse(text(formData, "zones")) as ZoneRow[];
+  } catch {
+    return { error: "Something went wrong. Please try again." };
+  }
+  if (!Array.isArray(rows)) {
+    return { error: "Something went wrong. Please try again." };
+  }
+
+  const zones = [];
+  for (const row of rows) {
+    const feeKobo = parseNairaInput(String(row.fee));
+    if (feeKobo === null) {
+      return {
+        fieldErrors: { zones: `Enter the fee for ${row.name} in whole naira, like 2500` },
+      };
+    }
+    const zone: { id?: string; name: string; feeKobo: number; isPickup: boolean } = {
+      name: String(row.name),
+      feeKobo,
+      isPickup: row.isPickup === true,
+    };
+    if (row.id) {
+      zone.id = String(row.id);
+    }
+    zones.push(zone);
+  }
+
+  const input = deliverySettingsSchema.safeParse({
+    zones,
+    pickupNote: text(formData, "pickupNote"),
+  });
+  if (!input.success) {
+    const firstIssue = input.error.issues[0];
+    let message = "Please check your delivery zones.";
+    if (firstIssue) {
+      message = firstIssue.message;
+    }
+    if (firstIssue && firstIssue.path[0] === "pickupNote") {
+      return { fieldErrors: { pickupNote: message } };
+    }
+    return { fieldErrors: { zones: message } };
+  }
+
+  let savedZonesJson = "";
+  try {
+    const saved = await api.saveDeliverySettings(input.data);
+    // New zones only get their ids now. Sending the saved list back lets the form use them,
+    // so the next save updates these zones instead of removing and re-adding them.
+    if (saved && Array.isArray(saved.zones)) {
+      savedZonesJson = JSON.stringify(saved.zones);
+    }
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: failureMessage(error, "save delivery zones") };
+  }
+  return { notice: "Delivery zones saved.", values: { savedZones: savedZonesJson } };
 }
 
 /** New password. Passwords are never sent back to the form, even after an error. */
@@ -96,10 +163,7 @@ export async function changePasswordAction(
 }
 
 /** Delete my account: the API hides the shop and signs out everywhere; this browser too. */
-export async function closeAccountAction(
-  _prev: FormState,
-  formData: FormData,
-): Promise<FormState> {
+export async function closeAccountAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const values = { businessName: text(formData, "businessName") };
   const input = closeAccountSchema.safeParse({
     businessName: values.businessName,

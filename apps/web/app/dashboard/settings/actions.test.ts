@@ -15,6 +15,7 @@ const { apiMock, FakeApiError, refresh, redirect, clearSessionCookie } = vi.hois
     apiMock: {
       updateShopSettings: vi.fn(),
       updateEmailSettings: vi.fn(),
+      saveDeliverySettings: vi.fn(),
       changePassword: vi.fn(),
       closeAccount: vi.fn(),
     },
@@ -42,6 +43,7 @@ vi.mock("@/lib/session", () => ({ clearSessionCookie }));
 import {
   changePasswordAction,
   closeAccountAction,
+  saveDeliveryAction,
   updateEmailsAction,
   updateShopAction,
 } from "./actions";
@@ -56,6 +58,60 @@ function form(fields: Record<string, string>): FormData {
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("saveDeliveryAction", () => {
+  it("converts naira and saves", async () => {
+    apiMock.saveDeliverySettings.mockResolvedValue({});
+    const zones = [
+      {
+        id: "11111111-1111-4111-8111-111111111111",
+        name: "Lekki / VI",
+        fee: "₦2,500",
+        isPickup: false,
+      },
+      { name: "Pickup from shop", fee: "0", isPickup: true },
+    ];
+    const state = await saveDeliveryAction(
+      {},
+      form({ zones: JSON.stringify(zones), pickupNote: "Shop 12" }),
+    );
+    expect(apiMock.saveDeliverySettings).toHaveBeenCalledWith({
+      zones: [
+        {
+          id: "11111111-1111-4111-8111-111111111111",
+          name: "Lekki / VI",
+          feeKobo: 250_000,
+          isPickup: false,
+        },
+        { name: "Pickup from shop", feeKobo: 0, isPickup: true },
+      ],
+      pickupNote: "Shop 12",
+    });
+    expect(state.notice).toBe("Delivery zones saved.");
+  });
+
+  it("shows a bad fee on the zones field", async () => {
+    const zones = [{ name: "Lekki", fee: "abc", isPickup: false }];
+    const state = await saveDeliveryAction(
+      {},
+      form({ zones: JSON.stringify(zones), pickupNote: "" }),
+    );
+    expect(apiMock.saveDeliverySettings).not.toHaveBeenCalled();
+    expect(state.fieldErrors?.zones).toBe("Enter the fee for Lekki in whole naira, like 2500");
+  });
+
+  it("shows duplicate names on the zones field", async () => {
+    const zones = [
+      { name: "Lekki", fee: "2500", isPickup: false },
+      { name: "lekki", fee: "3000", isPickup: false },
+    ];
+    const state = await saveDeliveryAction(
+      {},
+      form({ zones: JSON.stringify(zones), pickupNote: "" }),
+    );
+    expect(state.fieldErrors?.zones).toBe("Each zone needs a different name");
+  });
 });
 
 describe("updateEmailsAction", () => {

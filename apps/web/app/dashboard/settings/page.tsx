@@ -5,11 +5,12 @@ import { BankForm } from "@/app/(auth)/signup/get-paid/bank-form";
 import { FormError, FormNotice } from "@/components/brand/form-bits";
 import { api, ApiError, type Bank } from "@/lib/api";
 import { SITE_HOST } from "@/lib/site";
+import { DeliveryForm } from "./delivery-form";
 import { CloseAccountForm, EmailsForm, PasswordForm, ShopForm } from "./settings-forms";
 
 export const metadata: Metadata = {
   title: "Settings",
-  description: "Your shop details, payout bank account, emails, password and account.",
+  description: "Your shop details, payout bank account, delivery, emails, password and account.",
 };
 
 /** The bank list, or null when it can't be loaded right now (the rest of the page still works). */
@@ -32,6 +33,7 @@ const sectionClass = "rounded-xl border border-zinc-200 bg-white p-5";
 export default async function SettingsPage(props: PageProps<"/dashboard/settings">) {
   const searchParams = await props.searchParams;
   const settings = await api.getSettings();
+  const delivery = await api.getDeliverySettings();
   // Only needed to change the account, but the list is cached by the API, so it's cheap.
   let banks: Bank[] | null = null;
   if (settings.payoutAccount) {
@@ -93,6 +95,17 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
             </details>
           </div>
         )}
+      </section>
+
+      <section id="delivery" aria-labelledby="delivery-heading" className={sectionClass}>
+        <h2 id="delivery-heading" className="mb-1 font-semibold">
+          Delivery
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Add the areas you deliver to, with a price each. Customers pick one at checkout and pay
+          for delivery with their order. Changing a price never changes orders already placed.
+        </p>
+        <DeliveryForm zones={delivery.zones} pickupNote={delivery.pickupNote} />
       </section>
 
       <section aria-labelledby="emails-heading" className={sectionClass}>
