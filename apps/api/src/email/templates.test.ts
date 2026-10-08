@@ -94,11 +94,61 @@ describe("renderEmail", () => {
       shopName: "Shop",
       code: "GB-7K2Q",
       customerName: "Ada",
+      subtotalKobo: 500_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: null,
       totalKobo: 500_000,
       orderUrl: "https://gbam.app/dashboard/orders/1",
       settingsUrl: "https://gbam.app/dashboard/settings",
     });
     expect(email.html).toContain("https://gbam.app/dashboard/settings");
     expect(email.text).toContain("Turn them off");
+  });
+
+  it("receipt shows delivery line", () => {
+    const email = renderEmail({
+      kind: "order_receipt",
+      to: "a@b.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      subtotalKobo: 1_200_000,
+      deliveryFeeKobo: 250_000,
+      deliveryLabel: "Lekki / VI",
+      totalKobo: 1_450_000,
+      trackingUrl: "https://gbam.app/track/GB-7K2Q",
+    });
+    expect(email.text).toContain("Items ₦12,000 · Delivery (Lekki / VI) ₦2,500 · Total ₦14,500");
+    expect(email.html).toContain("Delivery (Lekki / VI)");
+  });
+
+  it("free delivery says Free", () => {
+    const email = renderEmail({
+      kind: "payment_confirmed",
+      to: "a@b.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      subtotalKobo: 1_200_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: "Pickup",
+      totalKobo: 1_200_000,
+      trackingUrl: "https://gbam.app/track/GB-7K2Q",
+    });
+    expect(email.text).toContain("Items ₦12,000 · Delivery (Pickup) Free · Total ₦12,000");
+  });
+
+  it("receipt without zone shows total only", () => {
+    const email = renderEmail({
+      kind: "order_receipt",
+      to: "a@b.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      subtotalKobo: 1_200_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: null,
+      totalKobo: 1_200_000,
+      trackingUrl: "https://gbam.app/track/GB-7K2Q",
+    });
+    expect(email.text).toContain("Total: ₦12,000");
+    expect(email.text).not.toContain("Delivery");
   });
 });

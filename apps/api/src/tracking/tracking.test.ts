@@ -4,7 +4,7 @@
  * Redis db 1, fake Paystack, and a fake email queue that records what would be sent.
  */
 import "reflect-metadata";
-import { orders, sellers, users } from "@gbam/db";
+import { deliveryZones, orders, sellers, users } from "@gbam/db";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { eq, inArray } from "drizzle-orm";
@@ -264,9 +264,48 @@ describe("Order tracking over HTTP (integration)", () => {
     expect(view.text).not.toContain("Ada Obi");
     expect(view.text).not.toContain("2348012345678");
     expect(view.text).not.toContain(order.id);
+    // The delivery address is personal too: the seller sees it, the tracking link doesn't.
+    expect(view.text).not.toContain("12 Test Street");
 
     expect((await call("GET", `/track/${order.code}?key=wrong`)).status).toBe(404);
     expect((await call("GET", `/track/GB-ZZZZ?key=${order.trackingKey}`)).status).toBe(404);
+  });
+
+  it("shows no delivery box for an order placed without a zone", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    const view = await call("GET", `/track/${order.code}?key=${order.trackingKey}`);
+    expect(view.json).toMatchObject({
+      order: { subtotalKobo: 1000000, deliveryFeeKobo: 0, totalKobo: 1000000, delivery: null },
+    });
+  });
+
+  it("includes delivery for a zone order, with the pickup note for pickup", async () => {
+    const shop = await newShop();
+    await db.update(sellers).set({ pickupNote: "Back gate, Shop 4" }).where(eq(sellers.id, shop.sellerId));
+    const zoneRows = await db
+      .insert(deliveryZones)
+      .values({ sellerId: shop.sellerId, name: "Pickup at shop", feeKobo: 0, isPickup: true })
+      .returning();
+    const zone = zoneRows[0];
+    if (!zone) {
+      throw new Error("expected a zone");
+    }
+    const order = await ordersService.createFromStorefront(shop.slug, {
+      customer: { name: "Ada Obi", phone: "2348012345678" },
+      delivery: { zoneId: zone.id, expectedFeeKobo: 0, address: null, landmark: null },
+      items: [{ variantId: shop.variantId, quantity: 2 }],
+    });
+
+    const view = await call("GET", `/track/${order.code}?key=${order.trackingKey}`);
+    expect(view.json).toMatchObject({
+      order: {
+        subtotalKobo: 1000000,
+        deliveryFeeKobo: 0,
+        totalKobo: 1000000,
+        delivery: { zoneName: "Pickup at shop", isPickup: true, pickupNote: "Back gate, Shop 4" },
+      },
+    });
   });
 
   it("Pay now works only while the order is awaiting payment", async () => {

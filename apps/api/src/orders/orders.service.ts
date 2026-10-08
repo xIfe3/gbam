@@ -76,7 +76,16 @@ export class OrdersService {
    * here must never undo the order (it's already saved), so it's logged, not thrown.
    */
   private async sendReceipt(
-    order: { id: string; code: string; sellerId: string; totalKobo: number; trackingKey: string },
+    order: {
+      id: string;
+      code: string;
+      sellerId: string;
+      subtotalKobo: number;
+      deliveryFeeKobo: number;
+      deliveryZoneName: string | null;
+      totalKobo: number;
+      trackingKey: string;
+    },
     email: string,
   ) {
     try {
@@ -95,6 +104,9 @@ export class OrdersService {
         to: email,
         shopName,
         code: order.code,
+        subtotalKobo: order.subtotalKobo,
+        deliveryFeeKobo: order.deliveryFeeKobo,
+        deliveryLabel: order.deliveryZoneName,
         totalKobo: order.totalKobo,
         trackingUrl: this.trackingUrl(order.code, order.trackingKey),
       });
@@ -364,6 +376,9 @@ export class OrdersService {
     const rows = await this.db
       .select({
         code: orders.code,
+        subtotalKobo: orders.subtotalKobo,
+        deliveryFeeKobo: orders.deliveryFeeKobo,
+        deliveryZoneName: orders.deliveryZoneName,
         totalKobo: orders.totalKobo,
         trackingKey: orders.trackingKey,
         customerEmail: orders.customerEmail,
@@ -412,6 +427,9 @@ export class OrdersService {
         shopName: details.shopName,
         code: details.code,
         customerName: details.customerName,
+        subtotalKobo: details.subtotalKobo,
+        deliveryFeeKobo: details.deliveryFeeKobo,
+        deliveryLabel: details.deliveryZoneName,
         totalKobo: details.totalKobo,
         orderUrl: this.dashboardOrderUrl(orderId),
         settingsUrl: `${this.env.WEB_URL}/dashboard/settings`,
@@ -461,6 +479,9 @@ export class OrdersService {
           to: customerEmail,
           shopName: details.shopName,
           code: details.code,
+          subtotalKobo: details.subtotalKobo,
+          deliveryFeeKobo: details.deliveryFeeKobo,
+          deliveryLabel: details.deliveryZoneName,
           totalKobo: details.totalKobo,
           trackingUrl,
         });

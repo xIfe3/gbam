@@ -16,6 +16,10 @@ export type EmailJob =
       to: string;
       shopName: string;
       code: string;
+      subtotalKobo: number;
+      deliveryFeeKobo: number;
+      /** Zone name, "Pickup", or null when the shop had no delivery zones. */
+      deliveryLabel: string | null;
       totalKobo: number;
       trackingUrl: string;
     }
@@ -69,6 +73,10 @@ export type EmailJob =
       to: string;
       shopName: string;
       code: string;
+      subtotalKobo: number;
+      deliveryFeeKobo: number;
+      /** Zone name, "Pickup", or null when the shop had no delivery zones. */
+      deliveryLabel: string | null;
       totalKobo: number;
       trackingUrl: string;
     }
@@ -102,6 +110,10 @@ export type EmailJob =
       shopName: string;
       code: string;
       customerName: string;
+      subtotalKobo: number;
+      deliveryFeeKobo: number;
+      /** Zone name, "Pickup", or null when the shop had no delivery zones. */
+      deliveryLabel: string | null;
       totalKobo: number;
       orderUrl: string;
       settingsUrl: string;
@@ -314,14 +326,46 @@ function codeEmail(to: string, code: string, intro: string): SendEmailInput {
   return { to, subject: `Your Gbam code: ${code}`, text, html };
 }
 
+/**
+ * "Items ₦12,000 · Delivery (Lekki) ₦2,500 · Total ₦14,500", or null when there's no
+ * delivery to show (a shop with no zones: the total is just the items).
+ */
+function amountsLine(job: {
+  subtotalKobo: number;
+  deliveryFeeKobo: number;
+  deliveryLabel: string | null;
+  totalKobo: number;
+}): string | null {
+  if (job.deliveryLabel === null && job.deliveryFeeKobo === 0) {
+    return null;
+  }
+  let label = "Delivery";
+  if (job.deliveryLabel !== null) {
+    label = `Delivery (${job.deliveryLabel})`;
+  }
+  let fee = formatNaira(job.deliveryFeeKobo);
+  if (job.deliveryFeeKobo === 0) {
+    fee = "Free";
+  }
+  return `Items ${formatNaira(job.subtotalKobo)} · ${label} ${fee} · Total ${formatNaira(job.totalKobo)}`;
+}
+
 /** Sent to a customer who gave their email at checkout: the code and the tracking link. */
 function receiptEmail(job: Extract<EmailJob, { kind: "order_receipt" }>): SendEmailInput {
   const total = formatNaira(job.totalKobo);
+  // With delivery: the full breakdown. Without: just the total.
+  const amounts = amountsLine(job);
+  let totalText = `Total: ${total}`;
+  let totalHtml = paragraph(`Total: ${strong(escapeHtml(total))}`);
+  if (amounts !== null) {
+    totalText = amounts;
+    totalHtml = paragraph(escapeHtml(amounts));
+  }
   const text = [
     `Thanks for your order from ${job.shopName}.`,
     ``,
     `Order code: ${job.code}`,
-    `Total: ${total}`,
+    totalText,
     ``,
     `Track your order, pay, or get help here:`,
     job.trackingUrl,
@@ -331,7 +375,7 @@ function receiptEmail(job: Extract<EmailJob, { kind: "order_receipt" }>): SendEm
   const content = [
     paragraph(`Thanks for your order from ${strong(escapeHtml(job.shopName))}.`),
     codeBox(job.code),
-    paragraph(`Total: ${strong(escapeHtml(total))}`),
+    totalHtml,
     button(job.trackingUrl, "Track your order, pay, or get help"),
     smallPrint(`Keep this email: the link opens your order without a password.`),
   ].join("\n");
@@ -510,10 +554,18 @@ function paymentConfirmedEmail(
   job: Extract<EmailJob, { kind: "payment_confirmed" }>,
 ): SendEmailInput {
   const total = formatNaira(job.totalKobo);
+  const breakdownText: string[] = [];
+  const breakdownHtml: string[] = [];
+  const amounts = amountsLine(job);
+  if (amounts !== null) {
+    breakdownText.push(amounts);
+    breakdownHtml.push(smallPrint(escapeHtml(amounts)));
+  }
   const text = [
     `We got your payment of ${total} for your order from ${job.shopName}.`,
     ``,
     `Order code: ${job.code}`,
+    ...breakdownText,
     ``,
     `${job.shopName} will get your order ready. Follow it here:`,
     job.trackingUrl,
@@ -524,6 +576,7 @@ function paymentConfirmedEmail(
   const content = [
     paragraph(`We got your payment of ${strong(escapeHtml(total))} for your order from ${shop}.`),
     codeBox(job.code),
+    ...breakdownHtml,
     paragraph(`${escapeHtml(job.shopName)} will get your order ready.`),
     button(job.trackingUrl, "Follow your order"),
     smallPrint(`Keep this email as your proof of payment.`),
@@ -662,10 +715,18 @@ function contactAutoReplyEmail(
 /** To the seller: a new order came in (they can turn these off in Settings). */
 function newOrderEmail(job: Extract<EmailJob, { kind: "new_order" }>): SendEmailInput {
   const total = formatNaira(job.totalKobo);
+  const breakdownText: string[] = [];
+  const breakdownHtml: string[] = [];
+  const amounts = amountsLine(job);
+  if (amounts !== null) {
+    breakdownText.push(amounts);
+    breakdownHtml.push(paragraph(escapeHtml(amounts)));
+  }
   const text = [
     `New order from ${job.customerName}: ${total}.`,
     ``,
     `Order code: ${job.code}`,
+    ...breakdownText,
     ``,
     `Open the order: ${job.orderUrl}`,
     ``,
@@ -676,6 +737,7 @@ function newOrderEmail(job: Extract<EmailJob, { kind: "new_order" }>): SendEmail
   const content = [
     paragraph(`New order from ${customer}: ${strong(escapeHtml(total))}.`),
     codeBox(job.code),
+    ...breakdownHtml,
     button(job.orderUrl, "Open the order"),
     smallPrint(`Don't want these emails? Turn them off in ${settingsLink}.`),
   ].join("\n");

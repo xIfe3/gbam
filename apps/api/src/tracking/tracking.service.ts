@@ -96,6 +96,7 @@ export class TrackingService {
         businessName: sellers.businessName,
         whatsappPhone: sellers.whatsappPhone,
         closedAt: sellers.closedAt,
+        pickupNote: sellers.pickupNote,
       })
       .from(sellers)
       .where(eq(sellers.id, order.sellerId));
@@ -142,12 +143,26 @@ export class TrackingService {
       });
     }
 
+    // The delivery choice, without the address: the address is personal, so only the seller
+    // sees it. null for orders placed in a shop with no delivery zones.
+    let delivery: { zoneName: string; isPickup: boolean; pickupNote: string | null } | null = null;
+    if (order.deliveryZoneName !== null) {
+      let pickupNote: string | null = null;
+      if (order.deliveryIsPickup) {
+        pickupNote = shopRow.pickupNote;
+      }
+      delivery = { zoneName: order.deliveryZoneName, isPickup: order.deliveryIsPickup, pickupNote };
+    }
+
     return {
       shop,
       order: {
         code: order.code,
         status: order.status,
+        subtotalKobo: order.subtotalKobo,
+        deliveryFeeKobo: order.deliveryFeeKobo,
         totalKobo: order.totalKobo,
+        delivery,
         createdAt: order.createdAt,
         items,
         events,
