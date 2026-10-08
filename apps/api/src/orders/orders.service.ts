@@ -678,6 +678,7 @@ export class OrdersService {
         customerId: customer.id,
         code: generateOrderCode(),
         totalKobo,
+        subtotalKobo: totalKobo,
         note: input.note,
         customerEmail: input.customer.email,
       })

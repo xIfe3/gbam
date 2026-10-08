@@ -175,9 +175,39 @@ export const sellers = pgTable("sellers", {
   closedAt: timestamp("closed_at", { withTimezone: true }),
   /** Email the owner when a new order comes in. Busy shops can turn it off in Settings. */
   newOrderEmails: boolean("new_order_emails").notNull().default(true),
+  /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */
+  pickupNote: text("pickup_note"),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
+
+/**
+ * A place a seller delivers to, with its price, e.g. "Lekki / VI – ₦2,500". A pickup zone
+ * means the customer collects the order. Removing a zone sets archived_at (old orders keep
+ * their own copy of its name and fee).
+ */
+export const deliveryZones = pgTable(
+  "delivery_zones",
+  {
+    id: id(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellers.id, { onDelete: "cascade" }),
+    name: text("name").notNull(),
+    feeKobo: integer("fee_kobo").notNull(),
+    isPickup: boolean("is_pickup").notNull().default(false),
+    /** The order the seller put them in (0 first). */
+    sortOrder: integer("sort_order").notNull().default(0),
+    archivedAt: timestamp("archived_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [index("delivery_zones_seller_idx").on(t.sellerId)],
+);
+
+export const deliveryZonesRelations = relations(deliveryZones, ({ one }) => ({
+  seller: one(sellers, { fields: [deliveryZones.sellerId], references: [sellers.id] }),
+}));
 
 export const customers = pgTable(
   "customers",
@@ -304,7 +334,20 @@ export const orders = pgTable(
     /** Short human code the seller and customer quote on WhatsApp, e.g. "GB-7K3Q". */
     code: text("code").notNull(),
     status: orderStatusEnum("status").notNull().default("pending"),
+    /** Always subtotal + delivery fee: what the customer pays. */
     totalKobo: kobo("total_kobo"),
+    /** The items only. Gbam's fee is worked out on this, never on delivery. */
+    subtotalKobo: kobo("subtotal_kobo"),
+    deliveryFeeKobo: bigint("delivery_fee_kobo", { mode: "number" }).notNull().default(0),
+    /*
+     * A copy of the delivery choice, taken when the order is placed. If the seller later
+     * edits or removes the zone, this order keeps what the customer agreed to.
+     * Zone name is null when the shop had no zones; address is null for pickup orders.
+     */
+    deliveryZoneName: text("delivery_zone_name"),
+    deliveryIsPickup: boolean("delivery_is_pickup").notNull().default(false),
+    deliveryAddress: text("delivery_address"),
+    deliveryLandmark: text("delivery_landmark"),
     /** True when payment arrived after the stock had run out: the seller must refund. */
     stockShortfall: boolean("stock_shortfall").notNull().default(false),
     note: text("note"),
@@ -462,6 +505,7 @@ export const emailCodesRelations = relations(emailCodes, ({ one }) => ({
 
 export const sellersRelations = relations(sellers, ({ one, many }) => ({
   owner: one(users, { fields: [sellers.ownerUserId], references: [users.id] }),
+  deliveryZones: many(deliveryZones),
   customers: many(customers),
   products: many(products),
   orders: many(orders),

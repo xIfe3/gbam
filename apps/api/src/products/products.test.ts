@@ -288,6 +288,7 @@ describe("Seller product endpoints over HTTP (integration)", () => {
         customerId: customer.id,
         code: `T-${randomUUID().slice(0, 6)}`,
         totalKobo: 250_000,
+        subtotalKobo: 250_000,
       })
       .returning();
     const order = orderRows[0];
