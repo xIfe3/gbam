@@ -1,6 +1,7 @@
 import { formatNaira } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OrderTotals } from "@/components/orders/order-totals";
 import { notFound, redirect } from "next/navigation";
 import { ShopHeader } from "@/app/[slug]/shop-header";
 import { PayNowButton } from "@/app/track/[code]/pay-now-button";
@@ -77,10 +78,12 @@ export default async function PayPage(props: PageProps<"/pay/[code]">) {
               );
             })}
           </ul>
-          <p className="text-ink mt-3 flex justify-between text-lg font-black">
-            <span>Total</span>
-            <span className="tabular-nums">{formatNaira(order.totalKobo)}</span>
-          </p>
+          <OrderTotals
+            subtotalKobo={order.subtotalKobo}
+            deliveryFeeKobo={order.deliveryFeeKobo}
+            deliveryLabel={order.delivery?.zoneName}
+            totalKobo={order.totalKobo}
+          />
         </section>
 
         <PayNowButton code={order.code} trackingKey={key} totalKobo={order.totalKobo} />

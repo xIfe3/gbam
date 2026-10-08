@@ -128,4 +128,23 @@ describe("customer tracking page", () => {
       "NEXT_NOT_FOUND",
     );
   });
+
+  it("track page shows pickup note for pickup", async () => {
+    vi.mocked(api.trackView).mockResolvedValue({
+      ...TRACKED,
+      order: {
+        ...TRACKED.order,
+        subtotalKobo: 1000000,
+        deliveryFeeKobo: 0,
+        delivery: {
+          zoneName: "Pickup from shop",
+          isPickup: true,
+          pickupNote: "Shop 12, Balogun Market",
+        },
+      },
+    } as never);
+    render(await TrackOrderPage(props("secret-key-abcdefghijklmnop")));
+    expect(screen.getByText("Delivery (Pickup from shop)").nextSibling).toHaveTextContent("Free");
+    expect(screen.getByText("Shop 12, Balogun Market")).toBeInTheDocument();
+  });
 });

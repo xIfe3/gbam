@@ -72,4 +72,45 @@ describe("order page", () => {
     render(await OrderPage(props));
     expect(screen.getByRole("alert")).toHaveTextContent("Stock ran out: refund needed");
   });
+
+  it("seller order shows address with copy button", async () => {
+    vi.mocked(api.getOrder).mockResolvedValue({
+      ...order(false),
+      subtotalKobo: 1400000,
+      deliveryFeeKobo: 250000,
+      totalKobo: 1650000,
+      deliveryZoneName: "Lekki / VI",
+      deliveryIsPickup: false,
+      deliveryAddress: "12 Admiralty Way, Lekki",
+      deliveryLandmark: "Opposite the bank",
+    } as never);
+    render(await OrderPage(props));
+    const box = screen.getByRole("region", { name: "Delivery" });
+    expect(box).toHaveTextContent("Lekki / VI");
+    expect(box).toHaveTextContent("12 Admiralty Way, Lekki");
+    expect(box).toHaveTextContent("Opposite the bank");
+    expect(screen.getByRole("button", { name: "Copy address" })).toBeInTheDocument();
+    expect(screen.getByText("Delivery (Lekki / VI)").nextSibling).toHaveTextContent("₦2,500");
+  });
+
+  it("pickup order says the customer will pick up", async () => {
+    vi.mocked(api.getOrder).mockResolvedValue({
+      ...order(false),
+      deliveryZoneName: "Pickup from shop",
+      deliveryIsPickup: true,
+      deliveryAddress: null,
+      deliveryLandmark: null,
+    } as never);
+    render(await OrderPage(props));
+    const box = screen.getByRole("region", { name: "Delivery" });
+    expect(box).toHaveTextContent("Customer will pick up");
+    expect(screen.queryByRole("button", { name: "Copy address" })).not.toBeInTheDocument();
+  });
+
+  it("old order without delivery renders no delivery box", async () => {
+    // order() has no delivery fields at all, like an order placed before delivery existed.
+    vi.mocked(api.getOrder).mockResolvedValue(order(false) as never);
+    render(await OrderPage(props));
+    expect(screen.queryByRole("region", { name: "Delivery" })).not.toBeInTheDocument();
+  });
 });

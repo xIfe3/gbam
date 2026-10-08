@@ -76,4 +76,21 @@ describe("review & pay page", () => {
   it("sends people without the key to the lookup form", async () => {
     await expect(PayPage(props())).rejects.toThrow("NEXT_REDIRECT /track");
   });
+
+  it("pay page shows items, delivery, total", async () => {
+    vi.mocked(api.trackView).mockResolvedValue({
+      ...TRACKED,
+      order: {
+        ...TRACKED.order,
+        subtotalKobo: 1000000,
+        deliveryFeeKobo: 250000,
+        totalKobo: 1250000,
+        delivery: { zoneName: "Lekki / VI", isPickup: false, pickupNote: null },
+      },
+    } as never);
+    render(await PayPage(props(KEY)));
+    expect(screen.getByText("Items").nextSibling).toHaveTextContent("₦10,000");
+    expect(screen.getByText("Delivery (Lekki / VI)").nextSibling).toHaveTextContent("₦2,500");
+    expect(screen.getByText("Total").nextSibling).toHaveTextContent("₦12,500");
+  });
 });

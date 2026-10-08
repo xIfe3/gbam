@@ -1,6 +1,7 @@
 import { formatNaira, orderStatusSchema, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { DeliveryBanner } from "./delivery-banner";
 import { EmptyState, OrdersArt } from "@/components/brand/empty-state";
 import { api } from "@/lib/api";
 import { STATUS_LABEL } from "@/lib/order-labels";
@@ -56,9 +57,14 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
     shopSlug = user.seller.slug;
   }
 
+  // Shops with no delivery zones get a nudge: customers can't pay for delivery upfront yet.
+  const delivery = await api.getDeliverySettings();
+  const needsDeliveryZones = delivery.zones.length === 0;
+
   return (
     <main>
       <PageTour tour="dashboard" />
+      {needsDeliveryZones && <DeliveryBanner />}
       {shopSlug !== null && (
         <section
           aria-label="Your shop link"

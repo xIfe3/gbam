@@ -1,7 +1,9 @@
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-vi.mock("@/lib/api", () => ({ api: { listOrders: vi.fn(), currentUser: vi.fn() } }));
+vi.mock("@/lib/api", () => ({
+  api: { listOrders: vi.fn(), currentUser: vi.fn(), getDeliverySettings: vi.fn() },
+}));
 
 import { api } from "@/lib/api";
 import OrdersPage from "./page";
@@ -18,6 +20,8 @@ describe("orders page empty states", () => {
   beforeEach(() => {
     vi.mocked(api.listOrders).mockReset();
     vi.mocked(api.currentUser).mockReset();
+    vi.mocked(api.getDeliverySettings).mockReset();
+    vi.mocked(api.getDeliverySettings).mockResolvedValue({ zones: [], pickupNote: null });
     vi.mocked(api.currentUser).mockResolvedValue({
       seller: { slug: "mama-ngozi" },
     } as never);
@@ -59,5 +63,20 @@ describe("orders page empty states", () => {
     expect(screen.getByRole("button", { name: "Copy link" })).toBeInTheDocument();
     // The customer reported a problem on this order.
     expect(screen.getByText("Problem reported")).toBeInTheDocument();
+  });
+
+  it("dashboard shows the banner only without zones", async () => {
+    vi.mocked(api.listOrders).mockResolvedValue([]);
+    const { unmount } = render(await OrdersPage(props()));
+    const link = screen.getByRole("link", { name: "Add delivery zones" });
+    expect(link).toHaveAttribute("href", "/dashboard/settings#delivery");
+    unmount();
+
+    vi.mocked(api.getDeliverySettings).mockResolvedValue({
+      zones: [{ id: "z1", name: "Lekki", feeKobo: 250000, isPickup: false }],
+      pickupNote: null,
+    });
+    render(await OrdersPage(props()));
+    expect(screen.queryByRole("link", { name: "Add delivery zones" })).not.toBeInTheDocument();
   });
 });

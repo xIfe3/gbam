@@ -1,6 +1,8 @@
 import { formatNaira, nextStatuses, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OrderTotals } from "@/components/orders/order-totals";
+import { DeliveryBox } from "./delivery-box";
 import { notFound } from "next/navigation";
 import { FormError } from "@/components/brand/form-bits";
 import { api, ApiError } from "@/lib/api";
@@ -115,6 +117,8 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
         )}
       </section>
 
+      <DeliveryBox order={order} />
+
       {order.stockShortfall && <FormError message="Stock ran out: refund needed" />}
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5">
@@ -138,10 +142,13 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
             );
           })}
         </ul>
-        <p className="mt-2 flex justify-between border-t border-zinc-200 pt-2 font-semibold">
-          <span>Total</span>
-          <span className="tabular-nums">{formatNaira(order.totalKobo)}</span>
-        </p>
+        <OrderTotals
+          subtotalKobo={order.subtotalKobo}
+          deliveryFeeKobo={order.deliveryFeeKobo}
+          deliveryLabel={order.deliveryZoneName}
+          totalKobo={order.totalKobo}
+          totalClassName="mt-2 flex justify-between border-t border-zinc-200 pt-2 font-semibold"
+        />
       </section>
 
       <MoneyBreakdown payments={order.payments} />

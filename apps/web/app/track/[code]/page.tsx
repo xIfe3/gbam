@@ -1,6 +1,7 @@
 import { formatNaira, ISSUE_REASON_LABEL, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { OrderTotals } from "@/components/orders/order-totals";
 import { notFound, redirect } from "next/navigation";
 import { ShopHeader } from "@/app/[slug]/shop-header";
 import { api, ApiError, type TrackedOrder } from "@/lib/api";
@@ -148,10 +149,7 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
           <PayNowButton code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
         )}
         {justPaid && order.status === "paid" && (
-          <p
-            role="status"
-            className="rounded-2xl bg-emerald-50 p-5 font-bold text-emerald-900"
-          >
+          <p role="status" className="rounded-2xl bg-emerald-50 p-5 font-bold text-emerald-900">
             ✓ Payment received. {shop.businessName} has been told.
           </p>
         )}
@@ -181,10 +179,19 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
               );
             })}
           </ul>
-          <p className="text-ink mt-3 flex justify-between font-bold">
-            <span>Total</span>
-            <span className="tabular-nums">{formatNaira(order.totalKobo)}</span>
-          </p>
+          <OrderTotals
+            subtotalKobo={order.subtotalKobo}
+            deliveryFeeKobo={order.deliveryFeeKobo}
+            deliveryLabel={order.delivery?.zoneName}
+            totalKobo={order.totalKobo}
+            totalClassName="text-ink mt-3 flex justify-between font-bold"
+          />
+          {order.delivery && order.delivery.isPickup && order.delivery.pickupNote && (
+            <div className="bg-brand-tint text-ink mt-3 rounded-xl px-4 py-3 text-sm">
+              <p className="font-bold">Where to pick up</p>
+              <p>{order.delivery.pickupNote}</p>
+            </div>
+          )}
         </section>
 
         <section aria-labelledby="help-heading" className="flex flex-col gap-4">

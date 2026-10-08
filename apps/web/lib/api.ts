@@ -225,6 +225,19 @@ export type Order = {
   createdAt: string;
 };
 
+/**
+ * Delivery details on a seller's order. Optional because orders placed before delivery
+ * existed (and some test data) don't have them.
+ */
+export type OrderDelivery = {
+  subtotalKobo?: number;
+  deliveryFeeKobo?: number;
+  deliveryZoneName?: string | null;
+  deliveryIsPickup?: boolean;
+  deliveryAddress?: string | null;
+  deliveryLandmark?: string | null;
+};
+
 /** What placing an order returns: the order plus its secret tracking key. */
 export type PlacedOrder = Order & { trackingKey: string };
 
@@ -368,7 +381,8 @@ async function listOrders(status?: OrderStatus) {
 }
 
 async function getOrder(id: string) {
-  return request<OrderDetail>(`/orders/${id}`, { auth: "session" });
+  // The seller's order page also gets the delivery details.
+  return request<OrderDetail & OrderDelivery>(`/orders/${id}`, { auth: "session" });
 }
 
 async function updateOrderStatus(id: string, status: OrderStatus) {
@@ -688,7 +702,11 @@ export type TrackedOrder = {
   order: {
     code: string;
     status: OrderStatus;
+    subtotalKobo?: number;
+    deliveryFeeKobo?: number;
     totalKobo: number;
+    /** No address here: only the seller sees it. null when the order has no delivery zone. */
+    delivery?: { zoneName: string; isPickup: boolean; pickupNote: string | null } | null;
     createdAt: string;
     items: { productName: string; variantTitle: string; unitPriceKobo: number; quantity: number }[];
     events: { toStatus: OrderStatus; createdAt: string }[];
