@@ -181,7 +181,12 @@ export type StorefrontProductCard = {
 };
 
 export type Storefront = {
-  store: { slug: string; businessName: string };
+  store: {
+    slug: string;
+    businessName: string;
+    /** Checkout shows these zones; an empty list means "address only, no delivery fee". */
+    delivery: DeliverySettings;
+  };
   products: StorefrontProductCard[];
 };
 

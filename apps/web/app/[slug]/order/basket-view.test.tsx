@@ -61,6 +61,66 @@ const SOLD_OUT = [
   makeProduct("tee", "Tee", "v2", "M", 300000, null),
 ];
 
+const NO_ZONES = { zones: [], pickupNote: null };
+const ZONES = {
+  zones: [
+    { id: "z-lekki", name: "Lekki / VI", feeKobo: 250000, isPickup: false },
+    { id: "z-free", name: "Ikeja", feeKobo: 0, isPickup: false },
+    { id: "z-pickup", name: "Pickup from shop", feeKobo: 0, isPickup: true },
+  ],
+  pickupNote: "Shop 12, Balogun Market",
+};
+
+describe("BasketView delivery", () => {
+  beforeEach(() => {
+    localStorage.clear();
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(LINES));
+    vi.mocked(checkBasketAction).mockReset();
+    vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
+    vi.mocked(placeOrder).mockReset();
+    vi.mocked(placeOrder).mockResolvedValue({ status: "idle" });
+  });
+
+  it("shows zones with prices, none picked", async () => {
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={ZONES} />);
+    const lekki = await screen.findByRole("radio", { name: "Lekki / VI · ₦2,500" });
+    expect(lekki).not.toBeChecked();
+    expect(screen.getByRole("radio", { name: "Pickup from shop · Free" })).not.toBeChecked();
+    // Until a zone is picked the order can't be placed.
+    expect(
+      await screen.findByRole("button", { name: "Choose delivery to continue" }),
+    ).toBeDisabled();
+  });
+
+  it("total updates with the picked zone", async () => {
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={ZONES} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Lekki / VI · ₦2,500" }));
+    // Items 13,000 + delivery 2,500
+    expect(await screen.findByRole("button", { name: "Place order · ₦15,500" })).toBeEnabled();
+    expect(screen.getByText("Delivery (Lekki / VI)")).toBeInTheDocument();
+  });
+
+  it("free zone shows Free", async () => {
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={ZONES} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Ikeja · Free" }));
+    expect(screen.getByText("Delivery (Ikeja)").nextSibling).toHaveTextContent("Free");
+    expect(screen.getByRole("textbox", { name: "Delivery address" })).toBeInTheDocument();
+  });
+
+  it("pickup hides address and shows pickup note", async () => {
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={ZONES} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Pickup from shop · Free" }));
+    expect(screen.queryByRole("textbox", { name: "Delivery address" })).not.toBeInTheDocument();
+    expect(screen.getByText("Shop 12, Balogun Market")).toBeInTheDocument();
+  });
+
+  it("no zones: address only", async () => {
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
+    expect(await screen.findByRole("textbox", { name: "Delivery address" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
+  });
+});
+
 describe("BasketView", () => {
   beforeEach(() => {
     localStorage.clear();
@@ -72,7 +132,7 @@ describe("BasketView", () => {
 
   it("shows the lines from storage with the total", async () => {
     vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     expect(await screen.findByText("Leather slides")).toBeInTheDocument();
     expect(screen.getByText("Tee")).toBeInTheDocument();
@@ -85,7 +145,7 @@ describe("BasketView", () => {
 
   it("links to the terms and privacy pages in a new tab", async () => {
     vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
     const terms = await screen.findByRole("link", { name: /Terms/ });
     const privacy = screen.getByRole("link", { name: /Privacy/ });
     expect(terms).toHaveAttribute("href", "/legal/terms");
@@ -99,7 +159,7 @@ describe("BasketView", () => {
 
   it("shows a problem and disables Place order until the line is removed", async () => {
     vi.mocked(checkBasketAction).mockResolvedValue(SOLD_OUT);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     expect(
       await screen.findByText("Leather slides – 42 is sold out. Remove it to continue."),
@@ -116,7 +176,7 @@ describe("BasketView", () => {
 
   it("sends variantId and quantity for each line when ordering", async () => {
     vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     const order = await screen.findByRole("button", { name: /Place order/ });
     await waitFor(() => expect(order).toBeEnabled());
@@ -142,7 +202,7 @@ describe("BasketView", () => {
 
   it("keeps Place order disabled when a re-check fails after a good check", async () => {
     vi.mocked(checkBasketAction).mockResolvedValueOnce(HEALTHY);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
     const order = await screen.findByRole("button", { name: /Place order/ });
     await waitFor(() => expect(order).toBeEnabled());
 
@@ -164,7 +224,7 @@ describe("BasketView", () => {
       totalKobo: 1300000,
       trackingKey: "secret-key-abc",
     });
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     const order = await screen.findByRole("button", { name: /Place order/ });
     await waitFor(() => expect(order).toBeEnabled());
@@ -206,7 +266,7 @@ describe("BasketView", () => {
     vi.mocked(checkBasketAction).mockResolvedValue([
       makeProduct("jollof", "Jollof Rice", "v9", "", 200000, 0),
     ]);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     expect(
       await screen.findByText("Jollof Rice is sold out. Remove it to continue."),
@@ -221,7 +281,7 @@ describe("BasketView", () => {
       makeProduct("tee", "Tee", "v2", "M", 300000, null),
     ];
     vi.mocked(checkBasketAction).mockResolvedValue(repriced);
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
     expect(await screen.findByText(/now costs/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Place order/ })).toBeDisabled();
@@ -241,7 +301,7 @@ describe("BasketView", () => {
 
   it("says the basket is empty when there are no lines", async () => {
     localStorage.clear();
-    render(<BasketView shopSlug="ada" businessName="Ada Shoes" />);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
     expect(await screen.findByText("Your basket is empty.")).toBeInTheDocument();
     expect(checkBasketAction).not.toHaveBeenCalled();
   });

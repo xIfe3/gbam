@@ -4,6 +4,7 @@
 
 import { createOrderSchema } from "@gbam/shared";
 import { z } from "zod";
+import { apiFieldError } from "@/app/(auth)/action-helpers";
 import { api, ApiError, type StorefrontProduct } from "@/lib/api";
 
 /** What placeOrder returns; the checkout form shows a different screen for each. */
@@ -14,7 +15,15 @@ export type PlaceOrderState =
       message: string;
       fieldErrors?: Record<string, string[] | undefined>;
       /** What the customer typed, sent back because React clears the form after submit. */
-      values: { name: string; phone: string; email: string; note: string };
+      values: {
+        name: string;
+        phone: string;
+        email: string;
+        note: string;
+        zoneId: string;
+        address: string;
+        landmark: string;
+      };
     }
   | { status: "success"; code: string; totalKobo: number; trackingKey: string };
 
@@ -87,6 +96,9 @@ export async function placeOrder(
     phone: readField(formData, "phone"),
     email: readField(formData, "email"),
     note: readField(formData, "note"),
+    zoneId: readField(formData, "zoneId"),
+    address: readField(formData, "address"),
+    landmark: readField(formData, "landmark"),
   };
 
   // 1. Read the basket lines (a hidden form field filled in by basket-view.tsx).
@@ -117,10 +129,22 @@ export async function placeOrder(
   if (email === "") {
     email = undefined;
   }
+  // Delivery: which zone (empty when the shop has none), the fee the customer saw, and the
+  // address. The API re-reads the fee from its database and refuses a mismatch.
+  let zoneId: string | null = null;
+  if (values.zoneId !== "") {
+    zoneId = values.zoneId;
+  }
+  let expectedFeeKobo: number | null = null;
+  const expectedFeeText = readField(formData, "expectedFeeKobo");
+  if (zoneId !== null && expectedFeeText !== "") {
+    expectedFeeKobo = Number(expectedFeeText);
+  }
   const parsed = createOrderSchema.safeParse({
     customer: { name: values.name, phone: values.phone, email },
     items,
     note,
+    delivery: { zoneId, expectedFeeKobo, address: values.address, landmark: values.landmark },
   });
   if (!parsed.success) {
     let message = "Please check your details.";
@@ -140,6 +164,18 @@ export async function placeOrder(
       trackingKey: order.trackingKey,
     };
   } catch (error) {
+    // A delivery problem (zone removed, price changed, no address) goes next to that field.
+    for (const field of ["delivery", "address"]) {
+      const message = apiFieldError(error, field);
+      if (message !== null) {
+        return {
+          status: "error",
+          message: "Please check your delivery details.",
+          fieldErrors: { [field]: [message] },
+          values,
+        };
+      }
+    }
     // 4xx = the API rejected the order (e.g. product unavailable): show its message.
     if (error instanceof ApiError && error.status < 500) {
       return { status: "error", message: error.message, values };

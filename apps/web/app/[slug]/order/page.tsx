@@ -40,7 +40,11 @@ export default async function OrderPage(props: PageProps<"/[slug]/order">) {
         <h1 className="font-display text-ink mt-1 mb-6 text-3xl leading-tight font-black">
           Your order
         </h1>
-        <BasketView shopSlug={store.slug} businessName={store.businessName} />
+        <BasketView
+          shopSlug={store.slug}
+          businessName={store.businessName}
+          delivery={store.delivery}
+        />
         <footer className="text-ink-muted mt-10 text-sm">
           Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
           Paystack.{" "}
