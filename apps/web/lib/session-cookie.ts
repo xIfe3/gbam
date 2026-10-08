@@ -1,8 +1,9 @@
 // Plain constants (no "server-only") so both proxy.ts and lib/session.ts use the same values.
 
 /**
- * The session cookie. Its name is published in the Cookie Policy, and it must stay the ONLY
- * cookie this site sets. The value is the raw session token: the API stores only its hash.
+ * The seller session cookie. Its name is published in the Cookie Policy: together with the
+ * staff-only gbam_admin (lib/admin-session-cookie.ts) these must stay the ONLY cookies this
+ * site sets. The value is the raw session token: the API stores only its hash.
  */
 export const SESSION_COOKIE = "gbam_session";
 

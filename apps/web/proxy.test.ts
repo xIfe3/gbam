@@ -5,7 +5,37 @@ import { config, proxy } from "./proxy";
 
 describe("proxy", () => {
   it("only runs on the dashboard and the get-paid step", () => {
-    expect(config.matcher).toEqual(["/dashboard/:path*", "/signup/get-paid"]);
+    expect(config.matcher).toEqual(["/dashboard/:path*", "/signup/get-paid", "/admin/:path*"]);
+  });
+
+  it("admin pages without the cookie go to /admin/login", () => {
+    const res = proxy(new NextRequest("http://localhost:3000/admin/shops"));
+    expect(res.status).toBe(307);
+    expect(res.headers.get("location")).toBe("http://localhost:3000/admin/login");
+  });
+
+  it("a seller cookie doesn't open admin pages", () => {
+    const res = proxy(
+      new NextRequest("http://localhost:3000/admin", { headers: { cookie: "gbam_session=abc" } }),
+    );
+    expect(res.headers.get("location")).toBe("http://localhost:3000/admin/login");
+  });
+
+  it("admin sign-in and invite pages are open without the cookie", () => {
+    for (const path of ["/admin/login", "/admin/invite/some-token"]) {
+      const res = proxy(new NextRequest(`http://localhost:3000${path}`));
+      expect(res.headers.get("location")).toBeNull();
+    }
+  });
+
+  it("admin pages with the admin cookie go through, without touching gbam_session", () => {
+    const res = proxy(
+      new NextRequest("http://localhost:3000/admin/shops", {
+        headers: { cookie: "gbam_admin=xyz" },
+      }),
+    );
+    expect(res.headers.get("location")).toBeNull();
+    expect(res.cookies.get("gbam_session")).toBeUndefined();
   });
 
   it("sends a logged-out visitor on get-paid to /login with next=/signup/get-paid", () => {

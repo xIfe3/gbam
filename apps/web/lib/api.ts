@@ -13,7 +13,7 @@ import { clearSessionCookie, getSessionToken } from "./session";
  * The web app's ONLY way of talking to the API. It runs on the Next.js server, never in
  * the browser, so the API needs no CORS and the session token never reaches page scripts.
  */
-function apiUrl(): string {
+export function apiUrl(): string {
   const fromEnv = process.env.API_URL;
   if (fromEnv) {
     return fromEnv;
@@ -84,7 +84,7 @@ async function redirectToLogin(): Promise<never> {
  * See lib/client-ip.ts for which header entry we trust and why.
  * Returns undefined when the headers don't tell us (e.g. local dev without a proxy).
  */
-async function visitorIp(): Promise<string | undefined> {
+export async function visitorIp(): Promise<string | undefined> {
   // Outside the try below on purpose: a bad TRUSTED_PROXY_HOPS should fail loudly.
   const hops = trustedProxyHops(process.env.TRUSTED_PROXY_HOPS);
   try {

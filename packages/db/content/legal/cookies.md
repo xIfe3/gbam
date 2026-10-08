@@ -13,12 +13,13 @@ sections:
       A cookie is a small text file a website saves in your browser so it can remember something between pages. This policy is part of our [Privacy Policy](/legal/privacy). Gbam is run by **Zephra Studios (registration pending)**, RC number **[RC number]**, of **[Registered address]**.
     short: Cookies are small files your browser keeps for a site.
   - id: the-cookie
-    heading: The one cookie we use
+    heading: The cookies we use
     body: |
       - **`gbam_session`**: keeps a seller logged in to their account. It is an essential cookie.
+      - **`gbam_admin`**: keeps a member of the Gbam team signed in to the admin area. Only Gbam staff ever get it, and it lasts at most 12 hours. It is an essential cookie.
 
-      It is set when a seller logs in and removed when they log out or it expires. It is needed for the dashboard to work.
-    short: Only gbam_session, which keeps sellers logged in.
+      Each is set when someone signs in and removed when they sign out or it expires. They are needed for the dashboard and the admin area to work.
+    short: Only gbam_session (sellers) and gbam_admin (Gbam staff), which keep people signed in.
   - id: what-we-dont-use
     heading: What we do not use
     body: |
