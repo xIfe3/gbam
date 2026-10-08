@@ -1,6 +1,7 @@
 import { formatNaira, orderStatusSchema, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { unstable_rethrow } from "next/navigation";
 import { DeliveryBanner } from "./delivery-banner";
 import { EmptyState, OrdersArt } from "@/components/brand/empty-state";
 import { api } from "@/lib/api";
@@ -58,8 +59,15 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
   }
 
   // Shops with no delivery zones get a nudge: customers can't pay for delivery upfront yet.
-  const delivery = await api.getDeliverySettings();
-  const needsDeliveryZones = delivery.zones.length === 0;
+  // If they can't be loaded, skip the nudge rather than break the orders page.
+  let needsDeliveryZones = false;
+  try {
+    const delivery = await api.getDeliverySettings();
+    needsDeliveryZones = delivery.zones.length === 0;
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("delivery settings could not be loaded for the zones banner");
+  }
 
   return (
     <main>

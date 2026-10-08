@@ -8,6 +8,10 @@ vi.mock("../actions", () => ({
   placeOrder: vi.fn(),
 }));
 
+// The page's data (including delivery zones) comes from the server; refresh() reloads it.
+const { refresh } = vi.hoisted(() => ({ refresh: vi.fn() }));
+vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh }) }));
+
 import { checkBasketAction, placeOrder } from "../actions";
 import { BasketView } from "./basket-view";
 
@@ -112,6 +116,42 @@ describe("BasketView delivery", () => {
     fireEvent.click(await screen.findByRole("radio", { name: "Pickup from shop · Free" }));
     expect(screen.queryByRole("textbox", { name: "Delivery address" })).not.toBeInTheDocument();
     expect(screen.getByText("Shop 12, Balogun Market")).toBeInTheDocument();
+  });
+
+  it("a delivery error reloads the shop's current zones", async () => {
+    refresh.mockClear();
+    vi.mocked(placeOrder).mockResolvedValue({
+      status: "error",
+      message: "Please check your delivery details.",
+      fieldErrors: { delivery: ["Delivery to Lekki / VI is now ₦3,000. Please check and confirm."] },
+      values: {
+        name: "Ada",
+        phone: "08031234567",
+        email: "",
+        note: "",
+        zoneId: "z-lekki",
+        address: "12 Admiralty Way",
+        landmark: "",
+      },
+    });
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={ZONES} />);
+    fireEvent.click(await screen.findByRole("radio", { name: "Lekki / VI · ₦2,500" }));
+    const order = await screen.findByRole("button", { name: "Place order · ₦15,500" });
+    // jsdom doesn't submit forms on a button click, so submit the form directly.
+    fireEvent.submit(order.closest("form") as HTMLFormElement);
+
+    expect(
+      await screen.findByText("Delivery to Lekki / VI is now ₦3,000. Please check and confirm."),
+    ).toBeInTheDocument();
+    // The page fetches the zones again, so the new price shows and the next try can succeed.
+    await waitFor(() => expect(refresh).toHaveBeenCalledTimes(1));
+  });
+
+  it("works while the API is older and sends no delivery data", async () => {
+    // During a deploy the website can be newer than the API for a few minutes.
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={undefined as never} />);
+    expect(await screen.findByRole("textbox", { name: "Delivery address" })).toBeInTheDocument();
+    expect(screen.queryByRole("radio")).not.toBeInTheDocument();
   });
 
   it("no zones: address only", async () => {

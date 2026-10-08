@@ -4,6 +4,7 @@
 
 import { DELIVERY_LIMITS, formatNaira } from "@gbam/shared";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useActionState, useEffect, useState } from "react";
 import { Button } from "@/components/brand/button";
 import { TextField } from "@/components/brand/fields";
@@ -34,7 +35,8 @@ type Props = {
   shopSlug: string;
   businessName: string;
   /** The shop's delivery zones (with prices) and pickup note, from the storefront API. */
-  delivery: { zones: DeliveryZone[]; pickupNote: string | null };
+  // Missing only while the API is older than this page (during a deploy): no zones then.
+  delivery?: { zones: DeliveryZone[]; pickupNote: string | null };
 };
 
 /** "Product – Variant", or just "Product" for a default variant (its title is empty). */
@@ -133,6 +135,20 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
     { status: "idle" },
   );
 
+  // A delivery error means the zones on this page are out of date (a price changed, or a zone
+  // was removed). refresh() asks the server for the page again, so the current zones show
+  // and the next try can work. The basket and what they typed stay as they are.
+  const router = useRouter();
+  let deliveryErrorResult: PlaceOrderState | null = null;
+  if (state.status === "error" && state.fieldErrors && state.fieldErrors.delivery) {
+    deliveryErrorResult = state;
+  }
+  useEffect(() => {
+    if (deliveryErrorResult !== null) {
+      router.refresh();
+    }
+  }, [deliveryErrorResult, router]);
+
   // The delivery zone the customer picked (its id), or "" for none yet. After a failed
   // submit it starts from what they had picked.
   const [pickedZoneId, setPickedZoneId] = useState("");
@@ -226,9 +242,15 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
   }
   const { itemCount, totalKobo } = basketTotals(lines);
 
-  const hasZones = delivery.zones.length > 0;
+  let zones: DeliveryZone[] = [];
+  let pickupNote: string | null = null;
+  if (delivery) {
+    zones = delivery.zones;
+    pickupNote = delivery.pickupNote;
+  }
+  const hasZones = zones.length > 0;
   let pickedZone: DeliveryZone | undefined = undefined;
-  for (const zone of delivery.zones) {
+  for (const zone of zones) {
     if (zone.id === pickedZoneId) {
       pickedZone = zone;
     }
@@ -446,7 +468,7 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
         // Radio buttons in a fieldset: one choice, and the legend names the group.
         <fieldset className="space-y-2" disabled={pending}>
           <legend className="text-ink mb-2 text-sm font-bold">Delivery</legend>
-          {delivery.zones.map((zone) => (
+          {zones.map((zone) => (
             <label
               key={zone.id}
               className="border-brand-tint has-[:checked]:border-brand has-[:checked]:bg-brand-tint flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border-2 bg-white px-4 py-2"
@@ -471,10 +493,10 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
         </fieldset>
       )}
 
-      {pickedZone && pickedZone.isPickup && delivery.pickupNote && (
+      {pickedZone && pickedZone.isPickup && pickupNote && (
         <div className="bg-brand-tint text-ink rounded-xl px-4 py-3 text-sm">
           <p className="font-bold">Where to pick up</p>
-          <p>{delivery.pickupNote}</p>
+          <p>{pickupNote}</p>
         </div>
       )}
 

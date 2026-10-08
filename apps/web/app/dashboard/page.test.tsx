@@ -79,4 +79,12 @@ describe("orders page empty states", () => {
     render(await OrdersPage(props()));
     expect(screen.queryByRole("link", { name: "Add delivery zones" })).not.toBeInTheDocument();
   });
+
+  it("still shows the orders when delivery settings can't be loaded", async () => {
+    vi.mocked(api.listOrders).mockResolvedValue([]);
+    vi.mocked(api.getDeliverySettings).mockRejectedValue(new Error("API is older"));
+    render(await OrdersPage(props()));
+    expect(screen.queryByRole("link", { name: "Add delivery zones" })).not.toBeInTheDocument();
+  });
+
 });

@@ -104,8 +104,12 @@ export const createOrderSchema = z.object({
     )
     .min(1),
   note: z.string().trim().max(500).optional(),
-  /** Which delivery zone (if the shop has any) and where to deliver. See delivery.ts. */
-  delivery: orderDeliverySchema,
+  /**
+   * Which delivery zone (if the shop has any) and where to deliver. See delivery.ts.
+   * Optional only so an older checkout keeps working while a deploy rolls out: the API
+   * then accepts the order only if the shop has no delivery zones.
+   */
+  delivery: orderDeliverySchema.optional(),
 });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 

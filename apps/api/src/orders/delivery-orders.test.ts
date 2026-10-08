@@ -254,4 +254,29 @@ describe("Orders with delivery (integration)", () => {
     expect(row.deliveryZoneName).toBe("Lekki / VI");
     expect(row.deliveryFeeKobo).toBe(250_000);
   });
+
+  it("an older checkout without delivery details still works in a shop with no zones", async () => {
+    // During a deploy the API can be newer than the website for a few minutes.
+    const { seller, variantId } = await shop([]);
+    const order = await service.createFromStorefront(seller.slug, {
+      customer: { name: "Ada", phone: "2348011112222" },
+      items: [{ variantId, quantity: 1 }],
+    });
+    const row = await orderRow(order.id);
+    expect(row.deliveryFeeKobo).toBe(0);
+    expect(row.deliveryAddress).toBeNull();
+    expect(row.totalKobo).toBe(150_000);
+  });
+
+  it("an older checkout without delivery details is refused in a shop with zones", async () => {
+    const { seller, variantId } = await shop([lekki]);
+    const error = await service
+      .createFromStorefront(seller.slug, {
+        customer: { name: "Ada", phone: "2348011112222" },
+        items: [{ variantId, quantity: 1 }],
+      })
+      .catch((e: unknown) => e);
+    expect(error).toBeInstanceOf(BadRequestException);
+  });
+
 });

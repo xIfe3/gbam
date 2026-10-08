@@ -739,11 +739,24 @@ export class OrdersService {
    * read from the database: the browser only says which zone, and what fee it showed, so a
    * changed or removed zone is refused instead of charging a price the customer never saw.
    */
-  private async chooseDelivery(tx: DbTransaction, sellerId: string, input: OrderDeliveryInput) {
+  private async chooseDelivery(
+    tx: DbTransaction,
+    sellerId: string,
+    input: OrderDeliveryInput | undefined,
+  ) {
     const liveZones = await tx
       .select()
       .from(deliveryZones)
       .where(and(eq(deliveryZones.sellerId, sellerId), isNull(deliveryZones.archivedAt)));
+
+    // No delivery details at all: an older checkout, during a deploy. Fine for a shop with
+    // no zones (that's how orders worked before); a shop with zones needs one picked.
+    if (input === undefined) {
+      if (liveZones.length > 0) {
+        throw new BadRequestException({ field: "delivery", message: "Choose a delivery option" });
+      }
+      return { zoneName: null, feeKobo: 0, isPickup: false, address: null, landmark: null };
+    }
 
     let zoneName: string | null = null;
     let feeKobo = 0;
