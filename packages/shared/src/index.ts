@@ -3,6 +3,7 @@ export * from "./delivery";
 export * from "./fees";
 export * from "./format";
 export * from "./order-state";
+export * from "./platform-settings";
 export * from "./products";
 export * from "./schemas";
 export * from "./scrub";

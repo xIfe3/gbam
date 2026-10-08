@@ -1,5 +1,5 @@
 /**
- * gbam's pricing. THE place to change your cut.
+ * gbam's pricing. These are the DEFAULTS: the live values are in Admin → Settings.
  *
  * Money is in kobo (₦1 = 100 kobo). Percentages are in "basis points" so we never use
  * decimals: 100 basis points = 1%, so 150 = 1.5%.
@@ -21,6 +21,8 @@ export function calculatePlatformFee(
   totalKobo: number,
   feeWaivedUntil: Date | null,
   now: Date = new Date(),
+  /** The current rates from Admin → Settings; PLATFORM_FEE (the defaults) when not given. */
+  rates: { percentBasisPoints: number; capKobo: number } = PLATFORM_FEE,
 ): number {
   if (feeWaivedUntil !== null && now < feeWaivedUntil) {
     return 0;
@@ -28,10 +30,10 @@ export function calculatePlatformFee(
 
   // e.g. ₦10,000 = 1,000,000 kobo × 150 / 10,000 = 15,000 kobo = ₦150.
   // Math.round because kobo must be a whole number.
-  const fee = Math.round((totalKobo * PLATFORM_FEE.percentBasisPoints) / 10_000);
+  const fee = Math.round((totalKobo * rates.percentBasisPoints) / 10_000);
 
-  if (fee > PLATFORM_FEE.capKobo) {
-    return PLATFORM_FEE.capKobo;
+  if (fee > rates.capKobo) {
+    return rates.capKobo;
   }
   return fee;
 }
