@@ -3,7 +3,8 @@
  * whose verify() result each test controls.
  */
 import "reflect-metadata";
-import { orders, payments, sellers } from "@gbam/db";
+import { deliveryZones, orders, payments, sellers } from "@gbam/db";
+import { calculatePlatformFee } from "@gbam/shared";
 import type {
   Bank,
   InitializeTransactionInput,
@@ -14,7 +15,7 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { PaymentsModule } from "./payments.module.js";
@@ -111,6 +112,7 @@ describe("PaymentsService (integration)", () => {
   async function orderMovedToAwaitingPayment() {
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Bisi", phone: "2348022223333" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId, quantity: 2 }],
     });
     await ordersService.transition({
@@ -276,5 +278,35 @@ describe("PaymentsService (integration)", () => {
         await setSeller({ paystackSubaccountCode: SUBACCOUNT, feeWaivedUntil: null });
       }
     });
+  });
+  it("platform fee is calculated on the subtotal only", async () => {
+    // A far-away zone with a big fee, so a fee taken on the whole total would be different.
+    const zoneRows = await db
+      .insert(deliveryZones)
+      .values({ sellerId, name: "Far away", feeKobo: 5_000_000 })
+      .returning();
+    const zone = zoneRows[0];
+    if (!zone) {
+      throw new Error("expected a zone");
+    }
+    try {
+      const order = await ordersService.createFromStorefront(slug, {
+        customer: { name: "Bisi", phone: "2348022223333" },
+        items: [{ variantId, quantity: 2 }],
+        delivery: { zoneId: zone.id, expectedFeeKobo: 5_000_000, address: "1 Test Road", landmark: null },
+      });
+      await ordersService.transition({ orderId: order.id, to: "awaiting_payment", actor: "seller", sellerId });
+      await service.ensurePaymentLink(order.id);
+
+      const paymentRows = await db.select().from(payments).where(eq(payments.orderId, order.id));
+      const payment = paymentRows[0];
+      // Paystack charges items + delivery...
+      expect(payment?.amountKobo).toBe(5_100_000);
+      // ...but Gbam's cut is worked out on the ₦1,000 of items only.
+      expect(payment?.platformFeeKobo).toBe(calculatePlatformFee(100_000, null));
+    } finally {
+      // Other tests here place orders with no zone, which is refused while a zone exists.
+      await db.delete(deliveryZones).where(eq(deliveryZones.id, zone.id));
+    }
   });
 });

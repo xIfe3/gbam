@@ -17,7 +17,7 @@ import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { ProductsModule } from "../products/products.module.js";
-import { createTestProduct } from "../test-helpers.js";
+import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
 import { AuthModule } from "./auth.module.js";
 import { AuthService } from "./auth.service.js";
 import { hashToken, newSessionToken } from "./crypto.js";
@@ -213,6 +213,7 @@ describe("SessionGuard over HTTP (integration)", () => {
     const { variant } = await createTestProduct(db, bSeller.id, { name: "Suya" });
     const order = await orders.createFromStorefront(bSeller.slug, {
       customer: { name: "Ada", phone: "2348011112222" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId: variant.id, quantity: 1 }],
     });
 

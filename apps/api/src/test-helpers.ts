@@ -98,3 +98,14 @@ export async function createTestSeller(db: Db, prefix: string) {
   }
   return seller;
 }
+
+/**
+ * Delivery for test orders in a shop with no delivery zones: just an address, no fee.
+ * Tests about delivery zones build their own.
+ */
+export const TEST_DELIVERY = {
+  zoneId: null,
+  expectedFeeKobo: null,
+  address: "12 Test Street, Ikeja",
+  landmark: null,
+};

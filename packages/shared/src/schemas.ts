@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { orderDeliverySchema } from "./delivery";
 import { normalizeNigerianPhone } from "./format";
 import { ORDER_STATUSES } from "./order-state";
 
@@ -103,6 +104,8 @@ export const createOrderSchema = z.object({
     )
     .min(1),
   note: z.string().trim().max(500).optional(),
+  /** Which delivery zone (if the shop has any) and where to deliver. See delivery.ts. */
+  delivery: orderDeliverySchema,
 });
 export type CreateOrderInput = z.infer<typeof createOrderSchema>;
 

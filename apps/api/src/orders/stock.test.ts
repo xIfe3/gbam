@@ -10,7 +10,7 @@ import { Test, type TestingModule } from "@nestjs/testing";
 import { eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -41,6 +41,7 @@ describe("stock reduction on payment (integration)", () => {
   async function placeOrder(variantId: string, quantity: number, phone: string) {
     return service.createFromStorefront(slug, {
       customer: { name: "Ada", phone },
+      delivery: TEST_DELIVERY,
       items: [{ variantId, quantity }],
     });
   }

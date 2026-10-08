@@ -11,7 +11,7 @@ import { and, desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { NOTIFICATIONS_QUEUE } from "../notifications/notifications.queue.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
 import { OrderExpiryService } from "./order-expiry.service.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
@@ -58,6 +58,7 @@ describe("OrderExpiryService (integration)", () => {
   async function orderAwaitingPaymentSince(hoursAgo: number): Promise<string> {
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Ada", phone: "2348011112222" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId, quantity: 1 }],
     });
     await ordersService.transition({

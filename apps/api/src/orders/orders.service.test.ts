@@ -14,7 +14,7 @@ import { desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EMAILS_QUEUE } from "../email/email.queue.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -54,6 +54,7 @@ describe("OrdersService (integration)", () => {
   const placeOrder = () =>
     service.createFromStorefront(slug, {
       customer: { name: "Ada", phone: "2348011112222" },
+      delivery: TEST_DELIVERY,
       items: [
         { variantId, quantity: 2 },
         { variantId, quantity: 1 }, // duplicate line gets merged
@@ -186,6 +187,7 @@ describe("OrdersService (integration)", () => {
       await expect(
         service.createFromStorefront(closed.slug, {
           customer: { name: "Ada", phone: "2348011112222" },
+          delivery: TEST_DELIVERY,
           items: [{ variantId: created.variant.id, quantity: 1 }],
         }),
       ).rejects.toBeInstanceOf(NotFoundException);
@@ -198,6 +200,7 @@ describe("OrdersService (integration)", () => {
     await expect(
       service.createFromStorefront(slug, {
         customer: { name: "Ada", phone: "2348011112222" },
+        delivery: TEST_DELIVERY,
         items: [{ variantId: randomUUID(), quantity: 1 }],
       }),
     ).rejects.toThrow("unavailable");
@@ -207,7 +210,7 @@ describe("OrdersService (integration)", () => {
 
   async function expectRejected(variant: string, quantity: number, text: string) {
     await expect(
-      service.createFromStorefront(slug, { customer, items: [{ variantId: variant, quantity }] }),
+      service.createFromStorefront(slug, { customer, delivery: TEST_DELIVERY, items: [{ variantId: variant, quantity }] }),
     ).rejects.toThrow(text);
   }
 
@@ -252,6 +255,7 @@ describe("OrdersService (integration)", () => {
     await expect(
       service.createFromStorefront(slug, {
         customer,
+        delivery: TEST_DELIVERY,
         items: [
           { variantId, quantity: 60 },
           { variantId, quantity: 60 },
@@ -259,7 +263,7 @@ describe("OrdersService (integration)", () => {
       }),
     ).rejects.toMatchObject({ response: { field: "items" } });
     expect(
-      createOrderSchema.safeParse({ customer, items: [{ variantId, quantity: 100 }] }).success,
+      createOrderSchema.safeParse({ customer, delivery: TEST_DELIVERY, items: [{ variantId, quantity: 100 }] }).success,
     ).toBe(false);
   });
 
@@ -291,6 +295,7 @@ describe("OrdersService (integration)", () => {
 
     const placing = service.createFromStorefront(slug, {
       customer,
+      delivery: TEST_DELIVERY,
       items: [{ variantId: made.variant.id, quantity: 1 }],
     });
     await new Promise((resolve) => setTimeout(resolve, 300)); // placement is now waiting
@@ -327,6 +332,7 @@ describe("OrdersService (integration)", () => {
       .where(eq(productVariants.id, made.variant.id));
     const order = await service.createFromStorefront(slug, {
       customer,
+      delivery: TEST_DELIVERY,
       items: [{ variantId: made.variant.id, quantity: 2 }],
     });
     const detail = await service.getForSeller(sellerId, order.id);
@@ -390,6 +396,7 @@ describe("OrdersService emails (integration)", () => {
   const placeOrder = () =>
     service.createFromStorefront(slug, {
       customer: { name: "Ada", phone: "2348011112222", email: "ada@example.com" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId, quantity: 1 }],
     });
 

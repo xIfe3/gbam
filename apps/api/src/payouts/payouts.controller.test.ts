@@ -21,7 +21,7 @@ import { DB, InfraModule, REDIS, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct } from "../test-helpers.js";
+import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
 import { PayoutsModule } from "./payouts.module.js";
 
 process.loadEnvFile?.("../../.env");
@@ -165,6 +165,7 @@ describe("Payout endpoints over HTTP (integration)", () => {
     });
     return orders.createFromStorefront(slug, {
       customer: { name: "Tolu", phone: "2348033334444" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId: variant.id, quantity: 1 }],
     });
   }

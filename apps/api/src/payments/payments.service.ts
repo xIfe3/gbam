@@ -108,7 +108,8 @@ export class PaymentsService {
 
       // gbam's cut for this order (1.5%, capped, or 0 for founding sellers). The rules
       // live in packages/shared/src/fees.ts.
-      const platformFeeKobo = calculatePlatformFee(order.totalKobo, order.seller.feeWaivedUntil);
+      // Worked out on the items only (subtotal): Gbam takes no cut of the delivery fee.
+      const platformFeeKobo = calculatePlatformFee(order.subtotalKobo, order.seller.feeWaivedUntil);
 
       // If the seller has a Paystack subaccount, Paystack pays them directly and keeps
       // our cut in our account. Without one, the whole amount lands in our account.

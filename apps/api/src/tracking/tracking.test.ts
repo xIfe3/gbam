@@ -20,7 +20,7 @@ import { DB, InfraModule, REDIS, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct } from "../test-helpers.js";
+import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
 import { TrackingModule } from "./tracking.module.js";
 
 process.loadEnvFile?.("../../.env");
@@ -122,6 +122,7 @@ describe("Order tracking over HTTP (integration)", () => {
   async function placeOrder(shop: Shop, customerEmail?: string) {
     return ordersService.createFromStorefront(shop.slug, {
       customer: { name: "Ada Obi", phone: "2348012345678", email: customerEmail },
+      delivery: TEST_DELIVERY,
       items: [{ variantId: shop.variantId, quantity: 2 }],
     });
   }

@@ -2,6 +2,7 @@
  * HTTP-level test of the seller product endpoints: a real Nest app on a random port, the
  * dev Postgres and Redis db 1, a LocalPhotoStorage in a temp folder, and plain fetch().
  */
+import { TEST_DELIVERY } from "../test-helpers.js";
 import "reflect-metadata";
 import {
   customers,
@@ -414,6 +415,7 @@ describe("Seller product endpoints over HTTP (integration)", () => {
     const ordersService = moduleRef.get(OrdersService);
     const order = await ordersService.createFromStorefront(slug, {
       customer: { name: "Buyer", phone: "2348011119999" },
+      delivery: TEST_DELIVERY,
       items: [{ variantId: opened.id, quantity: 2 }],
     });
     await ordersService.transition({ orderId: order.id, to: "awaiting_payment", actor: "system" });

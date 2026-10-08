@@ -1,5 +1,6 @@
 import {
   customers,
+  deliveryZones,
   orderEvents,
   orderIssues,
   orderItems,
@@ -14,8 +15,11 @@ import {
 } from "@gbam/db";
 import {
   assertTransition,
+  DELIVERY_LIMITS,
+  formatNaira,
   nextStatuses,
   type CreateOrderInput,
+  type OrderDeliveryInput,
   type OrderActor,
   type OrderStatus,
 } from "@gbam/shared";
@@ -659,6 +663,8 @@ export class OrdersService {
       });
     }
 
+    const delivery = await this.chooseDelivery(tx, seller.id, input.delivery);
+
     // "Upsert": create the customer, or if this phone already ordered from this seller,
     // reuse that customer (and update their name).
     const customerRows = await tx
@@ -677,8 +683,14 @@ export class OrdersService {
         sellerId: seller.id,
         customerId: customer.id,
         code: generateOrderCode(),
-        totalKobo,
         subtotalKobo: totalKobo,
+        // What the customer pays: the items plus delivery.
+        totalKobo: totalKobo + delivery.feeKobo,
+        deliveryFeeKobo: delivery.feeKobo,
+        deliveryZoneName: delivery.zoneName,
+        deliveryIsPickup: delivery.isPickup,
+        deliveryAddress: delivery.address,
+        deliveryLandmark: delivery.landmark,
         note: input.note,
         customerEmail: input.customer.email,
       })
@@ -699,6 +711,62 @@ export class OrdersService {
     const event = firstRow(eventRows, "order event");
 
     return { order, eventId: event.id };
+  }
+
+  /**
+   * Works out the delivery part of a new order, inside the order's transaction. The fee is
+   * read from the database: the browser only says which zone, and what fee it showed, so a
+   * changed or removed zone is refused instead of charging a price the customer never saw.
+   */
+  private async chooseDelivery(tx: DbTransaction, sellerId: string, input: OrderDeliveryInput) {
+    const liveZones = await tx
+      .select()
+      .from(deliveryZones)
+      .where(and(eq(deliveryZones.sellerId, sellerId), isNull(deliveryZones.archivedAt)));
+
+    let zoneName: string | null = null;
+    let feeKobo = 0;
+    let isPickup = false;
+
+    if (input.zoneId === null) {
+      if (liveZones.length > 0) {
+        throw new BadRequestException({ field: "delivery", message: "Choose a delivery option" });
+      }
+    } else {
+      let zone: (typeof liveZones)[number] | undefined = undefined;
+      for (const candidate of liveZones) {
+        if (candidate.id === input.zoneId) {
+          zone = candidate;
+        }
+      }
+      // Removed, or another shop's id: either way the customer must pick again.
+      if (!zone) {
+        throw new ConflictException({
+          field: "delivery",
+          message: "That delivery option isn't available any more. Please pick another.",
+        });
+      }
+      if (zone.feeKobo !== input.expectedFeeKobo) {
+        throw new ConflictException({
+          field: "delivery",
+          message: `Delivery to ${zone.name} is now ${formatNaira(zone.feeKobo)}. Please check and confirm.`,
+        });
+      }
+      zoneName = zone.name;
+      feeKobo = zone.feeKobo;
+      isPickup = zone.isPickup;
+    }
+
+    // Pickup: nothing to deliver, so anything typed in the address boxes is dropped.
+    if (isPickup) {
+      return { zoneName, feeKobo, isPickup, address: null, landmark: null };
+    }
+
+    const address = input.address;
+    if (address === null || address.length < DELIVERY_LIMITS.addressMin) {
+      throw new BadRequestException({ field: "address", message: "Enter the delivery address" });
+    }
+    return { zoneName, feeKobo, isPickup, address, landmark: input.landmark };
   }
 
   /**
