@@ -2,6 +2,7 @@ import { productImages, productOptions, productVariants, products, sellers } fro
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { DeliveryService } from "../settings/delivery.service.js";
 import { PhotosService } from "./photos.service.js";
 
 export type StorefrontProductCard = {
@@ -19,6 +20,7 @@ export class StorefrontService {
   constructor(
     @InjectDb() private readonly db: Db,
     private readonly photos: PhotosService,
+    private readonly delivery: DeliveryService,
   ) {}
 
   /** The shop's active products as cards. Products with nothing buyable are left out. */
@@ -117,7 +119,9 @@ export class StorefrontService {
       });
     }
 
-    return { store: { slug, businessName: seller.businessName }, products: cards };
+    // Checkout needs the shop's delivery zones (with prices) and its pickup note.
+    const delivery = await this.delivery.get(seller.id);
+    return { store: { slug, businessName: seller.businessName, delivery }, products: cards };
   }
 
   /** One product page. Anything not visible to buyers is the same 404 as a missing product. */
