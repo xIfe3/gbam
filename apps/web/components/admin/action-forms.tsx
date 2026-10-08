@@ -95,10 +95,13 @@ export function DateForm({
   action,
   label,
   current,
+  suggested,
 }: {
   action: FormAction;
   label: string;
   current: string | null;
+  /** Filled in when nothing is set yet (e.g. the founding-seller waiver length). */
+  suggested?: string;
 }) {
   const [state, formAction] = useActionState<FormState, FormData>(action, {});
   return (
@@ -110,7 +113,7 @@ export function DateForm({
         <input
           type="date"
           name="until"
-          defaultValue={current ?? ""}
+          defaultValue={current ?? suggested ?? ""}
           className="min-h-11 rounded-lg border-2 border-zinc-200 px-2"
         />
       </label>

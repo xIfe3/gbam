@@ -1,5 +1,5 @@
 import "server-only";
-import type { AdminPermission, OrderStatus } from "@gbam/shared";
+import type { AdminPermission, Maintenance, OrderStatus, PlatformSettings } from "@gbam/shared";
 import { redirect } from "next/navigation";
 import { getAdminToken } from "./admin-session";
 import { ApiError, apiUrl, visitorIp, type OrderDetail, type OrderDelivery } from "./api";
@@ -360,6 +360,13 @@ export const adminApi = {
     adminRequest(`/admin/roles/${id}`, { method: "PATCH", body }),
   deleteRole: (id: string) => adminRequest(`/admin/roles/${id}`, { method: "DELETE" }),
   restoreRole: (id: string) => adminRequest(`/admin/roles/${id}/restore`, { method: "POST" }),
+
+  settings: () =>
+    adminRequest<{ settings: PlatformSettings; maintenance: Maintenance }>("/admin/settings"),
+  saveSettings: (body: PlatformSettings) =>
+    adminRequest("/admin/settings", { method: "PATCH", body }),
+  setMaintenance: (body: Maintenance) =>
+    adminRequest("/admin/maintenance", { method: "PUT", body }),
 
   adminSessions: () => adminRequest<AdminSessionRow[]>("/admin/sessions/admins"),
   sellerSessions: (q?: string) =>

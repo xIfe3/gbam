@@ -32,10 +32,22 @@ describe("admin navigation", () => {
       "Refunds",
       "Support",
       "Audit log",
+      "Settings",
       "Team",
       "Roles",
       "Sessions",
+      "Maintenance",
     ]);
+  });
+});
+
+describe("settings menu item", () => {
+  it("nav shows Settings only with settings.manage", () => {
+    const without = visibleNav({ isSuperadmin: false, permissions: ["shops.view"] });
+    expect(without.map((item) => item.label)).not.toContain("Settings");
+    const withIt = visibleNav({ isSuperadmin: false, permissions: ["settings.manage"] });
+    expect(withIt.map((item) => item.label)).toContain("Settings");
+    expect(withIt.map((item) => item.label)).not.toContain("Maintenance");
   });
 });
 

@@ -18,9 +18,11 @@ const NAV: NavItem[] = [
   { href: "/admin/refunds", label: "Refunds", needs: "refunds.handle" },
   { href: "/admin/support", label: "Support", needs: "support.view" },
   { href: "/admin/audit", label: "Audit log", needs: "audit.view" },
+  { href: "/admin/settings", label: "Settings", needs: "settings.manage" },
   { href: "/admin/team", label: "Team", needs: "superadmin" },
   { href: "/admin/roles", label: "Roles", needs: "superadmin" },
   { href: "/admin/sessions", label: "Sessions", needs: "superadmin" },
+  { href: "/admin/maintenance", label: "Maintenance", needs: "superadmin" },
 ];
 
 /** Can this admin do this? Superadmins can do everything (the API checks this too). */

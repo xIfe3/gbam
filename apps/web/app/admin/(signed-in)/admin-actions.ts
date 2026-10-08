@@ -3,6 +3,9 @@
 import {
   ADMIN_PERMISSIONS,
   inviteAdminSchema,
+  maintenanceSchema,
+  parseNairaInput,
+  platformSettingsSchema,
   reasonSchema,
   roleInputSchema,
   updateAdminSchema,
@@ -285,4 +288,98 @@ export async function endSellerSessionAction(id: string, _prev: FormState, formD
     (reason) => adminApi.endSellerSession(id, reason),
     "Seller signed out on that device.",
   );
+}
+
+// ---- Platform settings and maintenance ----
+
+/** The form shows the fee as a percent and the cap in naira; the API wants basis points and kobo. */
+const FIELD_FOR = { feePercentBasisPoints: "feePercent", feeCapKobo: "feeCapNaira" } as const;
+
+/** A whole number from a text box, or NaN (which the schema then reports). */
+function wholeNumber(formData: FormData, name: string): number {
+  return Number(text(formData, name).trim());
+}
+
+export async function saveSettingsAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  // "1.5" (%) → 150 basis points. Math.round keeps it a whole number.
+  const percent = Number(text(formData, "feePercent").trim());
+  let capKobo = parseNairaInput(text(formData, "feeCapNaira"));
+  if (capKobo === null) {
+    capKobo = Number.NaN;
+  }
+  const input = platformSettingsSchema.safeParse({
+    feePercentBasisPoints: Math.round(percent * 100),
+    feeCapKobo: capKobo,
+    foundingWaiverDays: wholeNumber(formData, "foundingWaiverDays"),
+    reminderAfterHours: wholeNumber(formData, "reminderAfterHours"),
+    cancelAfterHours: wholeNumber(formData, "cancelAfterHours"),
+    supportEmail: text(formData, "supportEmail").trim(),
+    contactEmail: text(formData, "contactEmail").trim(),
+    privacyEmail: text(formData, "privacyEmail").trim(),
+    whatsappNumber: text(formData, "whatsappNumber"),
+    // An unticked checkbox isn't sent at all, so "missing" means off.
+    signupsOpen: text(formData, "signupsOpen") === "on",
+  });
+  if (!input.success) {
+    const errors = fieldErrorsFrom(input.error);
+    // Point the fee errors at the boxes the admin actually typed in.
+    const fieldErrors: Record<string, string> = {};
+    for (const [field, message] of Object.entries(errors)) {
+      let formField: string = field;
+      if (field === "feePercentBasisPoints" || field === "feeCapKobo") {
+        formField = FIELD_FOR[field];
+      }
+      fieldErrors[formField] = message;
+    }
+    return { fieldErrors };
+  }
+  try {
+    await adminApi.saveSettings(input.data);
+  } catch (error) {
+    return { error: adminFailure(error) };
+  }
+  refresh();
+  return { notice: "Settings saved. Everything uses them within 30 seconds." };
+}
+
+/** "2026-10-09T15:00" typed in a date-time box (Lagos time) → an exact time with its offset. */
+function lagosTime(value: string): string | null {
+  if (value === "") {
+    return null;
+  }
+  // Nigeria is UTC+1 all year (no daylight saving).
+  return `${value}:00+01:00`;
+}
+
+export async function maintenanceAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const level = text(formData, "level");
+  let message: string | null = text(formData, "message").trim();
+  if (message === "") {
+    message = null;
+  }
+  let backBy = lagosTime(text(formData, "backBy"));
+  if (level === "off") {
+    message = null;
+    backBy = null;
+  }
+  const input = maintenanceSchema.safeParse({ level, message, backBy });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  // Switching it ON affects every visitor, so it needs a tick to confirm.
+  if (input.data.level !== "off" && text(formData, "confirmed") !== "on") {
+    return {
+      fieldErrors: { confirmed: "Tick the box to confirm: visitors will see the maintenance page" },
+    };
+  }
+  try {
+    await adminApi.setMaintenance(input.data);
+  } catch (error) {
+    return { error: adminFailure(error) };
+  }
+  refresh();
+  if (input.data.level === "off") {
+    return { notice: "Maintenance is off. The site is open." };
+  }
+  return { notice: "Maintenance is on. It reaches every page within about 20 seconds." };
 }

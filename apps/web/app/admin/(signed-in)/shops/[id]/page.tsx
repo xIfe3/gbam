@@ -19,6 +19,11 @@ export const metadata: Metadata = { title: "Shop · Admin" };
 
 const sectionClass = "rounded-xl border border-zinc-200 bg-white p-5";
 
+/** "2027-01-06": the date this many days from today, for a date box. */
+function daysFromToday(days: number): string {
+  return new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+}
+
 async function loadShop(id: string): Promise<AdminShopDetail> {
   try {
     return await adminApi.shop(id);
@@ -52,6 +57,14 @@ export default async function ShopDetailPage(props: { params: Promise<{ id: stri
   if (shop.feeWaivedUntil) {
     waiverDate = shop.feeWaivedUntil.slice(0, 10);
   }
+  // A new waiver starts with "today + the founding-seller length" from Admin → Settings
+  // (90 days if this admin can't read the settings).
+  let waiverDays = 90;
+  if (adminCan(me, "settings.manage")) {
+    const { settings } = await adminApi.settings();
+    waiverDays = settings.foundingWaiverDays;
+  }
+  const suggestedWaiver = daysFromToday(waiverDays);
 
   return (
     <div className="space-y-5">
@@ -146,6 +159,7 @@ export default async function ShopDetailPage(props: { params: Promise<{ id: stri
             action={feeWaiverAction.bind(null, shop.id)}
             label="No Gbam fee until"
             current={waiverDate}
+            suggested={suggestedWaiver}
           />
         </section>
       )}
