@@ -1,4 +1,10 @@
-import { ORDER_STATUSES, TOUR_NAMES } from "@gbam/shared";
+import {
+  ORDER_STATUSES,
+  TICKET_PRIORITIES,
+  TICKET_SOURCES,
+  TICKET_STATUSES,
+  TOUR_NAMES,
+} from "@gbam/shared";
 import { relations, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import {
@@ -10,6 +16,7 @@ import {
   jsonb,
   pgEnum,
   pgTable,
+  serial,
   text,
   timestamp,
   unique,
@@ -590,7 +597,10 @@ export const adminRoles = pgTable("admin_roles", {
   id: id(),
   name: text("name").notNull().unique(),
   /** Names from ADMIN_PERMISSIONS in packages/shared/src/admin.ts. */
-  permissions: text("permissions").array().notNull().default(sql`'{}'::text[]`),
+  permissions: text("permissions")
+    .array()
+    .notNull()
+    .default(sql`'{}'::text[]`),
   /** Set when deleted: kept 30 days so it can be restored. */
   deletedAt: timestamp("deleted_at", { withTimezone: true }),
   createdAt: createdAt(),
@@ -740,5 +750,76 @@ export const dailyVisits = pgTable(
   },
   // One row per day, shop and kind. "Nulls not distinct" makes rows with no shop count as
   // the same shop, so they can't be duplicated either.
-  (t) => [unique("daily_visits_day_seller_kind_uq").on(t.day, t.sellerId, t.kind).nullsNotDistinct()],
+  (t) => [
+    unique("daily_visits_day_seller_kind_uq").on(t.day, t.sellerId, t.kind).nullsNotDistinct(),
+  ],
+);
+
+export const ticketStatusEnum = pgEnum("ticket_status", TICKET_STATUSES);
+export const ticketPriorityEnum = pgEnum("ticket_priority", TICKET_PRIORITIES);
+export const ticketSourceEnum = pgEnum("ticket_source", TICKET_SOURCES);
+export const ticketAuthorEnum = pgEnum("ticket_author", ["requester", "admin", "system"]);
+
+/**
+ * A request for help: from the contact form, a seller's "Get help", or a customer problem a
+ * seller asked Gbam to look at. The conversation is in ticket_messages.
+ */
+export const supportTickets = pgTable(
+  "support_tickets",
+  {
+    id: id(),
+    /** A short number people can say out loud: ticket #1042. Counts up by itself. */
+    number: serial("number").notNull().unique(),
+    subject: text("subject").notNull(),
+    source: ticketSourceEnum("source").notNull(),
+    status: ticketStatusEnum("status").notNull().default("open"),
+    priority: ticketPriorityEnum("priority").notNull().default("normal"),
+    /** Who asked. For seller tickets, the shop owner's name and email at the time. */
+    requesterName: text("requester_name").notNull(),
+    requesterEmail: text("requester_email").notNull(),
+    sellerId: uuid("seller_id").references(() => sellers.id, { onDelete: "set null" }),
+    orderId: uuid("order_id").references(() => orders.id, { onDelete: "set null" }),
+    orderIssueId: uuid("order_issue_id").references(() => orderIssues.id, {
+      onDelete: "set null",
+    }),
+    contactMessageId: uuid("contact_message_id").references(() => contactMessages.id, {
+      onDelete: "set null",
+    }),
+    assigneeId: uuid("assignee_id").references(() => adminUsers.id, { onDelete: "set null" }),
+    /**
+     * Contact-form tickets only: the secret key in the requester's private link
+     * (/help/tickets/…?k=…). Long and random, like order tracking keys.
+     */
+    accessKey: text("access_key").unique(),
+    /** Set when it becomes solved; a solved ticket with no reply for 7 days is closed. */
+    solvedAt: timestamp("solved_at", { withTimezone: true }),
+    closedAt: timestamp("closed_at", { withTimezone: true }),
+    /** In the bin (restorable for 30 days). */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
+    createdAt: createdAt(),
+    updatedAt: updatedAt(),
+  },
+  (t) => [
+    index("support_tickets_status_idx").on(t.status),
+    index("support_tickets_seller_idx").on(t.sellerId),
+    // One ticket per escalated customer problem.
+    uniqueIndex("support_tickets_order_issue_uq").on(t.orderIssueId),
+  ],
+);
+
+/** One message in a ticket. `internal` ones are admin notes the requester never sees. */
+export const ticketMessages = pgTable(
+  "ticket_messages",
+  {
+    id: id(),
+    ticketId: uuid("ticket_id")
+      .notNull()
+      .references(() => supportTickets.id, { onDelete: "cascade" }),
+    author: ticketAuthorEnum("author").notNull(),
+    adminId: uuid("admin_id").references(() => adminUsers.id, { onDelete: "set null" }),
+    body: text("body").notNull(),
+    internal: boolean("internal").notNull().default(false),
+    createdAt: createdAt(),
+  },
+  (t) => [index("ticket_messages_ticket_idx").on(t.ticketId)],
 );

@@ -7,4 +7,5 @@ export * from "./platform-settings";
 export * from "./products";
 export * from "./schemas";
 export * from "./scrub";
+export * from "./tickets";
 export * from "./tours";
