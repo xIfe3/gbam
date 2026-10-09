@@ -152,3 +152,50 @@ describe("renderEmail", () => {
     expect(email.text).not.toContain("Delivery");
   });
 });
+
+describe("ticket emails", () => {
+  it("a new ticket goes to the live support inbox", () => {
+    const email = renderEmail(
+      {
+        kind: "ticket_new",
+        number: 1042,
+        subject: "Payout missing",
+        requesterName: "Ada",
+        sourceLabel: "a seller",
+        adminUrl: "https://gbam.app/admin/tickets/t1",
+      },
+      { support: "help@gbam.app", contact: "hello@gbam.app", privacy: "privacy@gbam.app" },
+    );
+    expect(email.to).toBe("help@gbam.app");
+    expect(email.subject).toBe("Ticket #1042: Payout missing");
+    expect(email.html).toContain("https://gbam.app/admin/tickets/t1");
+  });
+
+  it("a reply shows the admin's words safely, with the link to reply", () => {
+    const email = renderEmail({
+      kind: "ticket_reply",
+      to: "ada@example.com",
+      name: "Ada",
+      number: 7,
+      subject: "Payout missing",
+      message: "Use <b>Settings</b>\nthen Payouts",
+      link: "https://gbam.app/help/tickets/t1?k=secret",
+    });
+    expect(email.to).toBe("ada@example.com");
+    expect(email.html).toContain("Use &lt;b&gt;Settings&lt;/b&gt;");
+    expect(email.html).toContain("https://gbam.app/help/tickets/t1?k=secret");
+    expect(email.text).toContain("Read and reply: https://gbam.app/help/tickets/t1?k=secret");
+  });
+
+  it("the assignee is told there's a reply, without the reply itself", () => {
+    const email = renderEmail({
+      kind: "ticket_requester_replied",
+      to: "chika@gbam.app",
+      number: 7,
+      subject: "Payout missing",
+      adminUrl: "https://gbam.app/admin/tickets/t1",
+    });
+    expect(email.subject).toBe("New reply on ticket #7");
+    expect(email.text).toContain("https://gbam.app/admin/tickets/t1");
+  });
+});
