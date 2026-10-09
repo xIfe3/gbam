@@ -10,6 +10,7 @@ import { OrdersModule } from "./orders/orders.module.js";
 import { PaymentsModule } from "./payments/payments.module.js";
 import { PlatformModule } from "./platform/platform.module.js";
 import { VisitsCopyProcessor } from "./platform/visits-copy.processor.js";
+import { WorkerHeartbeat } from "./platform/worker-heartbeat.js";
 import { PhotoCleanupProcessor } from "./products/photo-cleanup.processor.js";
 import { ProductsModule } from "./products/products.module.js";
 import { WhatsAppModule } from "./whatsapp/whatsapp.module.js";
@@ -35,6 +36,8 @@ import { PaymentsProcessor } from "./payments/payments.processor.js";
     PhotoCleanupProcessor,
     OrderExpiryProcessor,
     VisitsCopyProcessor,
+    // Tells the admin System page the worker is alive.
+    WorkerHeartbeat,
   ],
 })
 export class WorkerModule {}
