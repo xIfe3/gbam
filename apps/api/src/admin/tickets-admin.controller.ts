@@ -79,6 +79,13 @@ export class TicketsAdminController {
     return this.tickets.bulk(body, admin, this.ip(req));
   }
 
+  /** Admins a ticket can be assigned to. Declared before ":id" so it isn't read as an id. */
+  @Get("assignees")
+  @RequirePermission("tickets.view")
+  assignees() {
+    return this.tickets.assignees();
+  }
+
   @Get(":id")
   @RequirePermission("tickets.view")
   detail(@Param("id", ParseUUIDPipe) id: string) {

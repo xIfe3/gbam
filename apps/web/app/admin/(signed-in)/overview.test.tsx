@@ -10,6 +10,7 @@ const { adminApiMock } = vi.hoisted(() => ({
     issues: vi.fn(),
     shops: vi.fn(),
     money: vi.fn(),
+    tickets: vi.fn(),
   },
 }));
 vi.mock("@/lib/admin-api", () => ({ adminApi: adminApiMock }));
@@ -31,6 +32,7 @@ beforeEach(() => {
   adminApiMock.messages.mockResolvedValue([{ id: "m" }]);
   adminApiMock.issues.mockResolvedValue([]);
   adminApiMock.shops.mockResolvedValue({ rows: [], total: 4, page: 1, pageSize: 50 });
+  adminApiMock.tickets.mockResolvedValue({ rows: [], total: 6, page: 1, pageSize: 50 });
   adminApiMock.money.mockResolvedValue({ totals: { salesKobo: 250_000 }, byDay: [], byShop: [] });
 });
 
@@ -63,6 +65,15 @@ describe("admin overview", () => {
     const sales = screen.getByRole("link", { name: /Today's sales/ });
     expect(sales).toHaveTextContent("₦2,500");
     expect(sales.getAttribute("href")).toMatch(/^\/admin\/money\?from=\d{4}-\d{2}-\d{2}&to=/);
+  });
+
+  it("shows open tickets to admins who can see them", async () => {
+    adminApiMock.me.mockResolvedValue({ ...ME, permissions: ["tickets.view"] });
+    render(await OverviewPage({}));
+    const tile = screen.getByRole("link", { name: /Open tickets/ });
+    expect(tile).toHaveTextContent("6");
+    expect(tile).toHaveAttribute("href", "/admin/tickets?status=open");
+    expect(adminApiMock.tickets).toHaveBeenCalledWith({ status: "open" });
   });
 
   it("no sales tile without money.view", async () => {

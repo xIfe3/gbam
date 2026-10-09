@@ -8,8 +8,13 @@ import {
   platformSettingsSchema,
   reasonSchema,
   roleInputSchema,
+  ticketReplySchema,
+  ticketUpdateSchema,
   updateAdminSchema,
   type AdminPermission,
+  type TicketBulkAction,
+  type TicketPriority,
+  type TicketStatus,
 } from "@gbam/shared";
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
@@ -392,4 +397,82 @@ export async function activeNowAction() {
 /** Puts a failed background job back in its queue (system.manage; the API records it). */
 export async function retryJobAction(queue: string, id: string): Promise<FormState> {
   return simple(() => adminApi.retryJob(queue, id), "Queued to run again.");
+}
+
+// ---- Tickets ----
+
+/** What a bulk ticket button does, besides the ids and note the dialog collects. */
+export type TicketBulkChoice = {
+  action: TicketBulkAction;
+  assigneeId?: string | null;
+  status?: TicketStatus;
+  priority?: TicketPriority;
+};
+
+export async function bulkTicketsAction(
+  choice: TicketBulkChoice,
+  ids: string[],
+  note: string,
+): Promise<BulkResult> {
+  const result = await adminApi.bulkTickets({ ...choice, ids, note });
+  refresh();
+  return result;
+}
+
+/** A reply the person who asked will get by email. */
+export async function ticketReplyAction(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const input = ticketReplySchema.safeParse({ message: text(formData, "message") });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  return simple(
+    () => adminApi.replyTicket(id, input.data.message),
+    "Reply sent: they'll get it by email.",
+  );
+}
+
+/** A note only admins see. */
+export async function ticketNoteAction(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const input = ticketReplySchema.safeParse({ message: text(formData, "message") });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  return simple(() => adminApi.noteTicket(id, input.data.message), "Note added.");
+}
+
+/** Status, priority and assignee, saved together. An empty assignee means nobody. */
+export async function updateTicketAction(
+  id: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  let assigneeId: string | null = text(formData, "assigneeId");
+  if (assigneeId === "") {
+    assigneeId = null;
+  }
+  const input = ticketUpdateSchema.safeParse({
+    status: text(formData, "status"),
+    priority: text(formData, "priority"),
+    assigneeId,
+  });
+  if (!input.success) {
+    return { fieldErrors: fieldErrorsFrom(input.error) };
+  }
+  return simple(() => adminApi.updateTicket(id, input.data), "Saved.");
+}
+
+export async function deleteTicketAction(id: string, _prev: FormState, formData: FormData) {
+  return withReason(formData, (reason) => adminApi.deleteTicket(id, reason), "Moved to the bin.");
+}
+
+export async function restoreTicketAction(id: string): Promise<FormState> {
+  return simple(() => adminApi.restoreTicket(id), "Restored from the bin.");
 }

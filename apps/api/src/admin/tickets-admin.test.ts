@@ -241,6 +241,15 @@ describe("Admin tickets API (integration)", () => {
     });
   });
 
+  it("lists who tickets can be assigned to", async () => {
+    const result = await get("/admin/tickets/assignees", viewer.token);
+    expect(result.status).toBe(200);
+    const people = result.json as { id: string; name: string }[];
+    expect(people.map((person) => person.id)).toContain(handler.id);
+    expect(Object.keys(people[0] ?? {}).sort()).toEqual(["id", "name"]);
+    expect((await get("/admin/tickets/assignees", outsider.token)).status).toBe(403);
+  });
+
   it("bin and restore", async () => {
     const id = await newTicket(`Binned ${tag}`);
     expect(

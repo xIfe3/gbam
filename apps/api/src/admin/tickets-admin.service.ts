@@ -10,6 +10,7 @@ import { BadRequestException, Injectable, NotFoundException } from "@nestjs/comm
 import { alias } from "drizzle-orm/pg-core";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -139,6 +140,15 @@ export class TicketsAdminService {
       .offset((query.page - 1) * PAGE_SIZE);
     const totals = await this.db.select({ total: count() }).from(supportTickets).where(where);
     return { rows, total: totals[0]?.total ?? 0, page: query.page, pageSize: PAGE_SIZE };
+  }
+
+  /** Everyone still on the team, by name: who a ticket can be assigned to. */
+  async assignees() {
+    return this.db
+      .select({ id: adminUsers.id, name: adminUsers.name })
+      .from(adminUsers)
+      .where(isNull(adminUsers.removedAt))
+      .orderBy(asc(adminUsers.name));
   }
 
   /** One ticket (also from the bin, so it can be restored), with notes. */
