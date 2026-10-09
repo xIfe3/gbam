@@ -33,6 +33,7 @@ describe("admin navigation", () => {
       "Money",
       "Analytics",
       "Support",
+      "Tickets",
       "Audit log",
       "System",
       "Settings",
@@ -48,6 +49,11 @@ describe("admin navigation", () => {
     expect(money.map((item) => item.label)).toEqual(["Overview", "Money"]);
     const analytics = visibleNav({ isSuperadmin: false, permissions: ["analytics.view"] });
     expect(analytics.map((item) => item.label)).toEqual(["Overview", "Analytics"]);
+  });
+
+  it("nav shows Tickets by permission", () => {
+    const tickets = visibleNav({ isSuperadmin: false, permissions: ["tickets.view"] });
+    expect(tickets.map((item) => item.label)).toEqual(["Overview", "Tickets"]);
   });
 
   it("nav shows System by permission", () => {

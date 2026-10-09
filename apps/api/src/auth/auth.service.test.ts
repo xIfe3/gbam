@@ -74,11 +74,12 @@ describe("AuthService signup and verification (integration)", () => {
   function sentTo(email: string): number {
     let count = 0;
     for (const entry of sent) {
-      // Contact messages, deletion requests and refund alerts go to our own inboxes.
+      // Contact messages, deletion requests, refund alerts and new tickets go to our own inboxes.
       if (
         entry.job.kind !== "contact_message" &&
         entry.job.kind !== "account_closed" &&
         entry.job.kind !== "needs_refund" &&
+        entry.job.kind !== "ticket_new" &&
         entry.job.to === email
       ) {
         count = count + 1;

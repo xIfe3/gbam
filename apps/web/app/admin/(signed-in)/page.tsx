@@ -31,6 +31,14 @@ export default async function OverviewPage(props: { searchParams?: SearchParams 
     });
   }
 
+  if (adminCan(me, "tickets.view")) {
+    const open = await adminApi.tickets({ status: "open" });
+    tiles.push({
+      label: "Open tickets",
+      value: String(open.total),
+      href: "/admin/tickets?status=open",
+    });
+  }
   if (adminCan(me, "refunds.handle")) {
     const refunds = await adminApi.refunds("open");
     tiles.push({

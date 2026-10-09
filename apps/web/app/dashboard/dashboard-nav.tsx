@@ -13,10 +13,12 @@ export function DashboardNav() {
     pathname === "/dashboard/products" || pathname.startsWith("/dashboard/products/");
   const onSettings =
     pathname === "/dashboard/settings" || pathname.startsWith("/dashboard/settings/");
+  const onHelp = pathname === "/dashboard/help" || pathname.startsWith("/dashboard/help/");
 
   let ordersCurrent: "page" | undefined = "page";
   let productsCurrent: "page" | undefined = undefined;
   let settingsCurrent: "page" | undefined = undefined;
+  let helpCurrent: "page" | undefined = undefined;
   if (onProducts) {
     ordersCurrent = undefined;
     productsCurrent = "page";
@@ -24,6 +26,10 @@ export function DashboardNav() {
   if (onSettings) {
     ordersCurrent = undefined;
     settingsCurrent = "page";
+  }
+  if (onHelp) {
+    ordersCurrent = undefined;
+    helpCurrent = "page";
   }
 
   const tabClass =
@@ -44,6 +50,9 @@ export function DashboardNav() {
       </Link>
       <Link href="/dashboard/settings" aria-current={settingsCurrent} className={tabClass}>
         Settings
+      </Link>
+      <Link href="/dashboard/help" aria-current={helpCurrent} className={tabClass}>
+        Help
       </Link>
     </nav>
   );

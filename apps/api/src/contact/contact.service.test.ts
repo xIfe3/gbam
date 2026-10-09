@@ -1,6 +1,6 @@
 /** Integration test against the dev Postgres and Redis db 1. The email queue is a recorder. */
 import "reflect-metadata";
-import { contactMessages } from "@gbam/db";
+import { contactMessages, supportTickets } from "@gbam/db";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
 import { eq } from "drizzle-orm";
@@ -47,6 +47,7 @@ describe("ContactService (integration)", () => {
   });
 
   afterAll(async () => {
+    await db.delete(supportTickets).where(eq(supportTickets.requesterEmail, emailAddress));
     await db.delete(contactMessages).where(eq(contactMessages.email, emailAddress));
     await redis.del(`contact:${ip}`);
     await moduleRef.close();
@@ -73,6 +74,7 @@ describe("ContactService (integration)", () => {
       email: emailAddress,
       phone: "2348031234567",
       message: input.message,
+      ticketUrl: expect.stringContaining("/admin/tickets/"),
     });
     expect(sent[1]?.jobId).toBe(`contact-reply-${rows[0]?.id}`);
     expect(sent[1]?.job).toEqual({ kind: "contact_auto_reply", to: emailAddress });

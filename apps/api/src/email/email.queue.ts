@@ -30,7 +30,8 @@ export class EmailQueue {
       job.kind === "payment_confirmed" ||
       job.kind === "order_cancelled" ||
       job.kind === "order_refunded" ||
-      job.kind === "admin_invite"
+      job.kind === "admin_invite" ||
+      job.kind === "ticket_reply"
     ) {
       options.removeOnComplete = true;
       options.removeOnFail = { age: 3600 };

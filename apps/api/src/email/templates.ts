@@ -10,6 +10,8 @@ export type EmailJob =
       email: string;
       phone: string | null;
       message: string;
+      /** The admin page for the ticket this message opened. */
+      ticketUrl?: string;
     }
   | {
       kind: "order_receipt";
@@ -107,6 +109,33 @@ export type EmailJob =
   | { kind: "admin_invite"; to: string; name: string; inviteUrl: string }
   | { kind: "shop_suspended"; to: string; shopName: string }
   | { kind: "shop_reopened"; to: string; shopName: string }
+  | {
+      kind: "ticket_new";
+      number: number;
+      subject: string;
+      requesterName: string;
+      /** "a seller" or "a customer problem" (contact-form tickets use contact_message). */
+      sourceLabel: string;
+      adminUrl: string;
+    }
+  | {
+      kind: "ticket_reply";
+      to: string;
+      name: string;
+      number: number;
+      subject: string;
+      /** What the admin wrote. */
+      message: string;
+      /** Where they read the whole thread and reply. For contact tickets, a private link. */
+      link: string;
+    }
+  | {
+      kind: "ticket_requester_replied";
+      to: string;
+      number: number;
+      subject: string;
+      adminUrl: string;
+    }
   | {
       kind: "new_order";
       to: string;
@@ -307,6 +336,15 @@ export function renderEmail(job: EmailJob, inboxes: Inboxes = DEFAULT_INBOXES): 
   if (job.kind === "new_order") {
     return newOrderEmail(job);
   }
+  if (job.kind === "ticket_new") {
+    return ticketNewEmail(job, inboxes.support);
+  }
+  if (job.kind === "ticket_reply") {
+    return ticketReplyEmail(job);
+  }
+  if (job.kind === "ticket_requester_replied") {
+    return ticketRequesterRepliedEmail(job);
+  }
 
   // contact_message
   const lines = [`Name: ${job.name}`, `Email: ${job.email}`];
@@ -324,11 +362,16 @@ export function renderEmail(job: EmailJob, inboxes: Inboxes = DEFAULT_INBOXES): 
   htmlLines.push(
     paragraph(`<span style="white-space: pre-wrap">${escapeHtml(job.message)}</span>`),
   );
+  let fullText = text;
+  if (job.ticketUrl) {
+    htmlLines.push(button(job.ticketUrl, "Open the ticket"));
+    fullText = `${text}\n\nOpen the ticket: ${job.ticketUrl}`;
+  }
 
   return {
     to: inboxes.contact,
     subject: `Gbam contact form: ${job.name}`,
-    text,
+    text: fullText,
     html: emailLayout(htmlLines.join("\n")),
     replyTo: job.email,
   };
@@ -842,5 +885,72 @@ function shopReopenedEmail(job: Extract<EmailJob, { kind: "shop_reopened" }>): S
     subject: `Your Gbam shop is open again`,
     text: what,
     html: emailLayout(paragraph(escapeHtml(what))),
+  };
+}
+
+/** To the support inbox: someone asked for help. */
+function ticketNewEmail(
+  job: Extract<EmailJob, { kind: "ticket_new" }>,
+  support: string,
+): SendEmailInput {
+  const what = `New ticket #${job.number} from ${job.sourceLabel} (${job.requesterName}): ${job.subject}`;
+  const content = [
+    paragraph(
+      `New ticket ${strong(`#${job.number}`)} from ${escapeHtml(job.sourceLabel)} (${strong(escapeHtml(job.requesterName))}):`,
+    ),
+    paragraph(escapeHtml(job.subject)),
+    button(job.adminUrl, "Open the ticket"),
+  ].join("\n");
+  return {
+    to: support,
+    subject: `Ticket #${job.number}: ${job.subject}`,
+    text: `${what}\n\nOpen the ticket: ${job.adminUrl}`,
+    html: emailLayout(content),
+  };
+}
+
+/** To whoever asked: Gbam replied. The whole thread and a reply box are behind the button. */
+function ticketReplyEmail(job: Extract<EmailJob, { kind: "ticket_reply" }>): SendEmailInput {
+  const text = [
+    `Hi ${job.name},`,
+    ``,
+    `Gbam support replied to your request #${job.number} (${job.subject}):`,
+    ``,
+    job.message,
+    ``,
+    `Read and reply: ${job.link}`,
+    ``,
+    `Please reply using the link, not by answering this email.`,
+  ].join("\n");
+  const content = [
+    paragraph(`Hi ${strong(escapeHtml(job.name))},`),
+    paragraph(
+      `Gbam support replied to your request ${strong(`#${job.number}`)} (${escapeHtml(job.subject)}):`,
+    ),
+    // white-space: pre-wrap keeps the admin's line breaks.
+    paragraph(`<span style="white-space: pre-wrap">${escapeHtml(job.message)}</span>`),
+    button(job.link, "Read and reply"),
+    smallPrint("Please reply using the button, not by answering this email."),
+  ].join("\n");
+  return {
+    to: job.to,
+    subject: `Re: ${job.subject} [#${job.number}]`,
+    text,
+    html: emailLayout(content),
+  };
+}
+
+/** To the admin a ticket is assigned to: the person who asked wrote back. */
+function ticketRequesterRepliedEmail(
+  job: Extract<EmailJob, { kind: "ticket_requester_replied" }>,
+): SendEmailInput {
+  const what = `There's a new reply on ticket #${job.number} (${job.subject}), which is assigned to you.`;
+  return {
+    to: job.to,
+    subject: `New reply on ticket #${job.number}`,
+    text: `${what}\n\nOpen the ticket: ${job.adminUrl}`,
+    html: emailLayout(
+      [paragraph(escapeHtml(what)), button(job.adminUrl, "Open the ticket")].join("\n"),
+    ),
   };
 }

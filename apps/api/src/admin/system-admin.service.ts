@@ -5,6 +5,7 @@ import { EMAILS_QUEUE } from "../email/email.queue.js";
 import { NOTIFICATIONS_QUEUE } from "../notifications/notifications.queue.js";
 import { ORDER_EXPIRY_QUEUE } from "../orders/order-expiry.queue.js";
 import { PAYMENTS_QUEUE } from "../payments/payments.queue.js";
+import { HOUSEKEEPING_QUEUE } from "../housekeeping/housekeeping.queue.js";
 import { VISITS_COPY_QUEUE } from "../platform/visits-copy.queue.js";
 import { PHOTO_CLEANUP_QUEUE } from "../products/photo-cleanup.queue.js";
 import type { AdminContext } from "./admin-auth.service.js";
@@ -21,6 +22,7 @@ export const SYSTEM_QUEUE_NAMES = [
   ORDER_EXPIRY_QUEUE,
   PHOTO_CLEANUP_QUEUE,
   VISITS_COPY_QUEUE,
+  HOUSEKEEPING_QUEUE,
 ];
 
 /** The list of Queue objects, given to the service by AdminModule (tests swap in their own). */

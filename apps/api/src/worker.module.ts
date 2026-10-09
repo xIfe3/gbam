@@ -1,6 +1,8 @@
 import { Module } from "@nestjs/common";
 import { EmailModule } from "./email/email.module.js";
 import { EmailProcessor } from "./email/email.processor.js";
+import { HousekeepingModule } from "./housekeeping/housekeeping.module.js";
+import { HousekeepingProcessor } from "./housekeeping/housekeeping.processor.js";
 import { InfraModule } from "./infra/infra.module.js";
 import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
@@ -22,6 +24,7 @@ import { PaymentsProcessor } from "./payments/payments.processor.js";
     InfraModule,
     IntegrationsModule,
     EmailModule,
+    HousekeepingModule,
     NotificationsModule,
     OrdersModule,
     PaymentsModule,
@@ -36,6 +39,7 @@ import { PaymentsProcessor } from "./payments/payments.processor.js";
     PhotoCleanupProcessor,
     OrderExpiryProcessor,
     VisitsCopyProcessor,
+    HousekeepingProcessor,
     // Tells the admin System page the worker is alive.
     WorkerHeartbeat,
   ],

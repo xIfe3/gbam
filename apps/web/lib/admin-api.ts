@@ -1,5 +1,15 @@
 import "server-only";
-import type { AdminPermission, Maintenance, OrderStatus, PlatformSettings } from "@gbam/shared";
+import type {
+  AdminPermission,
+  Maintenance,
+  OrderStatus,
+  PlatformSettings,
+  TicketBulkInput,
+  TicketPriority,
+  TicketSource,
+  TicketStatus,
+  TicketUpdateInput,
+} from "@gbam/shared";
 import { redirect } from "next/navigation";
 import type { ActiveCounts } from "@/components/admin/active-now";
 import type { ReportRange } from "@/components/admin/range";
@@ -355,6 +365,46 @@ export type FailedJob = {
   failedAt: string;
 };
 
+export type AdminTicketRow = {
+  id: string;
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  priority: TicketPriority;
+  source: TicketSource;
+  requesterName: string;
+  shopName: string | null;
+  assigneeName: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+export type AdminTicketDetail = {
+  ticket: {
+    id: string;
+    number: number;
+    subject: string;
+    source: TicketSource;
+    status: TicketStatus;
+    priority: TicketPriority;
+    requesterName: string;
+    requesterEmail: string;
+    assigneeId: string | null;
+    deletedAt: string | null;
+    createdAt: string;
+  };
+  shop: { id: string; slug: string; businessName: string } | null;
+  order: { id: string; code: string } | null;
+  assigneeName: string | null;
+  messages: {
+    id: string;
+    author: "requester" | "admin" | "system";
+    adminName: string | null;
+    body: string;
+    internal: boolean;
+    createdAt: string;
+  }[];
+};
+
 // ---- Calls ----
 
 export const adminApi = {
@@ -472,6 +522,22 @@ export const adminApi = {
   analytics: (range: ReportRange) =>
     adminRequest<AnalyticsOverview>(`/admin/analytics${queryString(range)}`),
   active: () => adminRequest<ActiveCounts>("/admin/active"),
+
+  tickets: (query: Record<string, string | number | undefined>) =>
+    adminRequest<Paged<AdminTicketRow>>(`/admin/tickets${queryString(query)}`),
+  ticket: (id: string) => adminRequest<AdminTicketDetail>(`/admin/tickets/${id}`),
+  ticketAssignees: () => adminRequest<{ id: string; name: string }[]>("/admin/tickets/assignees"),
+  replyTicket: (id: string, message: string) =>
+    adminRequest(`/admin/tickets/${id}/reply`, { method: "POST", body: { message } }),
+  noteTicket: (id: string, message: string) =>
+    adminRequest(`/admin/tickets/${id}/notes`, { method: "POST", body: { message } }),
+  updateTicket: (id: string, body: TicketUpdateInput) =>
+    adminRequest(`/admin/tickets/${id}`, { method: "PATCH", body }),
+  deleteTicket: (id: string, reason: string) =>
+    adminRequest(`/admin/tickets/${id}/delete`, { method: "POST", body: { reason } }),
+  restoreTicket: (id: string) => adminRequest(`/admin/tickets/${id}/restore`, { method: "POST" }),
+  bulkTickets: (body: TicketBulkInput) =>
+    adminRequest<BulkResult>("/admin/tickets/bulk", { method: "POST", body }),
 
   system: () => adminRequest<SystemOverview>("/admin/system"),
   failedJobs: (queue: string) =>

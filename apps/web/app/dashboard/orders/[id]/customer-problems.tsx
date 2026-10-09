@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import { FormError } from "@/components/brand/form-bits";
 import type { OrderDetail } from "@/lib/api";
 import { resolveIssueAction } from "../../actions";
+import { AskGbam } from "./ask-gbam";
 
 type Issue = OrderDetail["issues"][number];
 
@@ -47,7 +48,9 @@ export function CustomerProblems({ orderId, issues }: { orderId: string; issues:
           <li key={issue.id} className="bg-blush flex flex-col gap-2 rounded-lg p-3">
             <p className="text-ink font-bold">{ISSUE_REASON_LABEL[issue.reason]}</p>
             {issue.note && (
-              <p className="text-ink-muted text-sm whitespace-pre-line">&ldquo;{issue.note}&rdquo;</p>
+              <p className="text-ink-muted text-sm whitespace-pre-line">
+                &ldquo;{issue.note}&rdquo;
+              </p>
             )}
             <p className="text-ink-muted text-xs">Reported {formatWhen(issue.createdAt)}</p>
             {issue.resolvedAt === null && (
@@ -60,6 +63,7 @@ export function CustomerProblems({ orderId, issues }: { orderId: string; issues:
                 >
                   Mark resolved
                 </button>
+                <AskGbam orderId={orderId} issueId={issue.id} />
               </div>
             )}
             {issue.resolvedAt !== null && (

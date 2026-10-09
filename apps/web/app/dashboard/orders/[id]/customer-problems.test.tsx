@@ -2,6 +2,8 @@ import { act, fireEvent, render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
 vi.mock("../../actions", () => ({ resolveIssueAction: vi.fn().mockResolvedValue({}) }));
+// "Ask Gbam to help" posts through this; these tests only check it is offered.
+vi.mock("@/app/dashboard/help/actions", () => ({ escalateIssueAction: vi.fn() }));
 
 import { resolveIssueAction } from "../../actions";
 import { CustomerProblems } from "./customer-problems";
@@ -37,6 +39,8 @@ describe("CustomerProblems", () => {
       fireEvent.click(screen.getByRole("button", { name: "Mark resolved" }));
     });
     expect(resolveIssueAction).toHaveBeenCalledWith(ORDER, ISSUE);
+    // An open problem can also be passed to Gbam.
+    expect(screen.getByText("Ask Gbam to help")).toBeInTheDocument();
   });
 
   it("shows resolved problems without the button", () => {
@@ -55,6 +59,7 @@ describe("CustomerProblems", () => {
       />,
     );
     expect(screen.queryByRole("button", { name: "Mark resolved" })).toBeNull();
+    expect(screen.queryByText("Ask Gbam to help")).toBeNull();
     expect(screen.getByText(/Resolved/)).toBeInTheDocument();
   });
 });

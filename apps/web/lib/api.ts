@@ -1,6 +1,6 @@
 // "server-only" makes the build fail if a browser component ever imports this file.
 import "server-only";
-import type { OrderStatus } from "@gbam/shared";
+import type { OrderStatus, TicketStatus } from "@gbam/shared";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -764,8 +764,84 @@ async function resolveOrderIssue(orderId: string, issueId: string) {
   );
 }
 
+/** A ticket in the seller's Help list. */
+export type HelpTicketSummary = {
+  id: string;
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  createdAt: string;
+  updatedAt: string;
+};
+
+/** A ticket as the person who asked sees it: no internal notes, replies from "Gbam support". */
+export type HelpTicket = {
+  id: string;
+  number: number;
+  subject: string;
+  status: TicketStatus;
+  createdAt: string;
+  messages: {
+    id: string;
+    author: "requester" | "admin" | "system";
+    body: string;
+    createdAt: string;
+  }[];
+};
+
+async function helpTickets() {
+  return request<HelpTicketSummary[]>("/help/tickets", { auth: "session" });
+}
+
+async function helpTicket(id: string) {
+  return request<HelpTicket>(`/help/tickets/${encodeURIComponent(id)}`, { auth: "session" });
+}
+
+async function openHelpTicket(body: { subject: string; message: string; orderCode?: string }) {
+  return request<{ id: string; number: number }>("/help/tickets", {
+    method: "POST",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function replyHelpTicket(id: string, message: string) {
+  return request<{ ok: true }>(`/help/tickets/${encodeURIComponent(id)}/reply`, {
+    method: "POST",
+    body: JSON.stringify({ message }),
+    auth: "session",
+  });
+}
+
+/** "Ask Gbam to help" on a customer's problem report. */
+async function escalateOrderIssue(orderId: string, issueId: string, message: string) {
+  return request<{ id: string; number: number }>(
+    `/orders/${encodeURIComponent(orderId)}/issues/${encodeURIComponent(issueId)}/escalate`,
+    { method: "POST", body: JSON.stringify({ message }), auth: "session" },
+  );
+}
+
+/** The private ticket link from a contact-form reply email: /help/tickets/:id?k=… */
+async function publicTicket(id: string, key: string) {
+  return request<HelpTicket>(`/tickets/${encodeURIComponent(id)}?k=${encodeURIComponent(key)}`);
+}
+
+async function replyPublicTicket(id: string, key: string, message: string) {
+  return request<{ ok: true }>(
+    `/tickets/${encodeURIComponent(id)}/reply?k=${encodeURIComponent(key)}`,
+    { method: "POST", body: JSON.stringify({ message }) },
+  );
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  helpTickets,
+  helpTicket,
+  openHelpTicket,
+  replyHelpTicket,
+  escalateOrderIssue,
+  publicTicket,
+  replyPublicTicket,
   trackLookup,
   trackView,
   trackPay,

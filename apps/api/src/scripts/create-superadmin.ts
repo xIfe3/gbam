@@ -2,7 +2,7 @@
  * Creates the FIRST superadmin (or another one in an emergency). Run on the server, e.g. in
  * a Railway shell for the API service:
  *
- *   node dist/scripts/create-superadmin.js you@example.com "Your Name"
+ *   node dist/scripts/create-superadmin.js admin@gbam.zephra.dev "zephra admin"
  *   pnpm admin:create-superadmin you@example.com "Your Name"   (locally)
  *
  * It emails an invite link and also prints it here (in case email isn't set up yet). There
