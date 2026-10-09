@@ -5,6 +5,7 @@ import { PendingButton } from "@/components/brand/form-bits";
 import { Logo } from "@/components/brand/logo";
 import { adminApi } from "@/lib/admin-api";
 import { adminLogoutAction } from "./actions";
+import { Beacon } from "@/components/beacon";
 
 // Staff pages: never in search results.
 export const metadata: Metadata = { robots: { index: false, follow: false } };
@@ -57,6 +58,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         </div>
       </aside>
       <main className="min-w-0 flex-1">{children}</main>
+      <Beacon kind="admin" />
     </div>
   );
 }

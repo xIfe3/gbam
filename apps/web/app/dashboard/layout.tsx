@@ -10,6 +10,7 @@ import { PayoutBanner } from "./payout-banner";
 import { SuspendedBanner } from "./suspended-banner";
 import { HelpButton } from "./tours/help-button";
 import { ToursProvider } from "./tours/tours-provider";
+import { Beacon } from "@/components/beacon";
 
 // Keep private pages out of search results even if someone links to them.
 export const metadata: Metadata = { robots: { index: false } };
@@ -47,6 +48,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <ToursProvider states={tourStates}>
+      <Beacon kind="dashboard" />
       <div className="mx-auto max-w-3xl px-4 py-6">
         <header className="mb-6 flex items-center justify-between gap-3">
           <Link

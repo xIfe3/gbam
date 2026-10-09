@@ -6,6 +6,7 @@ import { EmptyState } from "@/components/brand/empty-state";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
 import { BasketBar } from "./basket-bar";
+import { Beacon } from "@/components/beacon";
 
 async function loadStore(slug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -128,6 +129,8 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         </Link>
       </footer>
       <BasketBar shopSlug={store.slug} clearOnMount={paidCode !== null} />
+      {/* Counts a visit (numbers only, no cookies). */}
+      <Beacon kind="storefront" shop={store.slug} />
     </main>
   );
 }

@@ -5,6 +5,7 @@ import { notFound, unstable_rethrow } from "next/navigation";
 import { api, ApiError, type StorefrontProductCard } from "@/lib/api";
 import { ShopHeader } from "../shop-header";
 import { ProductView } from "./product-view";
+import { Beacon } from "@/components/beacon";
 
 // How many of the shop's other products to show under this one.
 const MORE_COUNT = 4;
@@ -72,6 +73,7 @@ export default async function ProductPage(props: PageProps<"/[slug]/[product]">)
   return (
     <>
       <ShopHeader shopSlug={store.slug} businessName={store.businessName} />
+      <Beacon kind="product" shop={store.slug} />
       {/* pb-32 on phones: room for the "Add to order" bar pinned to the bottom. */}
       <main className="mx-auto max-w-5xl px-4 pt-4 pb-32 md:pb-12">
         <Link

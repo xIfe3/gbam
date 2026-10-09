@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { ShopHeader } from "../shop-header";
 import { BasketView } from "./basket-view";
+import { Beacon } from "@/components/beacon";
 
 async function loadStore(slug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -30,6 +31,7 @@ export default async function OrderPage(props: PageProps<"/[slug]/order">) {
   return (
     <>
       <ShopHeader shopSlug={store.slug} businessName={store.businessName} />
+      <Beacon kind="checkout" shop={store.slug} />
       <main className="mx-auto max-w-2xl px-4 pt-4 pb-8">
         <Link
           href={`/${store.slug}`}
