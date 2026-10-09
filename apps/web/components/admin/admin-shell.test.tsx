@@ -30,6 +30,8 @@ describe("admin navigation", () => {
       "Shops",
       "Orders",
       "Refunds",
+      "Money",
+      "Analytics",
       "Support",
       "Audit log",
       "Settings",
@@ -38,6 +40,13 @@ describe("admin navigation", () => {
       "Sessions",
       "Maintenance",
     ]);
+  });
+
+  it("nav shows Money and Analytics by permission", () => {
+    const money = visibleNav({ isSuperadmin: false, permissions: ["money.view"] });
+    expect(money.map((item) => item.label)).toEqual(["Overview", "Money"]);
+    const analytics = visibleNav({ isSuperadmin: false, permissions: ["analytics.view"] });
+    expect(analytics.map((item) => item.label)).toEqual(["Overview", "Analytics"]);
   });
 });
 

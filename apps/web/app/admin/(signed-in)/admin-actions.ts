@@ -383,3 +383,8 @@ export async function maintenanceAction(_prev: FormState, formData: FormData): P
   }
   return { notice: "Maintenance is on. It reaches every page within about 20 seconds." };
 }
+
+/** The "Active now" panel asks for fresh numbers every few seconds through this. */
+export async function activeNowAction() {
+  return adminApi.active();
+}

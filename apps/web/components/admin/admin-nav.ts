@@ -16,6 +16,8 @@ const NAV: NavItem[] = [
   { href: "/admin/shops", label: "Shops", needs: "shops.view" },
   { href: "/admin/orders", label: "Orders", needs: "orders.view" },
   { href: "/admin/refunds", label: "Refunds", needs: "refunds.handle" },
+  { href: "/admin/money", label: "Money", needs: "money.view" },
+  { href: "/admin/analytics", label: "Analytics", needs: "analytics.view" },
   { href: "/admin/support", label: "Support", needs: "support.view" },
   { href: "/admin/audit", label: "Audit log", needs: "audit.view" },
   { href: "/admin/settings", label: "Settings", needs: "settings.manage" },

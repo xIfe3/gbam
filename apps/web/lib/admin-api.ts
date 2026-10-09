@@ -1,6 +1,8 @@
 import "server-only";
 import type { AdminPermission, Maintenance, OrderStatus, PlatformSettings } from "@gbam/shared";
 import { redirect } from "next/navigation";
+import type { ActiveCounts } from "@/components/admin/active-now";
+import type { ReportRange } from "@/components/admin/range";
 import { getAdminToken } from "./admin-session";
 import { ApiError, apiUrl, visitorIp, type OrderDetail, type OrderDelivery } from "./api";
 
@@ -265,6 +267,48 @@ export type SellerSessionRow = {
   lastUsedAt: string | null;
 };
 
+export type MoneyOverview = {
+  totals: {
+    salesKobo: number;
+    itemsKobo: number;
+    deliveryKobo: number;
+    gbamFeesKobo: number;
+    paystackFeesKobo: number;
+    refundsKobo: number;
+    paidOrders: number;
+  };
+  byDay: { day: string; salesKobo: number; paidOrders: number }[];
+  byShop: {
+    shopId: string;
+    shopName: string;
+    salesKobo: number;
+    paidOrders: number;
+    gbamFeesKobo: number;
+  }[];
+};
+export type AnalyticsOverview = {
+  funnel: {
+    week: string;
+    signedUp: number;
+    verified: number;
+    firstProduct: number;
+    bankAccount: number;
+    firstPaidOrder: number;
+  }[];
+  activeShops: { last7: number; last30: number };
+  orders: {
+    placed: number;
+    paid: number;
+    expired: number;
+    cancelled: number;
+    paidRate: number;
+    averageOrderKobo: number;
+  };
+  topShops: { shopId: string; shopName: string; paidOrders: number }[];
+  visits: { day: string; storefront: number; product: number; checkout: number }[];
+  visitFunnel: { visits: number; orders: number; paid: number };
+};
+
 // ---- Calls ----
 
 export const adminApi = {
@@ -377,4 +421,9 @@ export const adminApi = {
     adminRequest(`/admin/sessions/admins/by-admin/${adminId}/end-all`, { method: "POST" }),
   endSellerSession: (id: string, reason: string) =>
     adminRequest(`/admin/sessions/sellers/${id}/end`, { method: "POST", body: { reason } }),
+
+  money: (range: ReportRange) => adminRequest<MoneyOverview>(`/admin/money${queryString(range)}`),
+  analytics: (range: ReportRange) =>
+    adminRequest<AnalyticsOverview>(`/admin/analytics${queryString(range)}`),
+  active: () => adminRequest<ActiveCounts>("/admin/active"),
 };

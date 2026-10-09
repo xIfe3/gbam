@@ -9,6 +9,7 @@ const { adminApiMock } = vi.hoisted(() => ({
     messages: vi.fn(),
     issues: vi.fn(),
     shops: vi.fn(),
+    money: vi.fn(),
   },
 }));
 vi.mock("@/lib/admin-api", () => ({ adminApi: adminApiMock }));
@@ -30,6 +31,7 @@ beforeEach(() => {
   adminApiMock.messages.mockResolvedValue([{ id: "m" }]);
   adminApiMock.issues.mockResolvedValue([]);
   adminApiMock.shops.mockResolvedValue({ rows: [], total: 4, page: 1, pageSize: 50 });
+  adminApiMock.money.mockResolvedValue({ totals: { salesKobo: 250_000 }, byDay: [], byShop: [] });
 });
 
 describe("admin overview", () => {
@@ -53,6 +55,21 @@ describe("admin overview", () => {
     render(await OverviewPage({}));
     expect(screen.getByRole("link", { name: /Contact messages/ })).toHaveTextContent("1");
     expect(screen.getByRole("link", { name: /Suspended shops/ })).toHaveTextContent("4");
+  });
+
+  it("shows today's sales to admins who can see money", async () => {
+    adminApiMock.me.mockResolvedValue({ ...ME, permissions: ["money.view"] });
+    render(await OverviewPage({}));
+    const sales = screen.getByRole("link", { name: /Today's sales/ });
+    expect(sales).toHaveTextContent("₦2,500");
+    expect(sales.getAttribute("href")).toMatch(/^\/admin\/money\?from=\d{4}-\d{2}-\d{2}&to=/);
+  });
+
+  it("no sales tile without money.view", async () => {
+    adminApiMock.me.mockResolvedValue(ME);
+    render(await OverviewPage({}));
+    expect(screen.queryByText(/Today's sales/)).toBeNull();
+    expect(adminApiMock.money).not.toHaveBeenCalled();
   });
 
   it("explains when a page wasn't allowed", async () => {
