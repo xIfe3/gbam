@@ -23,12 +23,15 @@ vi.mock("next/navigation", () => ({
     throw new Error("NEXT_NOT_FOUND");
   },
   unstable_rethrow: () => undefined,
+  redirect: (url: string) => {
+    throw new Error(`NEXT_REDIRECT:${url}`);
+  },
 }));
 vi.mock("@/lib/admin-api", () => ({ adminApi: adminApiMock }));
 vi.mock("@/lib/api", () => ({ ApiError: FakeApiError }));
 vi.mock("@/lib/admin-session", () => ({ setAdminCookie }));
 
-import { acceptInviteAction } from "./actions";
+import { acceptInviteAction, finishSetupAction } from "./actions";
 import { BackupCodes } from "./backup-codes";
 import InvitePage from "./page";
 
@@ -58,14 +61,22 @@ describe("admin invite", () => {
     expect(screen.getByRole("heading", { name: "This invite has expired" })).toBeInTheDocument();
   });
 
-  it("accepting signs in and returns the backup codes", async () => {
+  it("accepting returns the backup codes without signing in yet", async () => {
     adminApiMock.acceptInvite.mockResolvedValue({ sessionToken: "s1", backupCodes: ["a1b2-c3d4"] });
     const data = new FormData();
     data.set("password", "a long admin password");
     data.set("code", "123456");
     const state = await acceptInviteAction("t1", {}, data);
-    expect(setAdminCookie).toHaveBeenCalledWith("s1");
+    // Setting the cookie here would re-render the page, find the invite used, and replace the
+    // backup codes with "This invite has expired" before they could be saved.
+    expect(setAdminCookie).not.toHaveBeenCalled();
     expect(state.backupCodes).toEqual(["a1b2-c3d4"]);
+    expect(state.sessionToken).toBe("s1");
+  });
+
+  it("continue after saving the codes signs in and opens the admin", async () => {
+    await expect(finishSetupAction("s1")).rejects.toThrow("NEXT_REDIRECT:/admin");
+    expect(setAdminCookie).toHaveBeenCalledWith("s1");
   });
 
   it("a short password is refused before calling the API", async () => {
@@ -78,10 +89,9 @@ describe("admin invite", () => {
   });
 
   it("backup codes shown once after accepting, with a way on", () => {
-    render(<BackupCodes codes={["a1b2-c3d4", "e5f6-a7b8"]} />);
+    render(<BackupCodes codes={["a1b2-c3d4", "e5f6-a7b8"]} sessionToken="s1" />);
     expect(screen.getByText("a1b2-c3d4")).toBeInTheDocument();
-    const next = screen.getByRole("link", { name: "I've saved them, continue" });
-    expect(next).toHaveAttribute("href", "/admin");
+    const next = screen.getByRole("button", { name: "I've saved them, continue" });
     fireEvent.click(next);
   });
 });

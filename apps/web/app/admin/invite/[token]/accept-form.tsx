@@ -14,8 +14,8 @@ export function AcceptInviteForm({ token }: { token: string }) {
     {},
   );
 
-  if (state.backupCodes) {
-    return <BackupCodes codes={state.backupCodes} />;
+  if (state.backupCodes && state.sessionToken) {
+    return <BackupCodes codes={state.backupCodes} sessionToken={state.sessionToken} />;
   }
 
   return (
