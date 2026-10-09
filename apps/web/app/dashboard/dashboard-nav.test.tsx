@@ -27,4 +27,11 @@ describe("dashboard nav", () => {
     expect(screen.getByRole("link", { name: "Settings" })).toHaveAttribute("aria-current", "page");
     expect(screen.getByRole("link", { name: "Orders" })).not.toHaveAttribute("aria-current");
   });
+
+  it("marks Help current on a ticket page", () => {
+    pathState.current = "/dashboard/help/abc";
+    render(<DashboardNav />);
+    expect(screen.getByRole("link", { name: "Help" })).toHaveAttribute("aria-current", "page");
+    expect(screen.getByRole("link", { name: "Orders" })).not.toHaveAttribute("aria-current");
+  });
 });
