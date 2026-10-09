@@ -64,7 +64,11 @@ export class VisitsService {
     }
 
     const now = Date.now();
-    await this.redis.zadd(`active:${beat.kind}`, now, `${beat.tabId}|${shopLabel}`);
+    const activeKey = `active:${beat.kind}`;
+    await this.redis.zadd(activeKey, now, `${beat.tabId}|${shopLabel}`);
+    // Drop tabs gone quiet for 2 minutes here too, not only when an admin looks, so the set
+    // stays small even if nobody opens the Analytics page for weeks.
+    await this.redis.zremrangebyscore(activeKey, 0, now - ACTIVE_WINDOW_MS);
 
     if (beat.first && sellerId !== null && SHOP_KINDS.includes(beat.kind)) {
       const key = `visits:${lagosDay(new Date(now))}`;

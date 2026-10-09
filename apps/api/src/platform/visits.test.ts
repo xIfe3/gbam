@@ -138,6 +138,14 @@ describe("Visit beacon and active now (integration)", () => {
     expect(await redis.zscore("active:storefront", stale)).toBeNull();
   });
 
+  it("each beat trims old active entries, even when no admin is watching", async () => {
+    const stale = `${newTab()}|${slug}-old`;
+    await redis.zadd("active:product", Date.now() - 3 * 60_000, stale);
+    await beat({ tabId: newTab(), kind: "product", shop: slug, first: false });
+    // Nobody called /admin/active, yet the stale entry is gone (so the set can't grow forever).
+    expect(await redis.zscore("active:product", stale)).toBeNull();
+  });
+
   it("admins in the admin area are counted", async () => {
     await moduleRef
       .get(VisitsService)

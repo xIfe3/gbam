@@ -5,7 +5,7 @@ category: Legal
 sortOrder: 3
 published: true
 date: 2026-10-03
-lastUpdated: 2026-10-03
+lastUpdated: 2026-10-09
 sections:
   - id: what-cookies-are
     heading: What cookies are
@@ -25,8 +25,10 @@ sections:
     body: |
       We do not use analytics cookies, advertising cookies or tracking cookies. Because we only use an essential cookie, we do not show a cookie banner.
 
+      To see how much Gbam and each shop is used, our pages count visits. Each browser tab makes up a random number, kept in that tab's session storage (it is deleted when the tab closes, and it is not a cookie), so the same tab is not counted twice. We keep only totals per shop and per day. We do not keep IP addresses, names or anything else that identifies you with these counts.
+
       If that changes, we will update this policy and ask for your consent first where the law requires it.
-    short: No analytics or ad cookies, so no cookie banner.
+    short: No analytics or ad cookies, so no cookie banner. Visits are counted as anonymous totals.
   - id: your-choices
     heading: Your choices
     body: |
