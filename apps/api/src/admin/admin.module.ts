@@ -3,6 +3,7 @@ import { AuthModule } from "../auth/auth.module.js";
 import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
+import { PlatformModule } from "../platform/platform.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminGuard } from "./admin.guard.js";
@@ -24,7 +25,7 @@ import { TeamService } from "./team.service.js";
 
 /** The admin area's API: everything under /admin. */
 @Module({
-  imports: [AuthModule, EmailModule, OrdersModule, RateLimiterModule],
+  imports: [AuthModule, EmailModule, OrdersModule, PlatformModule, RateLimiterModule],
   controllers: [
     AdminAuthController,
     TeamController,

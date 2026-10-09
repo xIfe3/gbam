@@ -2,6 +2,7 @@ import { BadRequestException, Controller, Get, Query, UseGuards } from "@nestjs/
 import { z } from "zod";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
 import { AdminGuard, RequirePermission } from "./admin.guard.js";
+import { VisitsService } from "../platform/visits.service.js";
 import { AnalyticsAdminService } from "./analytics-admin.service.js";
 import { daysBetween, MoneyAdminService, type DayRange } from "./money-admin.service.js";
 
@@ -45,6 +46,7 @@ export class NumbersAdminController {
   constructor(
     private readonly money: MoneyAdminService,
     private readonly analytics: AnalyticsAdminService,
+    private readonly visits: VisitsService,
   ) {}
 
   @Get("money")
@@ -57,5 +59,12 @@ export class NumbersAdminController {
   @RequirePermission("analytics.view")
   analyticsOverview(@Query(new ZodPipe(rangeSchema)) query: z.output<typeof rangeSchema>) {
     return this.analytics.overview(rangeFrom(query));
+  }
+
+  /** Who is on Gbam right now (last 2 minutes). */
+  @Get("active")
+  @RequirePermission("analytics.view")
+  activeNow() {
+    return this.visits.active();
   }
 }
