@@ -72,6 +72,17 @@ const envSchema = z
      */
     ADMIN_TOTP_KEY: optional,
 
+    // Admin System page. Each unset → that panel says "not set up" (nothing breaks).
+    /** A Sentry auth token with read access to issues (Settings → Auth Tokens). */
+    SENTRY_AUTH_TOKEN: optional,
+    /** The Sentry organisation and project slugs, as in the Sentry web address. */
+    SENTRY_ORG: optional,
+    SENTRY_PROJECT: optional,
+    /** Unset → https://sentry.io. Use https://de.sentry.io for projects stored in the EU. */
+    SENTRY_API_URL: optional,
+    /** UptimeRobot read-only API key (My Settings → API Settings). */
+    UPTIME_API_KEY: optional,
+
     // Product photos. All five R2 values unset in dev → photos go to PHOTOS_LOCAL_DIR.
     R2_ACCOUNT_ID: optional,
     R2_ACCESS_KEY_ID: optional,
