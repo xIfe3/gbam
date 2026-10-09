@@ -388,3 +388,8 @@ export async function maintenanceAction(_prev: FormState, formData: FormData): P
 export async function activeNowAction() {
   return adminApi.active();
 }
+
+/** Puts a failed background job back in its queue (system.manage; the API records it). */
+export async function retryJobAction(queue: string, id: string): Promise<FormState> {
+  return simple(() => adminApi.retryJob(queue, id), "Queued to run again.");
+}

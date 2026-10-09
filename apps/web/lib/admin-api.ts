@@ -309,6 +309,52 @@ export type AnalyticsOverview = {
   visitFunnel: { visits: number; orders: number; paid: number };
 };
 
+export type SystemOverview = {
+  status: {
+    database: { ok: boolean; ms: number };
+    redis: { ok: boolean; ms: number };
+    worker: { state: "ok" | "late" | "missing"; lastBeatAt: string | null };
+  };
+  /** counts is null when Redis couldn't be reached. */
+  queues: {
+    name: string;
+    counts: { waiting: number; active: number; failed: number; delayed: number } | null;
+  }[];
+  errors:
+    | { state: "not_configured" }
+    | { state: "unavailable" }
+    | {
+        state: "ok";
+        issues: {
+          id: string;
+          title: string;
+          culprit: string;
+          count: number;
+          lastSeen: string;
+          link: string;
+        }[];
+      };
+  uptime:
+    | { state: "not_configured" }
+    | { state: "unavailable" }
+    | {
+        state: "ok";
+        monitors: {
+          name: string;
+          status: "up" | "down" | "paused" | "unknown";
+          uptime30d: number | null;
+        }[];
+      };
+};
+/** A failed background job. Never its data (that can hold codes and emails). */
+export type FailedJob = {
+  id: string;
+  name: string;
+  error: string;
+  attempts: number;
+  failedAt: string;
+};
+
 // ---- Calls ----
 
 export const adminApi = {
@@ -426,4 +472,13 @@ export const adminApi = {
   analytics: (range: ReportRange) =>
     adminRequest<AnalyticsOverview>(`/admin/analytics${queryString(range)}`),
   active: () => adminRequest<ActiveCounts>("/admin/active"),
+
+  system: () => adminRequest<SystemOverview>("/admin/system"),
+  failedJobs: (queue: string) =>
+    adminRequest<FailedJob[]>(`/admin/system/queues/${encodeURIComponent(queue)}/failed`),
+  retryJob: (queue: string, id: string) =>
+    adminRequest(
+      `/admin/system/queues/${encodeURIComponent(queue)}/jobs/${encodeURIComponent(id)}/retry`,
+      { method: "POST" },
+    ),
 };

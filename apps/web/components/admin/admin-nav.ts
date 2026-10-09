@@ -20,6 +20,7 @@ const NAV: NavItem[] = [
   { href: "/admin/analytics", label: "Analytics", needs: "analytics.view" },
   { href: "/admin/support", label: "Support", needs: "support.view" },
   { href: "/admin/audit", label: "Audit log", needs: "audit.view" },
+  { href: "/admin/system", label: "System", needs: "system.view" },
   { href: "/admin/settings", label: "Settings", needs: "settings.manage" },
   { href: "/admin/team", label: "Team", needs: "superadmin" },
   { href: "/admin/roles", label: "Roles", needs: "superadmin" },

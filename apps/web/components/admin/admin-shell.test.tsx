@@ -34,6 +34,7 @@ describe("admin navigation", () => {
       "Analytics",
       "Support",
       "Audit log",
+      "System",
       "Settings",
       "Team",
       "Roles",
@@ -47,6 +48,11 @@ describe("admin navigation", () => {
     expect(money.map((item) => item.label)).toEqual(["Overview", "Money"]);
     const analytics = visibleNav({ isSuperadmin: false, permissions: ["analytics.view"] });
     expect(analytics.map((item) => item.label)).toEqual(["Overview", "Analytics"]);
+  });
+
+  it("nav shows System by permission", () => {
+    const system = visibleNav({ isSuperadmin: false, permissions: ["system.view"] });
+    expect(system.map((item) => item.label)).toEqual(["Overview", "System"]);
   });
 });
 
