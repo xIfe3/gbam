@@ -26,6 +26,15 @@ function text(value: unknown): string {
   return "";
 }
 
+/** Only https links: the page shows this as a link, and "javascript:..." must never be one. */
+function httpsLink(value: unknown): string {
+  const link = text(value);
+  if (link.startsWith("https://")) {
+    return link;
+  }
+  return "";
+}
+
 /**
  * The latest unresolved errors from Sentry's API, for the admin System page. Only titles,
  * counts and links are kept; titles are scrubbed again in case one holds an email or phone.
@@ -84,7 +93,7 @@ export class SentryIssuesClient {
         culprit: scrubText(text(issue.culprit)),
         count: Number(issue.count),
         lastSeen: text(issue.lastSeen),
-        link: text(issue.permalink),
+        link: httpsLink(issue.permalink),
       });
     }
     const result: SentryResult = { state: "ok", issues };

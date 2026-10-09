@@ -133,14 +133,17 @@ function ErrorsPanel({ errors }: { errors: SystemOverview["errors"] }) {
         <ul className="mt-2 divide-y divide-zinc-100 text-sm">
           {errors.issues.map((issue) => (
             <li key={issue.id} className="py-2">
-              <a
-                href={issue.link}
-                target="_blank"
-                rel="noreferrer"
-                className="text-brand font-bold break-words"
-              >
-                {issue.title}
-              </a>
+              {issue.link !== "" && (
+                <a
+                  href={issue.link}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-brand font-bold wrap-break-word"
+                >
+                  {issue.title}
+                </a>
+              )}
+              {issue.link === "" && <span className="font-bold wrap-break-word">{issue.title}</span>}
               <span className="text-ink-muted block">
                 {issue.culprit} · {issue.count} times · last {shortTime(issue.lastSeen)}
               </span>
@@ -257,7 +260,7 @@ function FailedPanel({
                   <td className="py-2">
                     {job.name} <span className="text-ink-muted">#{job.id}</span>
                   </td>
-                  <td className="py-2 break-words">{job.error}</td>
+                  <td className="py-2 wrap-break-word">{job.error}</td>
                   <td className="py-2 text-right">{job.attempts}</td>
                   <td className="py-2">{shortTime(job.failedAt)}</td>
                   {canRetry && (

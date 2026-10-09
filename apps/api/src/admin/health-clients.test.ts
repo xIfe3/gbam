@@ -75,6 +75,20 @@ describe("SentryIssuesClient", () => {
     expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
+  it("a link that isn't https is dropped (it's shown as a link to admins)", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        jsonResponse([{ id: "1", title: "x", count: "1", permalink: "javascript:alert(1)" }]),
+      ),
+    );
+    const result = await new SentryIssuesClient(SENTRY_ENV).latest();
+    if (result.state !== "ok") {
+      throw new Error(`expected ok, got ${result.state}`);
+    }
+    expect(result.issues[0]?.link).toBe("");
+  });
+
   it("sentry unavailable", async () => {
     vi.stubGlobal(
       "fetch",
