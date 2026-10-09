@@ -6,6 +6,7 @@ import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { PlatformModule } from "../platform/platform.module.js";
+import { TicketsModule } from "../tickets/tickets.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminGuard } from "./admin.guard.js";
@@ -26,6 +27,8 @@ import { SentryIssuesClient } from "./sentry-issues.client.js";
 import { SystemAdminController } from "./system-admin.controller.js";
 import { SYSTEM_QUEUE_NAMES, SYSTEM_QUEUES, SystemAdminService } from "./system-admin.service.js";
 import { SystemStatusService } from "./system-status.service.js";
+import { TicketsAdminController } from "./tickets-admin.controller.js";
+import { TicketsAdminService } from "./tickets-admin.service.js";
 import { UptimeClient } from "./uptime.client.js";
 import { TeamController } from "./team.controller.js";
 import { TeamService } from "./team.service.js";
@@ -48,6 +51,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     OrdersModule,
     PlatformModule,
     RateLimiterModule,
+    TicketsModule,
     BullModule.registerQueue(...queueRegistrations),
   ],
   controllers: [
@@ -59,6 +63,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     SettingsAdminController,
     NumbersAdminController,
     SystemAdminController,
+    TicketsAdminController,
   ],
   providers: [
     AdminAuthService,
@@ -76,6 +81,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     SentryIssuesClient,
     UptimeClient,
     SystemAdminService,
+    TicketsAdminService,
     // A "factory" provider: Nest looks up each queue (by its token) and passes them all in,
     // and the list becomes SYSTEM_QUEUES.
     {
