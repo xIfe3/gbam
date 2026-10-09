@@ -12,6 +12,8 @@ export type SendEmailInput = {
   html: string;
   /** Where replies go, e.g. the person who filled in the contact form. */
   replyTo?: string;
+  /** Extra email headers, e.g. List-Unsubscribe on announcements. */
+  headers?: Record<string, string>;
 };
 
 export class EmailError extends Error {
@@ -45,6 +47,9 @@ export class ResendEmailClient implements EmailClient {
     };
     if (input.replyTo) {
       body.reply_to = input.replyTo;
+    }
+    if (input.headers) {
+      body.headers = input.headers;
     }
 
     const res = await fetch("https://api.resend.com/emails", {

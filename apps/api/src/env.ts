@@ -72,6 +72,12 @@ const envSchema = z
      */
     ADMIN_TOTP_KEY: optional,
 
+    /**
+     * Signs the unsubscribe links in announcement emails: a long random string
+     * (`openssl rand -base64 32`). Unset → announcements can't be sent (503).
+     */
+    UNSUBSCRIBE_SIGNING_KEY: optional,
+
     // Admin System page. Each unset → that panel says "not set up" (nothing breaks).
     /** A Sentry auth token with read access to issues (Settings → Auth Tokens). */
     SENTRY_AUTH_TOKEN: optional,

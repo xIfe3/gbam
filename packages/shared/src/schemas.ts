@@ -132,11 +132,19 @@ export const orderCodeSchema = z
 /** The /track form: the order code plus the last 4 digits of the phone used to order. */
 export const trackLookupSchema = z.object({
   code: orderCodeSchema,
-  phoneLast4: z.string().trim().regex(/^\d{4}$/, "Enter the last 4 digits of your phone number"),
+  phoneLast4: z
+    .string()
+    .trim()
+    .regex(/^\d{4}$/, "Enter the last 4 digits of your phone number"),
 });
 export type TrackLookupInput = z.infer<typeof trackLookupSchema>;
 
-export const ISSUE_REASONS = ["paid_not_marked", "not_received", "wrong_or_damaged", "other"] as const;
+export const ISSUE_REASONS = [
+  "paid_not_marked",
+  "not_received",
+  "wrong_or_damaged",
+  "other",
+] as const;
 export type IssueReason = (typeof ISSUE_REASONS)[number];
 
 /** What each reason says, for the customer's form and the seller's dashboard and email. */
@@ -157,7 +165,6 @@ export const updateOrderStatusSchema = z.object({
   status: orderStatusSchema,
 });
 export type UpdateOrderStatusInput = z.infer<typeof updateOrderStatusSchema>;
-
 
 /** Max 200 stops someone sending a huge string to make the Argon2 hash do heavy work. */
 export const passwordSchema = z.string().min(8).max(200);
@@ -201,6 +208,8 @@ export type ShopSettingsInput = z.output<typeof shopSettingsSchema>;
 /** Which optional emails the seller wants. */
 export const emailSettingsSchema = z.object({
   newOrderEmails: z.boolean(),
+  /** Gbam's "news and tips" announcements. Optional so older pages that don't send it still work. */
+  newsEmails: z.boolean().optional(),
 });
 export type EmailSettingsInput = z.output<typeof emailSettingsSchema>;
 

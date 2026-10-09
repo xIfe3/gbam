@@ -1,4 +1,6 @@
 import {
+  ANNOUNCEMENT_STATUSES,
+  NOTIFICATION_TYPES,
   ORDER_STATUSES,
   TICKET_PRIORITIES,
   TICKET_SOURCES,
@@ -193,6 +195,8 @@ export const sellers = pgTable("sellers", {
   suspendedReason: text("suspended_reason"),
   /** Email the owner when a new order comes in. Busy shops can turn it off in Settings. */
   newOrderEmails: boolean("new_order_emails").notNull().default(true),
+  /** Gbam's "news and tips" announcements. Off = unsubscribed (Settings or the email link). */
+  newsEmails: boolean("news_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */
   pickupNote: text("pickup_note"),
   createdAt: createdAt(),
@@ -822,4 +826,93 @@ export const ticketMessages = pgTable(
     createdAt: createdAt(),
   },
   (t) => [index("ticket_messages_ticket_idx").on(t.ticketId)],
+);
+
+export const announcementStatusEnum = pgEnum("announcement_status", ANNOUNCEMENT_STATUSES);
+export const recipientStatusEnum = pgEnum("recipient_status", ["queued", "sent", "failed"]);
+export const notificationTypeEnum = pgEnum("notification_type", NOTIFICATION_TYPES);
+
+/** An email to sellers ("news and tips"), written by an admin. */
+export const announcements = pgTable("announcements", {
+  id: id(),
+  subject: text("subject").notNull(),
+  /** Simple formatting: paragraphs, **bold**, [links](https://…) and "- " lists. */
+  body: text("body").notNull(),
+  buttonLabel: text("button_label"),
+  buttonUrl: text("button_url"),
+  /** Who it goes to (see audienceSchema in @gbam/shared). Worked out again when it's sent. */
+  audience: jsonb("audience").notNull(),
+  status: announcementStatusEnum("status").notNull().default("draft"),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+  createdBy: uuid("created_by").references(() => adminUsers.id, { onDelete: "set null" }),
+  /** In the bin (restorable for 30 days). */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: createdAt(),
+  updatedAt: updatedAt(),
+});
+
+/**
+ * One row per seller an announcement goes to. The row exists before the email is sent, so a
+ * send that's interrupted and run again skips everyone already marked "sent".
+ */
+export const announcementRecipients = pgTable(
+  "announcement_recipients",
+  {
+    id: id(),
+    announcementId: uuid("announcement_id")
+      .notNull()
+      .references(() => announcements.id, { onDelete: "cascade" }),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellers.id, { onDelete: "cascade" }),
+    email: text("email").notNull(),
+    status: recipientStatusEnum("status").notNull().default("queued"),
+    /** Why it failed (the provider's message), for the admin page. */
+    error: text("error"),
+    sentAt: timestamp("sent_at", { withTimezone: true }),
+  },
+  (t) => [
+    unique("announcement_recipients_uq").on(t.announcementId, t.sellerId),
+    index("announcement_recipients_status_idx").on(t.announcementId, t.status),
+  ],
+);
+
+/** A notification an admin sent to many sellers at once (each gets a seller_notifications row). */
+export const notificationCampaigns = pgTable("notification_campaigns", {
+  id: id(),
+  type: notificationTypeEnum("type").notNull(),
+  title: text("title").notNull(),
+  body: text("body").notNull(),
+  link: text("link"),
+  endsAt: timestamp("ends_at", { withTimezone: true }),
+  audience: jsonb("audience").notNull(),
+  recipientCount: integer("recipient_count").notNull().default(0),
+  createdBy: uuid("created_by").references(() => adminUsers.id, { onDelete: "set null" }),
+  /** In the bin: its notifications stop showing; restorable for 30 days. */
+  deletedAt: timestamp("deleted_at", { withTimezone: true }),
+  createdAt: createdAt(),
+});
+
+/** One notification in one seller's bell. From an admin campaign, or made by Gbam itself. */
+export const sellerNotifications = pgTable(
+  "seller_notifications",
+  {
+    id: id(),
+    sellerId: uuid("seller_id")
+      .notNull()
+      .references(() => sellers.id, { onDelete: "cascade" }),
+    /** null = made by Gbam itself (e.g. "Gbam replied to your request"). */
+    campaignId: uuid("campaign_id").references(() => notificationCampaigns.id, {
+      onDelete: "cascade",
+    }),
+    type: notificationTypeEnum("type").notNull(),
+    title: text("title").notNull(),
+    body: text("body").notNull(),
+    link: text("link"),
+    endsAt: timestamp("ends_at", { withTimezone: true }),
+    readAt: timestamp("read_at", { withTimezone: true }),
+    createdAt: createdAt(),
+  },
+  (t) => [index("seller_notifications_seller_idx").on(t.sellerId, t.createdAt)],
 );

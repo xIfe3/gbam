@@ -44,6 +44,27 @@ describe("ResendEmailClient", () => {
     expect(JSON.parse(init.body as string)).not.toHaveProperty("reply_to");
   });
 
+  it("passes extra headers (for one-click unsubscribe)", async () => {
+    const fetchMock = vi.fn(async () => Response.json({ id: "email_3" }));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = new ResendEmailClient("k", "from@gbam.app");
+    await client.send({
+      to: "a@b.com",
+      subject: "s",
+      text: "t",
+      html: "h",
+      headers: {
+        "List-Unsubscribe": "<https://gbam.app/api/unsubscribe?s=1&t=2>",
+        "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+      },
+    });
+    const [, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
+    expect(JSON.parse(init.body as string).headers).toEqual({
+      "List-Unsubscribe": "<https://gbam.app/api/unsubscribe?s=1&t=2>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+  });
+
   it("throws EmailError with Resend's message on non-2xx", async () => {
     vi.stubGlobal(
       "fetch",

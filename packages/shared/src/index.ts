@@ -2,6 +2,7 @@ export * from "./admin";
 export * from "./delivery";
 export * from "./fees";
 export * from "./format";
+export * from "./messaging";
 export * from "./order-state";
 export * from "./platform-settings";
 export * from "./products";
