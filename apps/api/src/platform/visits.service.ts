@@ -1,4 +1,4 @@
-import { sellers } from "@gbam/db";
+import { dailyVisits, sellers } from "@gbam/db";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq, isNull } from "drizzle-orm";
 import type { Redis } from "ioredis";
@@ -126,5 +126,41 @@ export class VisitsService {
       return null;
     }
     return row.id;
+  }
+
+  /**
+   * Copies one day's counters from Redis into daily_visits. Safe to run again and again: each
+   * row is set to the current count ("upsert"), never added to, so nothing is counted twice.
+   */
+  async copyDay(day: string): Promise<void> {
+    const counters = await this.redis.hgetall(`visits:${day}`);
+    for (const [field, value] of Object.entries(counters)) {
+      // field is "{sellerId}:{kind}"
+      const [sellerId, kind] = field.split(":");
+      if (!sellerId || !kind) {
+        continue;
+      }
+      const visits = Number(value);
+      try {
+        await this.db
+          .insert(dailyVisits)
+          .values({ day, sellerId, kind, visits })
+          .onConflictDoUpdate({
+            target: [dailyVisits.day, dailyVisits.sellerId, dailyVisits.kind],
+            set: { visits },
+          });
+      } catch {
+        // The shop was deleted since (its id no longer exists): nothing to keep.
+      }
+    }
+  }
+
+  /** Copies yesterday and today (yesterday too, for visits in the last minutes before midnight). */
+  async copyRecent(now: Date): Promise<string[]> {
+    const days = [lagosDay(new Date(now.getTime() - 86_400_000)), lagosDay(now)];
+    for (const day of days) {
+      await this.copyDay(day);
+    }
+    return days;
   }
 }

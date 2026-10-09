@@ -1,7 +1,9 @@
+import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { RateLimiterModule } from "../common/rate-limiter.js";
 import { BeatController } from "./beat.controller.js";
 import { PlatformController } from "./platform.controller.js";
+import { VISITS_COPY_QUEUE, VisitsCopyQueue } from "./visits-copy.queue.js";
 import { VisitsService } from "./visits.service.js";
 
 /**
@@ -9,9 +11,9 @@ import { VisitsService } from "./visits.service.js";
  * settings service itself comes from InfraModule.
  */
 @Module({
-  imports: [RateLimiterModule],
+  imports: [RateLimiterModule, BullModule.registerQueue({ name: VISITS_COPY_QUEUE })],
   controllers: [PlatformController, BeatController],
-  providers: [VisitsService],
+  providers: [VisitsService, VisitsCopyQueue],
   // The admin area reads "active right now" from VisitsService.
   exports: [VisitsService],
 })
