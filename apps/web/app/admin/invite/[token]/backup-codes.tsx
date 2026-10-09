@@ -1,7 +1,7 @@
-import Link from "next/link";
+import { finishSetupAction } from "./actions";
 
 /** The 10 one-time backup codes, shown once right after accepting the invite. */
-export function BackupCodes({ codes }: { codes: string[] }) {
+export function BackupCodes({ codes, sessionToken }: { codes: string[]; sessionToken: string }) {
   return (
     <div className="flex flex-col gap-4">
       <h2 className="text-ink font-bold">Save your backup codes</h2>
@@ -14,12 +14,15 @@ export function BackupCodes({ codes }: { codes: string[] }) {
           <li key={code}>{code}</li>
         ))}
       </ul>
-      <Link
-        href="/admin"
-        className="bg-brand hover:bg-brand-hover inline-flex min-h-11 items-center justify-center rounded-full px-5 font-bold text-white"
-      >
-        I&apos;ve saved them, continue
-      </Link>
+      {/* A form so the button runs the server action that signs them in. */}
+      <form action={finishSetupAction.bind(null, sessionToken)}>
+        <button
+          type="submit"
+          className="bg-brand hover:bg-brand-hover inline-flex min-h-11 w-full items-center justify-center rounded-full px-5 font-bold text-white"
+        >
+          I&apos;ve saved them, continue
+        </button>
+      </form>
     </div>
   );
 }
