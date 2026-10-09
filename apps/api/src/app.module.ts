@@ -4,6 +4,7 @@ import { APP_FILTER, APP_GUARD } from "@nestjs/core";
 import { SentryGlobalFilter, SentryModule } from "@sentry/nestjs/setup";
 import { AuthModule } from "./auth/auth.module.js";
 import { ContactModule } from "./contact/contact.module.js";
+import { TicketsModule } from "./tickets/tickets.module.js";
 import { ContentModule } from "./content/content.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { InfraModule } from "./infra/infra.module.js";
@@ -28,6 +29,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     AdminModule,
     AuthModule,
     ContactModule,
+    TicketsModule,
     ContentModule,
     InfraModule,
     IntegrationsModule,
