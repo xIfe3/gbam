@@ -14,7 +14,7 @@ import {
 } from "../action-helpers";
 
 /** Where a freshly verified user goes: step 3, adding the bank account they'll be paid into. */
-const AFTER_VERIFY = "/signup/get-paid";
+const AFTER_VERIFY = "/signup/your-look";
 
 export async function signupAction(_prev: FormState, formData: FormData): Promise<FormState> {
   // Everything typed except the password is sent back so the form keeps it on an error.

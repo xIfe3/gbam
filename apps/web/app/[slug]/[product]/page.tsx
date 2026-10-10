@@ -75,7 +75,11 @@ export default async function ProductPage(props: PageProps<"/[slug]/[product]">)
 
   return (
     <>
-      <ShopHeader shopSlug={store.slug} businessName={store.businessName} />
+      <ShopHeader
+        shopSlug={store.slug}
+        businessName={store.businessName}
+        logoUrl={store.logoUrl ?? null}
+      />
       <Beacon kind="product" shop={store.slug} />
       {/* pb-32 on phones: room for the "Add to order" bar pinned to the bottom. */}
       <main className="mx-auto max-w-5xl px-4 pt-4 pb-32 md:pb-12">

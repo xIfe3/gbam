@@ -13,6 +13,8 @@ const { apiMock, FakeApiError, refresh, redirect, clearSessionCookie } = vi.hois
   }
   return {
     apiMock: {
+      uploadShopImage: vi.fn(),
+      removeShopImage: vi.fn(),
       changeSlug: vi.fn(),
       updateShopSettings: vi.fn(),
       updateEmailSettings: vi.fn(),
@@ -43,6 +45,8 @@ vi.mock("@/lib/session", () => ({ clearSessionCookie }));
 
 import {
   changeSlugAction,
+  removeShopImageAction,
+  uploadShopImageAction,
   changePasswordAction,
   closeAccountAction,
   saveDeliveryAction,
@@ -216,5 +220,33 @@ describe("changeSlugAction", () => {
     );
     const state = await changeSlugAction({}, form({ slug: "taken-one" }));
     expect(state.fieldErrors?.slug).toBe("That link is taken");
+  });
+});
+
+describe("shop images", () => {
+  it("uploads a logo and returns its address", async () => {
+    apiMock.uploadShopImage.mockResolvedValue({ url: "https://photos.test/logo.webp" });
+    const data = new FormData();
+    data.set("image", new File([new Uint8Array([1])], "logo.png", { type: "image/png" }));
+    const result = await uploadShopImageAction("logo", data);
+    expect(apiMock.uploadShopImage).toHaveBeenCalledWith("logo", expect.any(File));
+    expect(result).toEqual({ url: "https://photos.test/logo.webp" });
+    expect(await uploadShopImageAction("logo", new FormData())).toEqual({
+      error: "Choose a photo",
+    });
+  });
+
+  it("the API's reason is shown, and removing works", async () => {
+    apiMock.uploadShopImage.mockRejectedValue(
+      new FakeApiError(400, { message: "We can't read this photo. Try a JPEG or PNG." }),
+    );
+    const data = new FormData();
+    data.set("image", new File([new Uint8Array([1])], "x.png", { type: "image/png" }));
+    expect((await uploadShopImageAction("banner", data)).error).toBe(
+      "We can't read this photo. Try a JPEG or PNG.",
+    );
+    apiMock.removeShopImage.mockResolvedValue({ ok: true });
+    expect(await removeShopImageAction("banner")).toEqual({});
+    expect(apiMock.removeShopImage).toHaveBeenCalledWith("banner");
   });
 });

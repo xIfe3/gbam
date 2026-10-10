@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/brand/empty-state";
-import { Logo } from "@/components/brand/logo";
+import { ShopCover } from "@/components/shop/shop-cover";
 import { api, ApiError } from "@/lib/api";
 import { redirectIfShopMoved } from "@/lib/shop-moved";
 import { BasketBar } from "./basket-bar";
@@ -53,15 +53,15 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           get a WhatsApp message once it&apos;s confirmed.
         </p>
       )}
-      <header className="mb-6">
-        <Logo size="sm" />
-        <h1 className="font-display text-ink mt-6 text-4xl leading-tight font-black">
-          {store.businessName}
-        </h1>
+      <ShopCover
+        businessName={store.businessName}
+        logoUrl={store.logoUrl ?? null}
+        bannerUrl={store.bannerUrl ?? null}
+      >
         <p className="text-ink-muted mt-2">
           Pick something you like. You&apos;ll get updates on WhatsApp.
         </p>
-      </header>
+      </ShopCover>
       {store.suspended === true && (
         <EmptyState
           art={

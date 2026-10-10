@@ -8,6 +8,7 @@ import { SITE_HOST } from "@/lib/site";
 import { DeliveryForm } from "./delivery-form";
 import { CloseAccountForm, EmailsForm, PasswordForm, ShopForm } from "./settings-forms";
 import { ShopLinkForm } from "./shop-link-form";
+import { ShopImagesForm } from "@/components/dashboard/shop-images-form";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -55,6 +56,21 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
         </h2>
         <p className="mb-4 text-sm text-zinc-500">Your shop name and WhatsApp number.</p>
         <ShopForm businessName={settings.businessName} phone={settings.phone} />
+      </section>
+
+      <section aria-labelledby="look-heading" className={sectionClass}>
+        <h2 id="look-heading" className="mb-1 font-semibold">
+          Logo and banner
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Shown at the top of your shop page, LinkedIn style. Your logo also shows in your
+          dashboard.
+        </p>
+        <ShopImagesForm
+          businessName={settings.businessName}
+          logoUrl={settings.logoUrl}
+          bannerUrl={settings.bannerUrl}
+        />
       </section>
 
       <section aria-labelledby="link-heading" className={sectionClass}>

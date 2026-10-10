@@ -123,10 +123,10 @@ describe("verifyEmailAction", () => {
     expect(state.fieldErrors?.code).toBe("That code is wrong or has expired");
   });
 
-  it("goes on to step 3 (get paid) after a good code", async () => {
+  it("goes on to step 3 (your look) after a good code", async () => {
     apiMock.verifyEmail.mockResolvedValue({ ok: true });
     await expect(verifyEmailAction({}, form({ code: "123456" }))).rejects.toThrow(
-      "NEXT_REDIRECT:/signup/get-paid",
+      "NEXT_REDIRECT:/signup/your-look",
     );
   });
 });

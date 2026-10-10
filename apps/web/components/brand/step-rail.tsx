@@ -5,11 +5,12 @@ import { Logo } from "./logo";
 const STEPS = [
   { title: "Your shop", detail: "name & link" },
   { title: "Verify", detail: "6-digit code" },
+  { title: "Your look", detail: "logo & banner, optional" },
   { title: "Get paid", detail: "bank details" },
 ];
 
 type StepRailProps = {
-  // 1, 2 or 3
+  // 1 to 4
   current: number;
 };
 

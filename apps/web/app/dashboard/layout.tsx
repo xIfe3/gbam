@@ -1,3 +1,4 @@
+/* eslint-disable @next/next/no-img-element -- shop logos and banners are small WebP files from our own storage */
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -48,10 +49,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
   }
 
   let shopName = user.email;
+  let logoUrl: string | null = null;
   let needsPayoutAccount = false;
   let suspended = false;
   if (user.seller) {
     shopName = user.seller.businessName;
+    logoUrl = user.seller.logoUrl ?? null;
     needsPayoutAccount = !user.seller.hasPayoutAccount;
     suspended = user.seller.suspended === true;
   }
@@ -66,6 +69,13 @@ export default async function DashboardLayout({ children }: { children: React.Re
             className="focus-visible:outline-brand flex min-h-11 min-w-0 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             <Logo size="sm" />
+            {logoUrl && (
+              <img
+                src={logoUrl}
+                alt=""
+                className="size-8 shrink-0 rounded-full border border-zinc-200 object-cover"
+              />
+            )}
             <span className="text-ink-muted truncate text-sm font-medium">{shopName}</span>
           </Link>
           <div className="flex items-center gap-2">

@@ -42,7 +42,7 @@ export default async function GetPaidPage() {
 
   return (
     <SignupFrame
-      step={3}
+      step={4}
       title="Get paid"
       subtitle="Where should we send your money? Customers pay through Paystack, and your share goes straight to this account."
     >

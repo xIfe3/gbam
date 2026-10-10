@@ -19,7 +19,7 @@ import {
   type FormState,
 } from "@/app/(auth)/action-helpers";
 import type { SlugCheck } from "@/app/(auth)/signup/actions";
-import { api } from "@/lib/api";
+import { api, ApiError } from "@/lib/api";
 import { clearSessionCookie } from "@/lib/session";
 import { SITE_HOST } from "@/lib/site";
 
@@ -233,4 +233,42 @@ export async function changeSlugAction(_prev: FormState, formData: FormData): Pr
   return {
     notice: `Done. Your shop is now at ${SITE_HOST}/${saved}. Your old link still works and takes people there.`,
   };
+}
+
+/** Uploads the shop's logo or banner (from Settings or the signup "your look" step). */
+export async function uploadShopImageAction(
+  kind: "logo" | "banner",
+  formData: FormData,
+): Promise<{ url?: string; error?: string }> {
+  const image = formData.get("image");
+  if (!(image instanceof File) || image.size === 0) {
+    return { error: "Choose a photo" };
+  }
+  try {
+    const result = await api.uploadShopImage(kind, image);
+    return { url: result.url };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (error instanceof ApiError && (error.status === 400 || error.status === 413)) {
+      const body = error.body;
+      if (typeof body === "object" && body !== null && "message" in body) {
+        const message = body.message;
+        if (typeof message === "string") {
+          return { error: message };
+        }
+      }
+    }
+    return { error: failureMessage(error, "upload shop image") };
+  }
+}
+
+/** Back to the default look (initials or the gbam pattern). */
+export async function removeShopImageAction(kind: "logo" | "banner"): Promise<{ error?: string }> {
+  try {
+    await api.removeShopImage(kind);
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: failureMessage(error, "remove shop image") };
+  }
+  return {};
 }

@@ -1,6 +1,6 @@
 import { StepRail } from "@/components/brand/step-rail";
 
-// The guided sign-up layout shared by steps 1 to 3: rail (or progress bar) plus a form column.
+// The guided sign-up layout shared by steps 1 to 4: rail (or progress bar) plus a form column.
 export function SignupFrame({
   step,
   title,

@@ -1,4 +1,5 @@
 "use client";
+/* eslint-disable @next/next/no-img-element -- shop logos and banners are small WebP files from our own storage */
 
 import Link from "next/link";
 import { basketTotals, useBasket } from "@/lib/basket";
@@ -7,7 +8,15 @@ import { basketTotals, useBasket } from "@/lib/basket";
  * The shop's own header on its pages: the first letter of its name as a round badge, the
  * name (back to the shop), how ordering works, and a basket button with the item count.
  */
-export function ShopHeader({ shopSlug, businessName }: { shopSlug: string; businessName: string }) {
+export function ShopHeader({
+  shopSlug,
+  businessName,
+  logoUrl = null,
+}: {
+  shopSlug: string;
+  businessName: string;
+  logoUrl?: string | null;
+}) {
   const basket = useBasket(shopSlug);
   const { itemCount } = basketTotals(basket.lines);
   let initial = "?";
@@ -18,12 +27,21 @@ export function ShopHeader({ shopSlug, businessName }: { shopSlug: string; busin
   return (
     <header className="bg-brand-tint">
       <div className="mx-auto flex max-w-5xl items-center gap-3 px-4 py-3">
-        <span
-          aria-hidden="true"
-          className="bg-brand font-display flex size-10 shrink-0 items-center justify-center rounded-full text-lg font-black text-white"
-        >
-          {initial}
-        </span>
+        {logoUrl && (
+          <img
+            src={logoUrl}
+            alt=""
+            className="size-10 shrink-0 rounded-full bg-white object-cover"
+          />
+        )}
+        {!logoUrl && (
+          <span
+            aria-hidden="true"
+            className="bg-brand font-display flex size-10 shrink-0 items-center justify-center rounded-full text-lg font-black text-white"
+          >
+            {initial}
+          </span>
+        )}
         <div className="min-w-0 flex-1">
           <Link
             href={`/${shopSlug}`}

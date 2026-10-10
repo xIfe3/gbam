@@ -184,6 +184,9 @@ export type Storefront = {
   store: {
     slug: string;
     businessName: string;
+    /** The shop's logo and banner; null = the default look (initials, gbam pattern). */
+    logoUrl?: string | null;
+    bannerUrl?: string | null;
     /** Checkout shows these zones; an empty list means "address only, no delivery fee". */
     delivery: DeliverySettings;
     /** Gbam paused the shop: no products are listed and nothing can be ordered. */
@@ -214,7 +217,7 @@ export type StorefrontProduct = {
 };
 
 export type StorefrontProductPage = {
-  store: { slug: string; businessName: string };
+  store: { slug: string; businessName: string; logoUrl?: string | null; bannerUrl?: string | null };
   product: StorefrontProduct;
 };
 
@@ -483,6 +486,8 @@ export type PublicUser = {
     hasPayoutAccount: boolean;
     /** Gbam paused the shop: the dashboard shows why orders stopped. Missing on older APIs. */
     suspended?: boolean;
+    /** The shop's logo, for the dashboard header. Missing on older APIs. */
+    logoUrl?: string | null;
   } | null;
 };
 
@@ -627,6 +632,9 @@ export type ShopSettings = {
   newsEmails: boolean;
   /** When the shop link can next be changed; null = now. */
   nextSlugChangeAt: string | null;
+  /** The shop's logo and banner; null = the default look. */
+  logoUrl: string | null;
+  bannerUrl: string | null;
 };
 
 async function getSettings() {
@@ -648,6 +656,22 @@ async function changeSlug(slug: string) {
     body: JSON.stringify({ slug }),
     auth: "session",
   });
+}
+
+/** Uploads the shop's logo or banner; returns its address. */
+async function uploadShopImage(kind: "logo" | "banner", image: File) {
+  const form = new FormData();
+  form.set("image", image);
+  return request<{ url: string }>(`/settings/images/${kind}`, {
+    method: "POST",
+    body: form,
+    auth: "session",
+  });
+}
+
+/** Back to the default look for the logo or banner. */
+async function removeShopImage(kind: "logo" | "banner") {
+  return request<{ ok: true }>(`/settings/images/${kind}`, { method: "DELETE", auth: "session" });
 }
 
 async function updateShopSettings(body: { businessName: string; phone: string }) {
@@ -929,6 +953,8 @@ export const api = {
   changePayoutAccount,
   getSettings,
   updateShopSettings,
+  uploadShopImage,
+  removeShopImage,
   shopSlugAvailable,
   changeSlug,
   updateEmailSettings,
