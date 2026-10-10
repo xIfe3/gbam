@@ -22,6 +22,7 @@ const NAV: NavItem[] = [
   { href: "/admin/tickets", label: "Tickets", needs: "tickets.view" },
   { href: "/admin/announcements", label: "Announcements", needs: "messages.send" },
   { href: "/admin/notifications", label: "Notifications", needs: "messages.send" },
+  { href: "/admin/content", label: "Content", needs: "content.edit" },
   { href: "/admin/audit", label: "Audit log", needs: "audit.view" },
   { href: "/admin/system", label: "System", needs: "system.view" },
   { href: "/admin/settings", label: "Settings", needs: "settings.manage" },

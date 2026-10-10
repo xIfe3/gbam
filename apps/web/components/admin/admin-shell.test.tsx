@@ -36,6 +36,7 @@ describe("admin navigation", () => {
       "Tickets",
       "Announcements",
       "Notifications",
+      "Content",
       "Audit log",
       "System",
       "Settings",
@@ -65,6 +66,11 @@ describe("admin navigation", () => {
       "Announcements",
       "Notifications",
     ]);
+  });
+
+  it("nav shows Content by permission", () => {
+    const content = visibleNav({ isSuperadmin: false, permissions: ["content.edit"] });
+    expect(content.map((item) => item.label)).toEqual(["Overview", "Content"]);
   });
 
   it("nav shows System by permission", () => {

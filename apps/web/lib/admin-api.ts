@@ -11,6 +11,8 @@ import type {
   TicketUpdateInput,
   AnnouncementStatus,
   Audience,
+  ContentDraft,
+  ContentStatus,
   NotificationType,
 } from "@gbam/shared";
 import { redirect } from "next/navigation";
@@ -34,8 +36,11 @@ type AdminRequestOptions = {
 
 async function adminRequest<T>(path: string, options: AdminRequestOptions = {}): Promise<T> {
   const headers = new Headers();
-  let body: string | undefined = undefined;
-  if (options.body !== undefined) {
+  let body: string | FormData | undefined = undefined;
+  if (options.body instanceof FormData) {
+    // A file upload: fetch sets the multipart content-type (with its boundary) itself.
+    body = options.body;
+  } else if (options.body !== undefined) {
     headers.set("content-type", "application/json");
     body = JSON.stringify(options.body);
   }
@@ -462,6 +467,31 @@ export type NotificationBody = {
   confirmCount: number;
 };
 
+export type ContentRow = {
+  id: string;
+  type: string;
+  slug: string;
+  title: string;
+  category: string | null;
+  status: ContentStatus;
+  /** Saved changes that aren't published yet. */
+  hasDraft: boolean;
+  updatedAt: string;
+};
+export type ContentEntryDetail = {
+  entry: ContentDraft & {
+    id: string;
+    type: string;
+    slug: string;
+    publishedAt: string | null;
+    deletedAt: string | null;
+    status: ContentStatus;
+    draft: ContentDraft | null;
+  };
+  versions: { id: string; version: number; createdAt: string; publishedByName: string | null }[];
+};
+export type ContentVersion = ContentDraft & { id: string; version: number; createdAt: string };
+
 // ---- Calls ----
 
 export const adminApi = {
@@ -635,6 +665,29 @@ export const adminApi = {
     adminRequest(`/admin/notifications/${id}/delete`, { method: "POST" }),
   restoreNotification: (id: string) =>
     adminRequest(`/admin/notifications/${id}/restore`, { method: "POST" }),
+
+  contentList: (query: Record<string, string | number | undefined>) =>
+    adminRequest<ContentRow[]>(`/admin/content${queryString(query)}`),
+  contentEntry: (id: string) => adminRequest<ContentEntryDetail>(`/admin/content/${id}`),
+  createContent: (body: ContentDraft & { type: string; slug: string }) =>
+    adminRequest<{ id: string }>("/admin/content", { method: "POST", body }),
+  saveContentDraft: (id: string, body: ContentDraft) =>
+    adminRequest(`/admin/content/${id}/draft`, { method: "PATCH", body }),
+  publishContent: (id: string, body: { at?: string }) =>
+    adminRequest(`/admin/content/${id}/publish`, { method: "POST", body }),
+  unpublishContent: (id: string) =>
+    adminRequest(`/admin/content/${id}/unpublish`, { method: "POST" }),
+  contentVersion: (id: string, versionId: string) =>
+    adminRequest<ContentVersion>(`/admin/content/${id}/versions/${versionId}`),
+  restoreContentVersion: (id: string, versionId: string) =>
+    adminRequest(`/admin/content/${id}/versions/${versionId}/restore`, { method: "POST" }),
+  deleteContent: (id: string) => adminRequest(`/admin/content/${id}/delete`, { method: "POST" }),
+  restoreContent: (id: string) => adminRequest(`/admin/content/${id}/restore`, { method: "POST" }),
+  uploadContentImage: (image: File) => {
+    const form = new FormData();
+    form.set("image", image);
+    return adminRequest<{ url: string }>("/admin/content/images", { method: "POST", body: form });
+  },
 
   system: () => adminRequest<SystemOverview>("/admin/system"),
   failedJobs: (queue: string) =>
