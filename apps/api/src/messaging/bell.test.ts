@@ -187,14 +187,22 @@ describe("Notification bell over HTTP (integration)", () => {
     if (!campaign) {
       throw new Error("campaign not created");
     }
-    await db.insert(sellerNotifications).values({
-      sellerId: me.sellerId,
-      campaignId: campaign.id,
-      type: "info",
-      title: "Campaign",
-      body: "x",
-    });
+    const inserted = await db
+      .insert(sellerNotifications)
+      .values({
+        sellerId: me.sellerId,
+        campaignId: campaign.id,
+        type: "info",
+        title: "Campaign",
+        body: "x",
+      })
+      .returning({ id: sellerNotifications.id });
+    const mine = inserted[0];
+    if (!mine) {
+      throw new Error("notification not created");
+    }
     expect(((await call("GET", "/bell", me.authorization)).json as Bell).unread).toBe(1);
+    expect((await call("GET", `/bell/${mine.id}`, me.authorization)).status).toBe(200);
     await db
       .update(notificationCampaigns)
       .set({ deletedAt: new Date() })
@@ -202,6 +210,14 @@ describe("Notification bell over HTTP (integration)", () => {
     const bell = (await call("GET", "/bell", me.authorization)).json as Bell;
     expect(bell.unread).toBe(0);
     expect(bell.items).toEqual([]);
+    // Its own page is gone too, even from an old link.
+    expect((await call("GET", `/bell/${mine.id}`, me.authorization)).status).toBe(404);
+    // So is one whose end date has passed.
+    await db
+      .update(sellerNotifications)
+      .set({ campaignId: null, endsAt: new Date(Date.now() - 60_000) })
+      .where(eq(sellerNotifications.id, mine.id));
+    expect((await call("GET", `/bell/${mine.id}`, me.authorization)).status).toBe(404);
     await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, campaign.id));
   });
   type Page = {

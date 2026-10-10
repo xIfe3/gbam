@@ -69,6 +69,21 @@ export class SellerNotificationsService {
    * The campaign is joined in ("left join": notifications without one are kept too).
    */
   private visibleTo(sellerId: string, inTrash = false): SQL[] {
+    const conditions = this.stillShown(sellerId);
+    // The trash is its own list; everywhere else it's left out.
+    if (inTrash) {
+      conditions.push(isNotNull(sellerNotifications.deletedAt));
+    } else {
+      conditions.push(isNull(sellerNotifications.deletedAt));
+    }
+    return conditions;
+  }
+
+  /**
+   * The shop's own, not ended, and not from a campaign Gbam moved to its bin: true in or
+   * out of the trash. (Queries using it join notificationCampaigns.)
+   */
+  private stillShown(sellerId: string): SQL[] {
     const notEnded = or(
       isNull(sellerNotifications.endsAt),
       gt(sellerNotifications.endsAt, new Date()),
@@ -77,12 +92,6 @@ export class SellerNotificationsService {
       eq(sellerNotifications.sellerId, sellerId),
       isNull(notificationCampaigns.deletedAt),
     ];
-    // The trash is its own list; everywhere else it's left out.
-    if (inTrash) {
-      conditions.push(isNotNull(sellerNotifications.deletedAt));
-    } else {
-      conditions.push(isNull(sellerNotifications.deletedAt));
-    }
     if (notEnded) {
       conditions.push(notEnded);
     }
@@ -191,14 +200,27 @@ export class SellerNotificationsService {
     return { rows, total, page: query.page, pageSize: PAGE_SIZE, unread: bell.unread };
   }
 
-  /** One notification (also from the trash). Another shop's is "not found". */
+  /**
+   * One notification (also from the trash). Another shop's, an ended one, or one from a
+   * binned campaign is "not found", the same as on the list.
+   */
   async one(sellerId: string, notificationId: string) {
+    const conditions = this.stillShown(sellerId);
+    conditions.push(eq(sellerNotifications.id, notificationId));
     const rows = await this.db
-      .select()
+      .select({
+        id: sellerNotifications.id,
+        type: sellerNotifications.type,
+        title: sellerNotifications.title,
+        body: sellerNotifications.body,
+        link: sellerNotifications.link,
+        readAt: sellerNotifications.readAt,
+        deletedAt: sellerNotifications.deletedAt,
+        createdAt: sellerNotifications.createdAt,
+      })
       .from(sellerNotifications)
-      .where(
-        and(eq(sellerNotifications.id, notificationId), eq(sellerNotifications.sellerId, sellerId)),
-      );
+      .leftJoin(notificationCampaigns, eq(notificationCampaigns.id, sellerNotifications.campaignId))
+      .where(and(...conditions));
     const row = rows[0];
     if (!row) {
       throw new NotFoundException("No such notification");
