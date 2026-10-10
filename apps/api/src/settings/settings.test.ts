@@ -57,6 +57,8 @@ describe("SettingsService (integration)", () => {
       newOrderEmails: true,
       newsEmails: true,
       nextSlugChangeAt: null,
+      logoUrl: null,
+      bannerUrl: null,
     });
   });
 

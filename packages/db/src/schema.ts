@@ -233,6 +233,9 @@ export const sellers = pgTable("sellers", {
   newsEmails: boolean("news_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */
   pickupNote: text("pickup_note"),
+  /** The shop's logo and banner photos (keys in photo storage); null = the default look. */
+  logoKey: text("logo_key"),
+  bannerKey: text("banner_key"),
   /** When the shop link (slug) was last changed: it can change at most once every 30 days. */
   slugChangedAt: timestamp("slug_changed_at", { withTimezone: true }),
   createdAt: createdAt(),

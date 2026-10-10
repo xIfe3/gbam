@@ -14,6 +14,8 @@ import {
 import { and, eq, ne } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { InjectPhotoStorage, type PhotoStorage } from "../integrations/integrations.module.js";
+import { shopImageUrl } from "./shop-images.service.js";
 
 export type ShopSettings = {
   slug: string;
@@ -27,6 +29,9 @@ export type ShopSettings = {
   newsEmails: boolean;
   /** When the shop link can next be changed (null = now). */
   nextSlugChangeAt: Date | null;
+  /** The shop's logo and banner photos; null = the default look. */
+  logoUrl: string | null;
+  bannerUrl: string | null;
 };
 
 /** A shop can change its link at most this often, so shared links don't keep moving. */
@@ -51,7 +56,10 @@ function nextSlugChange(changedAt: Date | null, now: Date): Date | null {
  */
 @Injectable()
 export class SettingsService {
-  constructor(@InjectDb() private readonly db: Db) {}
+  constructor(
+    @InjectDb() private readonly db: Db,
+    @InjectPhotoStorage() private readonly storage: PhotoStorage,
+  ) {}
 
   async get(sellerId: string): Promise<ShopSettings> {
     const rows = await this.db.select().from(sellers).where(eq(sellers.id, sellerId));
@@ -80,6 +88,8 @@ export class SettingsService {
       newOrderEmails: seller.newOrderEmails,
       newsEmails: seller.newsEmails,
       nextSlugChangeAt: nextSlugChange(seller.slugChangedAt, new Date()),
+      logoUrl: shopImageUrl(this.storage, seller.logoKey),
+      bannerUrl: shopImageUrl(this.storage, seller.bannerKey),
     };
   }
 

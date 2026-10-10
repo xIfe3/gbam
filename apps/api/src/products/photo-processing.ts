@@ -85,3 +85,35 @@ async function resizeTo(
     .webp({ quality: 80 })
     .toBuffer();
 }
+
+/** The sizes a shop's logo (square) and banner (wide, 3:1) are cut to. */
+export const SHOP_IMAGE_SIZES = {
+  logo: { width: 400, height: 400 },
+  banner: { width: 1500, height: 500 },
+} as const;
+export type ShopImageKind = keyof typeof SHOP_IMAGE_SIZES;
+
+/**
+ * A shop logo or banner: checked like product photos, then cut to its exact shape from the
+ * middle of the picture ("cover": it fills the shape, the edges that don't fit are trimmed).
+ */
+export async function processShopImage(input: Buffer, kind: ShopImageKind): Promise<Buffer> {
+  try {
+    const metadata = await sharp(input, SHARP_OPTIONS).metadata();
+    const format = metadata.format;
+    if (format === undefined || !ALLOWED_FORMATS.includes(format)) {
+      throw new UnsupportedPhotoError();
+    }
+    const size = SHOP_IMAGE_SIZES[kind];
+    return await sharp(input, SHARP_OPTIONS)
+      .rotate()
+      .resize({ width: size.width, height: size.height, fit: "cover", position: "centre" })
+      .webp({ quality: 82 })
+      .toBuffer();
+  } catch (error) {
+    if (error instanceof UnsupportedPhotoError) {
+      throw error;
+    }
+    throw new UnsupportedPhotoError("Unsupported photo", { cause: error });
+  }
+}

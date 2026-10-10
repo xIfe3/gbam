@@ -32,6 +32,8 @@ import {
   newSessionToken,
   verifyPassword,
 } from "./crypto.js";
+import { InjectPhotoStorage, type PhotoStorage } from "../integrations/integrations.module.js";
+import { shopImageUrl } from "../settings/shop-images.service.js";
 
 const SESSION_DAYS = 30;
 const CODE_MINUTES = 15;
@@ -62,6 +64,8 @@ export type PublicUser = {
     hasPayoutAccount: boolean;
     /** Gbam suspended the shop: the dashboard explains why orders stopped. */
     suspended: boolean;
+    /** The shop's logo for the dashboard header; null = show its initials. */
+    logoUrl: string | null;
   } | null;
 };
 
@@ -71,7 +75,11 @@ export type CodePurpose = "verify_email" | "reset_password";
 type UserRow = typeof users.$inferSelect;
 type SellerRow = typeof sellers.$inferSelect;
 
-function toPublicUser(user: UserRow, seller: SellerRow | null | undefined): PublicUser {
+function toPublicUser(
+  user: UserRow,
+  seller: SellerRow | null | undefined,
+  storage: PhotoStorage,
+): PublicUser {
   let sellerInfo: PublicUser["seller"] = null;
   if (seller) {
     sellerInfo = {
@@ -80,6 +88,7 @@ function toPublicUser(user: UserRow, seller: SellerRow | null | undefined): Publ
       businessName: seller.businessName,
       hasPayoutAccount: seller.paystackSubaccountCode !== null,
       suspended: seller.suspendedAt !== null,
+      logoUrl: shopImageUrl(storage, seller.logoKey),
     };
   }
   return {
@@ -148,6 +157,7 @@ export class AuthService implements OnModuleInit {
     private readonly limiter: RateLimiter,
     @Inject(ENV) private readonly env: Env,
     private readonly platform: PlatformSettingsService,
+    @InjectPhotoStorage() private readonly storage: PhotoStorage,
   ) {}
 
   /** Nest calls this at startup: make the dummy hash now, not during the first login. */
@@ -217,7 +227,7 @@ export class AuthService implements OnModuleInit {
         this.logger.error("Could not queue the verification email", error);
       }
 
-      return { sessionToken, user: toPublicUser(created.user, created.seller) };
+      return { sessionToken, user: toPublicUser(created.user, created.seller, this.storage) };
     } catch (error) {
       // Two people (or one double-click) racing for the same value: the database's unique
       // constraints are the real guard, so we translate their errors into a field message.
@@ -427,7 +437,7 @@ export class AuthService implements OnModuleInit {
     }
 
     const sessionToken = await this.createSession(this.db, user.id, meta);
-    return { sessionToken, user: toPublicUser(fresh, row.seller) };
+    return { sessionToken, user: toPublicUser(fresh, row.seller, this.storage) };
   }
 
   /**
@@ -471,7 +481,7 @@ export class AuthService implements OnModuleInit {
           ),
         );
     }
-    return toPublicUser(row.user, row.seller);
+    return toPublicUser(row.user, row.seller, this.storage);
   }
 
   /** Like sessionUser, but a missing or expired session is a 401. */
@@ -594,7 +604,10 @@ export class AuthService implements OnModuleInit {
     await this.sendPasswordChanged(user.id, user.email);
 
     const [seller] = await this.db.select().from(sellers).where(eq(sellers.ownerUserId, user.id));
-    return { sessionToken: result.sessionToken, user: toPublicUser(result.updated, seller) };
+    return {
+      sessionToken: result.sessionToken,
+      user: toPublicUser(result.updated, seller, this.storage),
+    };
   }
 
   // ---- Settings ----

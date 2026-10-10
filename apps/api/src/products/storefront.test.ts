@@ -143,6 +143,8 @@ describe("Storefront endpoints over HTTP (integration)", () => {
     const { status, body } = await getList(seller.slug);
     expect(status).toBe(200);
     expect(body.store).toEqual({
+      logoUrl: null,
+      bannerUrl: null,
       slug: seller.slug,
       businessName: seller.businessName,
       // No zones set up yet: checkout asks for an address with no delivery fee.
@@ -170,7 +172,9 @@ describe("Storefront endpoints over HTTP (integration)", () => {
 
     const { status } = await getList(seller.slug);
     expect(status).toBe(404);
-    const res = await fetch(`${baseUrl}/storefront/${seller.slug}/products/${created.product.slug}`);
+    const res = await fetch(
+      `${baseUrl}/storefront/${seller.slug}/products/${created.product.slug}`,
+    );
     expect(res.status).toBe(404);
   });
 

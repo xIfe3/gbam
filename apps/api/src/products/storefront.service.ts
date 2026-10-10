@@ -11,6 +11,8 @@ import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { DeliveryService } from "../settings/delivery.service.js";
 import { PhotosService } from "./photos.service.js";
+import { InjectPhotoStorage, type PhotoStorage } from "../integrations/integrations.module.js";
+import { shopImageUrl } from "../settings/shop-images.service.js";
 
 export type StorefrontProductCard = {
   slug: string;
@@ -28,7 +30,16 @@ export class StorefrontService {
     @InjectDb() private readonly db: Db,
     private readonly photos: PhotosService,
     private readonly delivery: DeliveryService,
+    @InjectPhotoStorage() private readonly storage: PhotoStorage,
   ) {}
+
+  /** The shop's logo and banner addresses (null = the default look). */
+  private looks(seller: { logoKey: string | null; bannerKey: string | null }) {
+    return {
+      logoUrl: shopImageUrl(this.storage, seller.logoKey),
+      bannerUrl: shopImageUrl(this.storage, seller.bannerKey),
+    };
+  }
 
   /** The shop's active products as cards. Products with nothing buyable are left out. */
   async list(slug: string) {
@@ -39,6 +50,7 @@ export class StorefrontService {
         store: {
           slug,
           businessName: seller.businessName,
+          ...this.looks(seller),
           delivery: { zones: [], pickupNote: null },
           suspended: true,
         },
@@ -141,7 +153,13 @@ export class StorefrontService {
     // Checkout needs the shop's delivery zones (with prices) and its pickup note.
     const delivery = await this.delivery.get(seller.id);
     return {
-      store: { slug, businessName: seller.businessName, delivery, suspended: false },
+      store: {
+        slug,
+        businessName: seller.businessName,
+        ...this.looks(seller),
+        delivery,
+        suspended: false,
+      },
       products: cards,
     };
   }
@@ -216,7 +234,7 @@ export class StorefrontService {
     }
 
     return {
-      store: { slug, businessName: seller.businessName },
+      store: { slug, businessName: seller.businessName, ...this.looks(seller) },
       product: {
         slug: product.slug,
         name: product.name,
@@ -234,6 +252,8 @@ export class StorefrontService {
         id: sellers.id,
         businessName: sellers.businessName,
         suspendedAt: sellers.suspendedAt,
+        logoKey: sellers.logoKey,
+        bannerKey: sellers.bannerKey,
       })
       .from(sellers)
       // A closed shop (owner deleted the account) looks the same as one that never existed.
