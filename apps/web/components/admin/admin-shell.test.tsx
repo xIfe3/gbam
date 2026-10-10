@@ -34,6 +34,8 @@ describe("admin navigation", () => {
       "Analytics",
       "Support",
       "Tickets",
+      "Announcements",
+      "Notifications",
       "Audit log",
       "System",
       "Settings",
@@ -54,6 +56,15 @@ describe("admin navigation", () => {
   it("nav shows Tickets by permission", () => {
     const tickets = visibleNav({ isSuperadmin: false, permissions: ["tickets.view"] });
     expect(tickets.map((item) => item.label)).toEqual(["Overview", "Tickets"]);
+  });
+
+  it("nav shows Announcements and Notifications by permission", () => {
+    const messaging = visibleNav({ isSuperadmin: false, permissions: ["messages.send"] });
+    expect(messaging.map((item) => item.label)).toEqual([
+      "Overview",
+      "Announcements",
+      "Notifications",
+    ]);
   });
 
   it("nav shows System by permission", () => {

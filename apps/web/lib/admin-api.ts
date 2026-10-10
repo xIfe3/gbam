@@ -9,6 +9,9 @@ import type {
   TicketSource,
   TicketStatus,
   TicketUpdateInput,
+  AnnouncementStatus,
+  Audience,
+  NotificationType,
 } from "@gbam/shared";
 import { redirect } from "next/navigation";
 import type { ActiveCounts } from "@/components/admin/active-now";
@@ -405,6 +408,60 @@ export type AdminTicketDetail = {
   }[];
 };
 
+export type AnnouncementRow = {
+  id: string;
+  subject: string;
+  status: AnnouncementStatus;
+  scheduledAt: string | null;
+  sentAt: string | null;
+  createdAt: string;
+};
+export type AnnouncementDetail = {
+  announcement: {
+    id: string;
+    subject: string;
+    body: string;
+    buttonLabel: string | null;
+    buttonUrl: string | null;
+    audience: Audience;
+    status: AnnouncementStatus;
+    scheduledAt: string | null;
+    sentAt: string | null;
+    deletedAt: string | null;
+    createdAt: string;
+  };
+  counts: { queued: number; sent: number; failed: number };
+  /** How many sellers it would go to right now. */
+  audienceCount: number;
+};
+export type AnnouncementBody = {
+  subject: string;
+  body: string;
+  buttonLabel?: string;
+  buttonUrl?: string;
+  audience: Audience;
+};
+export type NotificationCampaign = {
+  id: string;
+  type: NotificationType;
+  title: string;
+  body: string;
+  link: string | null;
+  endsAt: string | null;
+  recipientCount: number;
+  readCount: number;
+  createdAt: string;
+};
+export type NotificationBody = {
+  type: NotificationType;
+  title: string;
+  body: string;
+  link?: string;
+  endsAt?: string;
+  audience: Audience;
+  confirmCount: number;
+};
+
 // ---- Calls ----
 
 export const adminApi = {
@@ -538,6 +595,46 @@ export const adminApi = {
   restoreTicket: (id: string) => adminRequest(`/admin/tickets/${id}/restore`, { method: "POST" }),
   bulkTickets: (body: TicketBulkInput) =>
     adminRequest<BulkResult>("/admin/tickets/bulk", { method: "POST", body }),
+
+  announcements: (bin: boolean) =>
+    adminRequest<AnnouncementRow[]>(`/admin/announcements${binQuery(bin)}`),
+  announcement: (id: string) => adminRequest<AnnouncementDetail>(`/admin/announcements/${id}`),
+  previewAnnouncement: (body: AnnouncementBody) =>
+    adminRequest<{ subject: string; html: string; recipients: number }>(
+      "/admin/announcements/preview",
+      { method: "POST", body },
+    ),
+  createAnnouncement: (body: AnnouncementBody) =>
+    adminRequest<{ id: string }>("/admin/announcements", { method: "POST", body }),
+  updateAnnouncement: (id: string, body: AnnouncementBody) =>
+    adminRequest(`/admin/announcements/${id}`, { method: "PATCH", body }),
+  testAnnouncement: (id: string) =>
+    adminRequest(`/admin/announcements/${id}/test`, { method: "POST" }),
+  sendAnnouncement: (id: string, body: { confirmCount: number; scheduledAt?: string }) =>
+    adminRequest<{ ok: true; recipients: number }>(`/admin/announcements/${id}/send`, {
+      method: "POST",
+      body,
+    }),
+  cancelAnnouncement: (id: string) =>
+    adminRequest(`/admin/announcements/${id}/cancel`, { method: "POST" }),
+  deleteAnnouncement: (id: string) =>
+    adminRequest(`/admin/announcements/${id}/delete`, { method: "POST" }),
+  restoreAnnouncement: (id: string) =>
+    adminRequest(`/admin/announcements/${id}/restore`, { method: "POST" }),
+
+  notifications: (bin: boolean) =>
+    adminRequest<NotificationCampaign[]>(`/admin/notifications${binQuery(bin)}`),
+  countNotification: (audience: Audience) =>
+    adminRequest<{ recipients: number }>("/admin/notifications/count", {
+      method: "POST",
+      body: { audience },
+    }),
+  sendNotification: (body: NotificationBody) =>
+    adminRequest<{ id: string }>("/admin/notifications", { method: "POST", body }),
+  deleteNotification: (id: string) =>
+    adminRequest(`/admin/notifications/${id}/delete`, { method: "POST" }),
+  restoreNotification: (id: string) =>
+    adminRequest(`/admin/notifications/${id}/restore`, { method: "POST" }),
 
   system: () => adminRequest<SystemOverview>("/admin/system"),
   failedJobs: (queue: string) =>
