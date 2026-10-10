@@ -155,6 +155,13 @@
       "when": 1791633474692,
       "tag": "0021_content_editor",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1791639995948,
+      "tag": "0022_shop_slug_history",
+      "breakpoints": true
     }
   ]
 }

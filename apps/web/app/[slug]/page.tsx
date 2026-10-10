@@ -5,6 +5,7 @@ import { notFound } from "next/navigation";
 import { EmptyState } from "@/components/brand/empty-state";
 import { Logo } from "@/components/brand/logo";
 import { api, ApiError } from "@/lib/api";
+import { redirectIfShopMoved } from "@/lib/shop-moved";
 import { BasketBar } from "./basket-bar";
 import { Beacon } from "@/components/beacon";
 
@@ -13,6 +14,8 @@ async function loadStore(slug: string) {
   try {
     return await api.storefront(slug);
   } catch (error) {
+    // An old link of a shop that changed its link: send the visitor to the new one.
+    redirectIfShopMoved(error, (moved) => `/${moved}`);
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   }

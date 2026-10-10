@@ -1,4 +1,11 @@
-import { productImages, productOptions, productVariants, products, sellers } from "@gbam/db";
+import {
+  productImages,
+  productOptions,
+  productVariants,
+  products,
+  sellers,
+  shopSlugHistory,
+} from "@gbam/db";
 import { Injectable, NotFoundException } from "@nestjs/common";
 import { and, asc, eq, inArray, isNull } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -232,6 +239,22 @@ export class StorefrontService {
       // A closed shop (owner deleted the account) looks the same as one that never existed.
       .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));
     if (!seller) {
+      // An old link of a shop that changed its link: tell the website where it moved, so it
+      // can redirect (links shared on WhatsApp statuses keep working).
+      const moved = await this.db
+        .select({ slug: sellers.slug })
+        .from(shopSlugHistory)
+        .innerJoin(sellers, eq(sellers.id, shopSlugHistory.sellerId))
+        .where(and(eq(shopSlugHistory.slug, slug), isNull(sellers.closedAt)));
+      const current = moved[0];
+      if (current) {
+        throw new NotFoundException({
+          statusCode: 404,
+          message: "This shop has a new link",
+          code: "SHOP_MOVED",
+          slug: current.slug,
+        });
+      }
       throw new NotFoundException("Store not found");
     }
     return seller;

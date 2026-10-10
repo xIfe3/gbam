@@ -625,10 +625,29 @@ export type ShopSettings = {
   newOrderEmails: boolean;
   /** Gbam's "news and tips" announcement emails. */
   newsEmails: boolean;
+  /** When the shop link can next be changed; null = now. */
+  nextSlugChangeAt: string | null;
 };
 
 async function getSettings() {
   return request<ShopSettings>("/settings", { auth: "session" });
+}
+
+/** Is this shop link free for this shop? (Its own old links are.) */
+async function shopSlugAvailable(slug: string) {
+  return request<{ available: boolean; reason?: "taken" | "reserved" | "invalid" }>(
+    `/settings/slug-available?slug=${encodeURIComponent(slug)}`,
+    { auth: "session" },
+  );
+}
+
+/** A new shop link; the old one keeps redirecting to it. */
+async function changeSlug(slug: string) {
+  return request<{ slug: string; nextSlugChangeAt: string | null }>("/settings/slug", {
+    method: "PATCH",
+    body: JSON.stringify({ slug }),
+    auth: "session",
+  });
 }
 
 async function updateShopSettings(body: { businessName: string; phone: string }) {
@@ -910,6 +929,8 @@ export const api = {
   changePayoutAccount,
   getSettings,
   updateShopSettings,
+  shopSlugAvailable,
+  changeSlug,
   updateEmailSettings,
   getDeliverySettings,
   saveDeliverySettings,

@@ -56,6 +56,7 @@ describe("SettingsService (integration)", () => {
       payoutAccount: { bankName: "Access Bank", accountLast4: "6789", bankAccountName: "ADA OBI" },
       newOrderEmails: true,
       newsEmails: true,
+      nextSlugChangeAt: null,
     });
   });
 

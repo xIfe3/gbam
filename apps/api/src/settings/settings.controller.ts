@@ -6,7 +6,8 @@ import {
   type EmailSettingsInput,
   type ShopSettingsInput,
 } from "@gbam/shared";
-import { Body, Controller, Get, Patch, Put, UseGuards } from "@nestjs/common";
+import { Body, Controller, Get, Patch, Put, Query, UseGuards } from "@nestjs/common";
+import { z } from "zod";
 import { CurrentSellerId } from "../auth/current-user.js";
 import { SessionGuard } from "../auth/session.guard.js";
 import { ZodPipe } from "../common/zod-validation.pipe.js";
@@ -33,6 +34,26 @@ export class SettingsController {
     @Body(new ZodPipe(shopSettingsSchema)) body: ShopSettingsInput,
   ) {
     return this.settings.updateShop(sellerId, body);
+  }
+
+  /** "Available ✓ / Taken" as the seller types a new shop link. */
+  @Get("slug-available")
+  slugAvailable(@CurrentSellerId() sellerId: string, @Query("slug") slug: unknown) {
+    let text = "";
+    if (typeof slug === "string") {
+      text = slug.trim().toLowerCase();
+    }
+    return this.settings.slugAvailableFor(sellerId, text);
+  }
+
+  /** A new shop link; the old one keeps redirecting to it. */
+  @Patch("slug")
+  changeSlug(
+    @CurrentSellerId() sellerId: string,
+    @Body(new ZodPipe(z.object({ slug: z.string().trim().toLowerCase().max(60) })))
+    body: { slug: string },
+  ) {
+    return this.settings.changeSlug(sellerId, body.slug);
   }
 
   @Patch("emails")

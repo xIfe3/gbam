@@ -1,4 +1,11 @@
-import { emailCodes, sellers, sessions, users, type DbTransaction } from "@gbam/db";
+import {
+  emailCodes,
+  sellers,
+  sessions,
+  shopSlugHistory,
+  type DbTransaction,
+  users,
+} from "@gbam/db";
 import { RESERVED_SLUGS, slugSchema, type SignupInput } from "@gbam/shared";
 import {
   BadRequestException,
@@ -247,6 +254,14 @@ export class AuthService implements OnModuleInit {
       .from(sellers)
       .where(eq(sellers.slug, slug));
     if (rows.length > 0) {
+      return { available: false, reason: "taken" };
+    }
+    // A shop's old link still redirects to it, so it can never be someone else's.
+    const old = await this.db
+      .select({ id: shopSlugHistory.id })
+      .from(shopSlugHistory)
+      .where(eq(shopSlugHistory.slug, slug));
+    if (old.length > 0) {
       return { available: false, reason: "taken" };
     }
     return { available: true };

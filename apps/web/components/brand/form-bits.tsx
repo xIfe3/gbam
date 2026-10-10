@@ -8,13 +8,16 @@ import { Button } from "./button";
 export function SubmitButton({
   children,
   pendingLabel,
+  disabled = false,
 }: {
   children: React.ReactNode;
   pendingLabel: string;
+  /** Off for another reason than sending (e.g. "not allowed yet"). */
+  disabled?: boolean;
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button variant="primary" size="lg" type="submit" disabled={pending}>
+    <Button variant="primary" size="lg" type="submit" disabled={pending || disabled}>
       {pending ? pendingLabel : children}
     </Button>
   );

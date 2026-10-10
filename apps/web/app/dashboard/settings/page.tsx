@@ -7,6 +7,7 @@ import { api, ApiError, type Bank } from "@/lib/api";
 import { SITE_HOST } from "@/lib/site";
 import { DeliveryForm } from "./delivery-form";
 import { CloseAccountForm, EmailsForm, PasswordForm, ShopForm } from "./settings-forms";
+import { ShopLinkForm } from "./shop-link-form";
 
 export const metadata: Metadata = {
   title: "Settings",
@@ -52,11 +53,19 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
         <h2 id="shop-heading" className="mb-1 font-semibold">
           Shop
         </h2>
-        <p className="mb-4 text-sm text-zinc-500">
-          Your shop link is {SITE_HOST}/{settings.slug}. It can&apos;t change, so links you&apos;ve
-          already shared keep working.
-        </p>
+        <p className="mb-4 text-sm text-zinc-500">Your shop name and WhatsApp number.</p>
         <ShopForm businessName={settings.businessName} phone={settings.phone} />
+      </section>
+
+      <section aria-labelledby="link-heading" className={sectionClass}>
+        <h2 id="link-heading" className="mb-1 font-semibold">
+          Shop link
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Customers visit {SITE_HOST}/{settings.slug}. Changed your shop name? You can change the
+          link to match.
+        </p>
+        <ShopLinkForm slug={settings.slug} nextChangeAt={settings.nextSlugChangeAt} />
       </section>
 
       <section aria-labelledby="paid-heading" className={sectionClass}>

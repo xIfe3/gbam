@@ -233,6 +233,8 @@ export const sellers = pgTable("sellers", {
   newsEmails: boolean("news_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */
   pickupNote: text("pickup_note"),
+  /** When the shop link (slug) was last changed: it can change at most once every 30 days. */
+  slugChangedAt: timestamp("slug_changed_at", { withTimezone: true }),
   createdAt: createdAt(),
   updatedAt: updatedAt(),
 });
@@ -950,3 +952,16 @@ export const sellerNotifications = pgTable(
   },
   (t) => [index("seller_notifications_seller_idx").on(t.sellerId, t.createdAt)],
 );
+
+/**
+ * A shop's earlier links (slugs). Links already shared on WhatsApp statuses keep working:
+ * they redirect to the shop's current link, and no other shop can ever take them.
+ */
+export const shopSlugHistory = pgTable("shop_slug_history", {
+  id: id(),
+  sellerId: uuid("seller_id")
+    .notNull()
+    .references(() => sellers.id, { onDelete: "cascade" }),
+  slug: text("slug").notNull().unique(),
+  createdAt: createdAt(),
+});

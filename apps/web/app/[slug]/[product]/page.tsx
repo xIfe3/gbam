@@ -3,6 +3,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound, unstable_rethrow } from "next/navigation";
 import { api, ApiError, type StorefrontProductCard } from "@/lib/api";
+import { redirectIfShopMoved } from "@/lib/shop-moved";
 import { ShopHeader } from "../shop-header";
 import { ProductView } from "./product-view";
 import { Beacon } from "@/components/beacon";
@@ -15,6 +16,8 @@ async function loadProduct(slug: string, productSlug: string) {
   try {
     return await api.storefrontProduct(slug, productSlug);
   } catch (error) {
+    // An old link of a shop that changed its link: the same product on the new link.
+    redirectIfShopMoved(error, (moved) => `/${moved}/${encodeURIComponent(productSlug)}`);
     if (error instanceof ApiError && error.status === 404) notFound();
     throw error;
   }

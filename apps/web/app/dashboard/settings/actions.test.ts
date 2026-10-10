@@ -13,6 +13,7 @@ const { apiMock, FakeApiError, refresh, redirect, clearSessionCookie } = vi.hois
   }
   return {
     apiMock: {
+      changeSlug: vi.fn(),
       updateShopSettings: vi.fn(),
       updateEmailSettings: vi.fn(),
       saveDeliverySettings: vi.fn(),
@@ -41,6 +42,7 @@ vi.mock("@/lib/api", () => ({ api: apiMock, ApiError: FakeApiError }));
 vi.mock("@/lib/session", () => ({ clearSessionCookie }));
 
 import {
+  changeSlugAction,
   changePasswordAction,
   closeAccountAction,
   saveDeliveryAction,
@@ -196,5 +198,23 @@ describe("closeAccountAction", () => {
     );
     expect(state.fieldErrors).toEqual({ businessName: "Type your shop name exactly" });
     expect(clearSessionCookie).not.toHaveBeenCalled();
+  });
+});
+
+describe("changeSlugAction", () => {
+  it("saves the new link and says the old one still works", async () => {
+    apiMock.changeSlug.mockResolvedValue({ slug: "ada-cakes", nextSlugChangeAt: null });
+    const state = await changeSlugAction({}, form({ slug: " Ada-Cakes " }));
+    expect(apiMock.changeSlug).toHaveBeenCalledWith("ada-cakes");
+    expect(state.notice).toContain("ada-cakes");
+    expect(state.notice).toContain("old link");
+  });
+
+  it("the API's reason is shown on the field", async () => {
+    apiMock.changeSlug.mockRejectedValue(
+      new FakeApiError(409, { field: "slug", message: "That link is taken" }),
+    );
+    const state = await changeSlugAction({}, form({ slug: "taken-one" }));
+    expect(state.fieldErrors?.slug).toBe("That link is taken");
   });
 });

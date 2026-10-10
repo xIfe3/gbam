@@ -7,6 +7,7 @@ import {
   parseNairaInput,
   emailSettingsSchema,
   shopSettingsSchema,
+  slugSchema,
 } from "@gbam/shared";
 import { refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -17,10 +18,12 @@ import {
   text,
   type FormState,
 } from "@/app/(auth)/action-helpers";
+import type { SlugCheck } from "@/app/(auth)/signup/actions";
 import { api } from "@/lib/api";
 import { clearSessionCookie } from "@/lib/session";
+import { SITE_HOST } from "@/lib/site";
 
-/** Shop name and WhatsApp number. The shop link never changes. */
+/** Shop name and WhatsApp number. (The shop link changes separately, see changeSlugAction.) */
 export async function updateShopAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const values = { businessName: text(formData, "businessName"), phone: text(formData, "phone") };
   const input = shopSettingsSchema.safeParse(values);
@@ -188,4 +191,46 @@ export async function closeAccountAction(_prev: FormState, formData: FormData): 
   }
   await clearSessionCookie();
   redirect("/login?closed=1");
+}
+
+/** The live "Available ✓ / Taken" check on Settings' shop link box. Only a hint. */
+export async function checkShopSlugAction(slug: string): Promise<SlugCheck> {
+  const clean = slug.trim().toLowerCase();
+  if (!slugSchema.safeParse(clean).success) {
+    return { status: "invalid" };
+  }
+  try {
+    const result = await api.shopSlugAvailable(clean);
+    if (result.available) {
+      return { status: "available" };
+    }
+    if (result.reason === "reserved" || result.reason === "invalid") {
+      return { status: result.reason };
+    }
+    return { status: "taken" };
+  } catch (error) {
+    unstable_rethrow(error);
+    return { status: "error" };
+  }
+}
+
+/** A new shop link. The old one keeps working: it redirects to the new one. */
+export async function changeSlugAction(_prev: FormState, formData: FormData): Promise<FormState> {
+  const slug = text(formData, "slug").trim().toLowerCase();
+  let saved: string;
+  try {
+    const result = await api.changeSlug(slug);
+    saved = result.slug;
+  } catch (error) {
+    unstable_rethrow(error);
+    const fieldError = apiFieldError(error, "slug");
+    if (fieldError !== null) {
+      return { fieldErrors: { slug: fieldError }, values: { slug } };
+    }
+    return { error: failureMessage(error, "change shop link"), values: { slug } };
+  }
+  refresh();
+  return {
+    notice: `Done. Your shop is now at ${SITE_HOST}/${saved}. Your old link still works and takes people there.`,
+  };
 }

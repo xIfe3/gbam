@@ -10,6 +10,8 @@ const DEBOUNCE_MS = 400;
 type SlugFieldProps = {
   value: string;
   onChange: (value: string) => void;
+  /** How to check a link (signup's public check unless given, e.g. Settings' own). */
+  check?: (slug: string) => Promise<SlugCheck>;
   // A message from the server after submit (e.g. "That store link is taken").
   error?: string;
 };
@@ -24,7 +26,7 @@ const MESSAGES: Record<SlugCheck["status"], string> = {
 
 // The shop-link input with a live availability check. It waits 400ms after the last
 // keystroke, then asks the server (the browser never calls the API itself).
-export function SlugField({ value, onChange, error }: SlugFieldProps) {
+export function SlugField({ value, onChange, error, check = checkSlugAction }: SlugFieldProps) {
   // The answer remembers which link it is for, so a stale answer is never shown for new text.
   const [checked, setChecked] = useState<{ slug: string; status: SlugCheck["status"] } | null>(
     null,
@@ -37,16 +39,16 @@ export function SlugField({ value, onChange, error }: SlugFieldProps) {
     // Set when the text changes again (or the field goes away): a late answer is dropped.
     let cancelled = false;
     const timer = setTimeout(async () => {
-      const check = await checkSlugAction(value);
+      const answer = await check(value);
       if (!cancelled) {
-        setChecked({ slug: value, status: check.status });
+        setChecked({ slug: value, status: answer.status });
       }
     }, DEBOUNCE_MS);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [value]);
+  }, [value, check]);
 
   let message = "Checking…";
   let isGood = false;
