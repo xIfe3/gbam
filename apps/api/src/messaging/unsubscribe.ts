@@ -24,3 +24,15 @@ export function checkUnsubscribeToken(
   // timing can't be used to guess the token one character at a time.
   return timingSafeEqual(given, expected);
 }
+
+/**
+ * The two unsubscribe addresses an announcement carries: the page with a button (for the
+ * link in the email) and the one email apps post to by themselves (List-Unsubscribe).
+ */
+export function unsubscribeLinks(webUrl: string, sellerId: string, signingKey: string) {
+  const params = new URLSearchParams({ s: sellerId, t: unsubscribeToken(sellerId, signingKey) });
+  return {
+    unsubscribeUrl: `${webUrl}/unsubscribe?${params.toString()}`,
+    oneClickUrl: `${webUrl}/api/unsubscribe?${params.toString()}`,
+  };
+}

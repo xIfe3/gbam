@@ -1,5 +1,6 @@
 import { formatNaira } from "@gbam/shared";
 import type { SendEmailInput } from "@gbam/integrations";
+import { renderBody } from "./announcement-body.js";
 
 export type EmailJob =
   | { kind: "verify_email"; to: string; code: string }
@@ -135,6 +136,21 @@ export type EmailJob =
       number: number;
       subject: string;
       adminUrl: string;
+    }
+  | {
+      /** "News and tips" from Gbam to a seller (see announcement-body.ts for the format). */
+      kind: "announcement";
+      to: string;
+      subject: string;
+      body: string;
+      buttonLabel: string | null;
+      buttonUrl: string | null;
+      /** The page with an "Unsubscribe" button. */
+      unsubscribeUrl: string;
+      /** Where email apps' own one-click unsubscribe posts to (List-Unsubscribe). */
+      oneClickUrl: string;
+      /** "Send a test to myself": marked as a test in the subject. */
+      test?: boolean;
     }
   | {
       kind: "new_order";
@@ -344,6 +360,9 @@ export function renderEmail(job: EmailJob, inboxes: Inboxes = DEFAULT_INBOXES): 
   }
   if (job.kind === "ticket_requester_replied") {
     return ticketRequesterRepliedEmail(job);
+  }
+  if (job.kind === "announcement") {
+    return announcementEmail(job);
   }
 
   // contact_message
@@ -952,5 +971,38 @@ function ticketRequesterRepliedEmail(
     html: emailLayout(
       [paragraph(escapeHtml(what)), button(job.adminUrl, "Open the ticket")].join("\n"),
     ),
+  };
+}
+
+/**
+ * "News and tips" to a seller. Always carries an unsubscribe link, and the List-Unsubscribe
+ * headers that let Gmail and others show their own one-click "Unsubscribe" button.
+ */
+function announcementEmail(job: Extract<EmailJob, { kind: "announcement" }>): SendEmailInput {
+  const body = renderBody(job.body);
+  const why = `You're getting this because you have a shop on Gbam. Emails about your orders and payments always still come.`;
+  const htmlParts = [body.html];
+  const textParts = [body.text];
+  if (job.buttonLabel && job.buttonUrl) {
+    htmlParts.push(button(job.buttonUrl, job.buttonLabel));
+    textParts.push(`${job.buttonLabel}: ${job.buttonUrl}`);
+  }
+  const unsubscribeLink = `<a href="${escapeHtml(job.unsubscribeUrl)}" style="color: ${INK_SUBTLE}">Unsubscribe from news and tips</a>`;
+  htmlParts.push(smallPrint(`${escapeHtml(why)} ${unsubscribeLink}.`));
+  textParts.push(`${why}\nUnsubscribe from news and tips: ${job.unsubscribeUrl}`);
+
+  let subject = job.subject;
+  if (job.test) {
+    subject = `[Test] ${job.subject}`;
+  }
+  return {
+    to: job.to,
+    subject,
+    text: textParts.join("\n\n"),
+    html: emailLayout(htmlParts.join("\n")),
+    headers: {
+      "List-Unsubscribe": `<${job.oneClickUrl}>`,
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    },
   };
 }

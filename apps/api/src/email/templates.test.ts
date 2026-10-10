@@ -199,3 +199,34 @@ describe("ticket emails", () => {
     expect(email.text).toContain("https://gbam.app/admin/tickets/t1");
   });
 });
+
+describe("announcement email", () => {
+  const job = {
+    kind: "announcement" as const,
+    to: "ada@example.com",
+    subject: "Delivery zones are here",
+    body: "Hello **Ada**",
+    buttonLabel: "Set up delivery",
+    buttonUrl: "https://gbam.app/dashboard/settings",
+    unsubscribeUrl: "https://gbam.app/unsubscribe?s=1&t=2",
+    oneClickUrl: "https://gbam.app/api/unsubscribe?s=1&t=2",
+  };
+
+  it("carries the unsubscribe link and one-click headers", () => {
+    const email = renderEmail(job);
+    expect(email.headers).toEqual({
+      "List-Unsubscribe": "<https://gbam.app/api/unsubscribe?s=1&t=2>",
+      "List-Unsubscribe-Post": "List-Unsubscribe=One-Click",
+    });
+    expect(email.html).toContain("Unsubscribe from news and tips");
+    expect(email.html).toContain("https://gbam.app/unsubscribe?s=1&amp;t=2");
+    expect(email.html).toContain("Set up delivery");
+    expect(email.text).toContain(
+      "Unsubscribe from news and tips: https://gbam.app/unsubscribe?s=1&t=2",
+    );
+  });
+
+  it("a test is marked in the subject", () => {
+    expect(renderEmail({ ...job, test: true }).subject).toBe("[Test] Delivery zones are here");
+  });
+});

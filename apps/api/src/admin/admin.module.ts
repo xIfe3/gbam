@@ -6,11 +6,14 @@ import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { PlatformModule } from "../platform/platform.module.js";
+import { MessagingModule } from "../messaging/messaging.module.js";
 import { TicketsModule } from "../tickets/tickets.module.js";
 import { AdminAuthController } from "./admin-auth.controller.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminGuard } from "./admin.guard.js";
 import { AnalyticsAdminService } from "./analytics-admin.service.js";
+import { AnnouncementsAdminController } from "./announcements-admin.controller.js";
+import { AnnouncementsAdminService } from "./announcements-admin.service.js";
 import { AuditService } from "./audit.service.js";
 import { MoneyAdminService } from "./money-admin.service.js";
 import { NumbersAdminController } from "./numbers-admin.controller.js";
@@ -52,6 +55,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     PlatformModule,
     RateLimiterModule,
     TicketsModule,
+    MessagingModule,
     BullModule.registerQueue(...queueRegistrations),
   ],
   controllers: [
@@ -64,6 +68,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     NumbersAdminController,
     SystemAdminController,
     TicketsAdminController,
+    AnnouncementsAdminController,
   ],
   providers: [
     AdminAuthService,
@@ -82,6 +87,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     UptimeClient,
     SystemAdminService,
     TicketsAdminService,
+    AnnouncementsAdminService,
     // A "factory" provider: Nest looks up each queue (by its token) and passes them all in,
     // and the list becomes SYSTEM_QUEUES.
     {
