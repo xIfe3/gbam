@@ -683,6 +683,10 @@ export const adminApi = {
     adminRequest(`/admin/content/${id}/versions/${versionId}/restore`, { method: "POST" }),
   deleteContent: (id: string) => adminRequest(`/admin/content/${id}/delete`, { method: "POST" }),
   restoreContent: (id: string) => adminRequest(`/admin/content/${id}/restore`, { method: "POST" }),
+  openMarketingPage: (page: string) =>
+    adminRequest<{ id: string }>(`/admin/content/marketing/${encodeURIComponent(page)}`, {
+      method: "POST",
+    }),
   uploadContentImage: (image: File) => {
     const form = new FormData();
     form.set("image", image);

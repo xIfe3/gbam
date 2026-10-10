@@ -2,24 +2,29 @@ import type { Metadata } from "next";
 import { BentoGrid, BentoTile } from "@/components/brand/bento";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
+import { getMarketing, headerCta } from "@/lib/marketing";
 
-export const metadata: Metadata = {
-  title: "Mission",
-  description: "Our mission: make selling on WhatsApp simple, paid and organised.",
-};
+/** The description comes from Admin → Content → Marketing pages (today's text until edited). */
+export async function generateMetadata(): Promise<Metadata> {
+  const fields = await getMarketing("mission");
+  return { title: "Mission", description: fields.seoDescription };
+}
 
-export default function MissionPage() {
+export default async function MissionPage() {
+  const fields = await getMarketing("mission");
+  const header = fields.header;
   return (
     <>
       <PageHeader
-        eyebrow="Mission"
-        title="No more chasing payments in the DMs"
-        lead="Our mission is to make selling on WhatsApp simple, paid and organised."
+        eyebrow={header.eyebrow}
+        title={header.title}
+        lead={header.lead}
         photo={{
           description: "seller relaxed after a day of paid orders",
-          src: "/images/pages/mission.webp",
-          alt: "A relaxed woman smiling over a cup of tea",
+          src: header.photoSrc,
+          alt: header.photoAlt,
         }}
+        cta={headerCta(header, "/signup")}
       />
       <div className="mx-auto max-w-5xl px-4">
         <BentoGrid>

@@ -10,6 +10,17 @@ export const metadata: Metadata = { title: "Compare versions · Admin" };
 
 type Props = { params: Promise<{ id: string; versionId: string }> };
 
+/**
+ * What to show for a version: its text, or for a marketing page (which has no text of its
+ * own) its fields, written out.
+ */
+function shownText(body: string, data: unknown): string {
+  if (body.trim() === "" && data !== null && data !== undefined) {
+    return JSON.stringify(data, null, 2);
+  }
+  return body;
+}
+
 /** One text side by side with another, to see what changed. */
 function Column({ label, title, body }: { label: string; title: string; body: string }) {
   return (
@@ -31,11 +42,11 @@ export default async function VersionPage(props: Props) {
 
   let nowLabel = "Now (live)";
   let nowTitle = entry.title;
-  let nowBody = entry.body;
+  let nowBody = shownText(entry.body, entry.data);
   if (entry.draft) {
     nowLabel = "Now (draft)";
     nowTitle = entry.draft.title;
-    nowBody = entry.draft.body;
+    nowBody = shownText(entry.draft.body, entry.draft.data);
   }
 
   return (
@@ -48,7 +59,11 @@ export default async function VersionPage(props: Props) {
         <span className="text-ink-muted text-lg">· {shortTime(version.createdAt)}</span>
       </h1>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Column label={`Version ${version.version}`} title={version.title} body={version.body} />
+        <Column
+          label={`Version ${version.version}`}
+          title={version.title}
+          body={shownText(version.body, version.data)}
+        />
         <Column label={nowLabel} title={nowTitle} body={nowBody} />
       </div>
       {adminCan(me, "content.publish") && (

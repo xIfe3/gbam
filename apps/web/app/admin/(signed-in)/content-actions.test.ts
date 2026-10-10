@@ -102,20 +102,27 @@ describe("content actions", () => {
   it("saving a draft says it isn't live yet", async () => {
     adminApiMock.saveContentDraft.mockResolvedValue({ ok: true });
     const state = await saveContentDraftAction("c1", {}, form(FIELDS));
-    expect(adminApiMock.saveContentDraft).toHaveBeenCalledWith("c1", expect.objectContaining({ sortOrder: 3 }));
+    expect(adminApiMock.saveContentDraft).toHaveBeenCalledWith(
+      "c1",
+      expect.objectContaining({ sortOrder: 3 }),
+    );
     expect(state.notice).toContain("not live");
   });
 
   it("publish at a time is sent as Lagos time", async () => {
     adminApiMock.publishContent.mockResolvedValue({ ok: true });
     await publishContentAction("c1", {}, form({ at: "2026-10-12T09:00" }));
-    expect(adminApiMock.publishContent).toHaveBeenCalledWith("c1", { at: "2026-10-12T09:00:00+01:00" });
+    expect(adminApiMock.publishContent).toHaveBeenCalledWith("c1", {
+      at: "2026-10-12T09:00:00+01:00",
+    });
     await publishContentAction("c1", {}, form({ at: "" }));
     expect(adminApiMock.publishContent).toHaveBeenLastCalledWith("c1", {});
   });
 
   it("an uploaded image comes back as Markdown to paste in", async () => {
-    adminApiMock.uploadContentImage.mockResolvedValue({ url: "https://photos.test/content/a.webp" });
+    adminApiMock.uploadContentImage.mockResolvedValue({
+      url: "https://photos.test/content/a.webp",
+    });
     const data = new FormData();
     data.set("image", new File([new Uint8Array([1, 2, 3])], "a.png", { type: "image/png" }));
     const result = await uploadContentImageAction(data);

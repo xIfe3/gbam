@@ -2,24 +2,29 @@ import type { Metadata } from "next";
 import { BentoGrid, BentoTile } from "@/components/brand/bento";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
+import { getMarketing, headerCta } from "@/lib/marketing";
 
-export const metadata: Metadata = {
-  title: "Security",
-  description: "How Gbam protects money and data: Paystack payments, signed webhooks, HTTPS.",
-};
+/** The description comes from Admin → Content → Marketing pages (today's text until edited). */
+export async function generateMetadata(): Promise<Metadata> {
+  const fields = await getMarketing("security");
+  return { title: "Security", description: fields.seoDescription };
+}
 
-export default function SecurityPage() {
+export default async function SecurityPage() {
+  const fields = await getMarketing("security");
+  const header = fields.header;
   return (
     <>
       <PageHeader
-        eyebrow="Security"
-        title="How we protect money and data"
-        lead="Here is what we do, in plain words. If you have a security concern, write to support@gbam.app."
+        eyebrow={header.eyebrow}
+        title={header.title}
+        lead={header.lead}
         photo={{
           description: "seller using her phone safely at home",
-          src: "/images/pages/security.webp",
-          alt: "A woman using her phone",
+          src: header.photoSrc,
+          alt: header.photoAlt,
         }}
+        cta={headerCta(header, "/signup")}
       />
       <div className="mx-auto max-w-5xl px-4">
         <BentoGrid>

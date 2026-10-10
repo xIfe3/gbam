@@ -142,7 +142,10 @@ describe("announcement actions", () => {
 
 describe("a bad audience field", () => {
   it("is reported where the form shows it, in words", async () => {
-    const preview = await previewAnnouncementAction({}, form({ ...ANNOUNCEMENT, shopId: "not-an-id" }));
+    const preview = await previewAnnouncementAction(
+      {},
+      form({ ...ANNOUNCEMENT, shopId: "not-an-id" }),
+    );
     expect(preview.fieldErrors?.audience).toBe('Check the "Who it goes to" fields');
     expect(adminApiMock.previewAnnouncement).not.toHaveBeenCalled();
     const notification = await sendNotificationAction(

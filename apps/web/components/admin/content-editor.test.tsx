@@ -19,7 +19,9 @@ const initial = {
 
 describe("ContentEditor", () => {
   it("the preview follows what's typed", () => {
-    render(<ContentEditor action={vi.fn()} initial={initial} type="help_article" saveLabel="Save" />);
+    render(
+      <ContentEditor action={vi.fn()} initial={initial} type="help_article" saveLabel="Save" />,
+    );
     const body = screen.getByRole("textbox", { name: "Text (Markdown)" });
     fireEvent.change(body, { target: { value: "## Payouts\n\nThey arrive **fast**." } });
     const preview = screen.getByRole("region", { name: "Preview" });
@@ -28,7 +30,9 @@ describe("ContentEditor", () => {
   });
 
   it("Bold wraps the selected words", () => {
-    render(<ContentEditor action={vi.fn()} initial={initial} type="help_article" saveLabel="Save" />);
+    render(
+      <ContentEditor action={vi.fn()} initial={initial} type="help_article" saveLabel="Save" />,
+    );
     const body = screen.getByRole("textbox", { name: "Text (Markdown)" }) as HTMLTextAreaElement;
     body.setSelectionRange(0, 7);
     fireEvent.click(screen.getByRole("button", { name: "Bold" }));
@@ -42,7 +46,9 @@ describe("ContentEditor", () => {
         initial={{
           ...initial,
           body: "",
-          data: { sections: [{ id: "who-we-are", heading: "Who we are", body: "Gbam is...", short: "" }] },
+          data: {
+            sections: [{ id: "who-we-are", heading: "Who we are", body: "Gbam is...", short: "" }],
+          },
         }}
         type="legal"
         saveLabel="Save"

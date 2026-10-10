@@ -1,12 +1,14 @@
 import type { Metadata } from "next";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
+import { getMarketing, headerCta } from "@/lib/marketing";
 import { PhoneMockup } from "@/components/brand/phone-mockup";
 
-export const metadata: Metadata = {
-  title: "How it works",
-  description: "From your first shop link to a delivered order, step by step.",
-};
+/** The description comes from Admin → Content → Marketing pages (today's text until edited). */
+export async function generateMetadata(): Promise<Metadata> {
+  const fields = await getMarketing("how-it-works");
+  return { title: "How it works", description: fields.seoDescription };
+}
 
 // A tiny screen shown inside the phone. All of it is example data.
 function Screen({ heading, lines }: { heading: string; lines: string[] }) {
@@ -98,18 +100,21 @@ function StepList({ title, steps }: { title: string; steps: Step[] }) {
   );
 }
 
-export default function HowItWorksPage() {
+export default async function HowItWorksPage() {
+  const fields = await getMarketing("how-it-works");
+  const header = fields.header;
   return (
     <>
       <PageHeader
-        eyebrow="How it works"
-        title="From link to delivered order"
-        lead="Here is what happens on your side and on your customer's side."
+        eyebrow={header.eyebrow}
+        title={header.title}
+        lead={header.lead}
         photo={{
           description: "customer paying on her phone",
-          src: "/images/pages/how-it-works.webp",
-          alt: "A delighted customer looking at her phone",
+          src: header.photoSrc,
+          alt: header.photoAlt,
         }}
+        cta={headerCta(header, "/signup")}
       />
       <StepList title="For sellers" steps={SELLER_STEPS} />
       <StepList title="For your customers" steps={CUSTOMER_STEPS} />

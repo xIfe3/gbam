@@ -1,3 +1,4 @@
+import { MARKETING_DEFAULTS, type MarketingFields } from "@gbam/shared";
 import { Button } from "@/components/brand/button";
 import { PaymentToast } from "@/components/brand/payment-toast";
 import { Photo } from "@/components/brand/photo";
@@ -52,7 +53,8 @@ function OrderChat() {
   );
 }
 
-export function Hero() {
+/** The home page's opening. Its words come from Admin → Content → Marketing pages → Home. */
+export function Hero({ fields = MARKETING_DEFAULTS.home }: { fields?: MarketingFields<"home"> }) {
   return (
     <section className="bg-blush overflow-hidden px-4 pt-10 pb-14 text-center">
       <h1 className="font-display text-ink mx-auto text-5xl leading-none font-black tracking-tight sm:text-6xl md:text-7xl">
@@ -61,20 +63,17 @@ export function Hero() {
         Get paid. <span className="text-coral-deep">Gbam.</span>
       </h1>
       <p className="text-ink-muted mx-auto mt-4 max-w-md text-base leading-relaxed">
-        One link for your whole shop. Customers order and pay with Paystack, get updates on
-        WhatsApp, and you just pack and deliver.
+        {fields.heroSubtitle}
       </p>
       <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
         <Button href="/signup" variant="primary" size="lg">
-          Start selling free
+          {fields.primaryButton}
         </Button>
         <Button href="/how-it-works" variant="ghost" size="lg">
-          See how it works →
+          {fields.secondaryButton}
         </Button>
       </div>
-      <p className="text-ink-muted mt-3 text-xs">
-        Free for founding sellers · No app to install · Payments by Paystack
-      </p>
+      <p className="text-ink-muted mt-3 text-xs">{fields.heroSmallPrint}</p>
 
       <div className="mt-10 flex items-center justify-center gap-3.5">
         {/* Side photos only from md up: on a phone the chat mockup gets the whole width. */}

@@ -1,11 +1,17 @@
 "use server";
 
-import { contentDraftSchema, newContentSchema } from "@gbam/shared";
+import {
+  contentDraftSchema,
+  isMarketingPage,
+  MARKETING_SCHEMAS,
+  newContentSchema,
+} from "@gbam/shared";
 import { refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { fieldErrorsFrom, text, type FormState } from "@/app/(auth)/action-helpers";
 import { lagosDateTime } from "@/components/admin/audience-form";
 import { draftFromForm } from "@/components/admin/content-form";
+import { marketingDataFromForm } from "@/components/admin/marketing-form-data";
 import { adminApi } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
 
@@ -132,4 +138,46 @@ export async function uploadContentImageAction(
   } catch (error) {
     return { error: failure(error) };
   }
+}
+
+/** A marketing page's fields, saved as its draft (checked against the page's fields first). */
+export async function saveMarketingDraftAction(
+  id: string,
+  page: string,
+  title: string,
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  if (!isMarketingPage(page)) {
+    return { error: "Unknown page" };
+  }
+  const data = marketingDataFromForm(page, formData);
+  const checked = MARKETING_SCHEMAS[page].safeParse(data);
+  if (!checked.success) {
+    const issue = checked.error.issues[0];
+    let where = "a field";
+    if (issue) {
+      where = issue.path.join(" → ");
+    }
+    let message = "is missing or too long";
+    if (issue) {
+      message = issue.message;
+    }
+    return { error: `Check ${where}: ${message}` };
+  }
+  try {
+    await adminApi.saveContentDraft(id, {
+      title,
+      summary: null,
+      body: "",
+      category: null,
+      sortOrder: 0,
+      seoDescription: checked.data.seoDescription,
+      data: checked.data,
+    });
+  } catch (error) {
+    return { error: failure(error) };
+  }
+  refresh();
+  return { notice: "Draft saved. It's not live until it's published." };
 }

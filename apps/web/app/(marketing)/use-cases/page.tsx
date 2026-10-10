@@ -2,12 +2,14 @@ import type { Metadata } from "next";
 import { BentoGrid, BentoTile } from "@/components/brand/bento";
 import { CtaBand } from "@/components/brand/cta-band";
 import { PageHeader } from "@/components/brand/page-header";
+import { getMarketing, headerCta } from "@/lib/marketing";
 import { Photo } from "@/components/brand/photo";
 
-export const metadata: Metadata = {
-  title: "Use cases",
-  description: "How food sellers, fashion sellers, beauty sellers and more can use Gbam.",
-};
+/** The description comes from Admin → Content → Marketing pages (today's text until edited). */
+export async function generateMetadata(): Promise<Metadata> {
+  const fields = await getMarketing("use-cases");
+  return { title: "Use cases", description: fields.seoDescription };
+}
 
 // Each story is an illustration of how a seller could use Gbam, not a real customer.
 // The photos are the home page's category photos (see public/images/home/CREDITS.md).
@@ -61,18 +63,21 @@ const CASES = [
   },
 ];
 
-export default function UseCasesPage() {
+export default async function UseCasesPage() {
+  const fields = await getMarketing("use-cases");
+  const header = fields.header;
   return (
     <>
       <PageHeader
-        eyebrow="Use cases"
-        title="Made for every kind of seller"
-        lead="If your customers already message you on WhatsApp to order, Gbam can take over the payment chasing."
+        eyebrow={header.eyebrow}
+        title={header.title}
+        lead={header.lead}
         photo={{
           description: "seller packing orders for delivery",
-          src: "/images/pages/use-cases.webp",
-          alt: "A smiling tailor at work among bales of fabric",
+          src: header.photoSrc,
+          alt: header.photoAlt,
         }}
+        cta={headerCta(header, "/signup")}
       />
       <div className="mx-auto max-w-5xl px-4">
         <BentoGrid>

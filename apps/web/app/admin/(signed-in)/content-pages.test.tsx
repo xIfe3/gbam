@@ -3,7 +3,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 const { adminApiMock } = vi.hoisted(() => ({
-  adminApiMock: { me: vi.fn(), contentList: vi.fn(), contentEntry: vi.fn(), contentVersion: vi.fn() },
+  adminApiMock: {
+    me: vi.fn(),
+    contentList: vi.fn(),
+    contentEntry: vi.fn(),
+    contentVersion: vi.fn(),
+  },
 }));
 vi.mock("@/lib/admin-api", () => ({ adminApi: adminApiMock }));
 vi.mock("next/navigation", () => ({
@@ -32,7 +37,14 @@ const ID = "6f1c1f0e-2b7a-4d61-9a5e-2f5a1c9b0d11";
 const VERSION = "7a2c1f0e-2b7a-4d61-9a5e-2f5a1c9b0d22";
 
 function me(permissions: string[]) {
-  return { id: "a1", name: "Chika", email: "c@x.com", isSuperadmin: false, role: null, permissions };
+  return {
+    id: "a1",
+    name: "Chika",
+    email: "c@x.com",
+    isSuperadmin: false,
+    role: null,
+    permissions,
+  };
 }
 
 const ENTRY = {
@@ -85,7 +97,9 @@ describe("Content list", () => {
       },
     ]);
     render(await ContentPage({ searchParams: Promise.resolve({ type: "help_article" }) }));
-    expect(adminApiMock.contentList).toHaveBeenCalledWith(expect.objectContaining({ type: "help_article" }));
+    expect(adminApiMock.contentList).toHaveBeenCalledWith(
+      expect.objectContaining({ type: "help_article" }),
+    );
     const row = screen.getByRole("row", { name: /How payouts work/ });
     expect(row).toHaveTextContent("Published");
     expect(row).toHaveTextContent("Unpublished changes");
