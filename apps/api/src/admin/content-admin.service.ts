@@ -2,7 +2,6 @@ import { adminUsers, contentEntries, contentVersions, type DbTransaction } from 
 import {
   isMarketingPage,
   legalSectionSchema,
-  MARKETING_DEFAULTS,
   MARKETING_PAGE_LABELS,
   MARKETING_SCHEMAS,
   type ContentDraft,
@@ -85,6 +84,10 @@ function liveFields(entry: EntryRow): ContentDraft {
  */
 function checkData(type: string, slug: string, data: ContentDraft["data"]) {
   if (type === "marketing_page") {
+    // Nothing saved (null) means "today's defaults from the code", which is always fine.
+    if (data === null) {
+      return;
+    }
     if (!isMarketingPage(slug) || !MARKETING_SCHEMAS[slug].safeParse(data).success) {
       throw new BadRequestException("Some of the page's fields are missing or too long");
     }
@@ -347,8 +350,9 @@ export class ContentAdminService {
   }
 
   /**
-   * The entry behind a marketing page, made on first use with today's words (published, so
-   * nothing on the site changes). Returns its id, for the usual draft and publish screens.
+   * The entry behind a marketing page, made on first use with nothing saved (data null), so
+   * the page keeps following the defaults in code until an admin publishes an edit. Returns
+   * its id, for the usual draft and publish screens.
    */
   async openMarketing(page: string, admin: AdminContext, ip: string | null) {
     if (!isMarketingPage(page)) {
@@ -370,7 +374,7 @@ export class ContentAdminService {
           slug: page,
           title: `${MARKETING_PAGE_LABELS[page]} page`,
           body: "",
-          data: MARKETING_DEFAULTS[page],
+          data: null,
           publishedAt: new Date(),
         })
         .onConflictDoNothing()

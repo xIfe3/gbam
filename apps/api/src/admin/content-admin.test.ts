@@ -315,4 +315,17 @@ describe("Admin content API (integration)", () => {
     ).toBe(404);
     await db.delete(contentEntries).where(eq(contentEntries.id, id));
   });
+  it("opening a marketing page doesn't pin today's words", async () => {
+    await db.delete(contentEntries).where(eq(contentEntries.type, "marketing_page"));
+    const opened = await callAdmin(baseUrl, "POST", "/admin/content/marketing/security", editor.token);
+    const id = (opened.json as { id: string }).id;
+    ids.push(id);
+    // Nothing saved: the page keeps following the defaults in code, even if they change later.
+    const rows = await db.select().from(contentEntries).where(eq(contentEntries.id, id));
+    expect(rows[0]?.data).toBeNull();
+    // And publishing with nothing saved is fine (it means "the defaults").
+    const publish = await callAdmin(baseUrl, "POST", `/admin/content/${id}/publish`, publisher.token, {});
+    expect(publish.status).toBe(200);
+    await db.delete(contentEntries).where(eq(contentEntries.id, id));
+  });
 });
