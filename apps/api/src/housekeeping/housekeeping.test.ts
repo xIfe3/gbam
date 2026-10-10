@@ -1,6 +1,13 @@
 /** Integration test against the dev Postgres (and Redis db 1 for the module's queues). */
 import "reflect-metadata";
-import { adminRoles, adminUsers, supportTickets, ticketMessages } from "@gbam/db";
+import {
+  adminRoles,
+  adminUsers,
+  announcements,
+  notificationCampaigns,
+  supportTickets,
+  ticketMessages,
+} from "@gbam/db";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
@@ -143,5 +150,44 @@ describe("Housekeeping (integration)", () => {
       leftIds.push(row.id);
     }
     expect(leftIds.sort()).toEqual([used, fresh].sort());
+  });
+  it("announcements and notification campaigns in the bin over 30 days are purged", async () => {
+    const old = new Date(Date.now() - 31 * DAY);
+    const recent = new Date(Date.now() - 2 * DAY);
+    const made = await db
+      .insert(announcements)
+      .values([
+        { subject: "Old", body: "x", audience: {}, deletedAt: old },
+        { subject: "Recent", body: "x", audience: {}, deletedAt: recent },
+      ])
+      .returning({ id: announcements.id });
+    const campaigns = await db
+      .insert(notificationCampaigns)
+      .values([
+        { type: "info", title: "Old", body: "x", audience: {}, deletedAt: old },
+        { type: "info", title: "Recent", body: "x", audience: {}, deletedAt: recent },
+      ])
+      .returning({ id: notificationCampaigns.id });
+    await housekeeping.run(new Date());
+    const announcementIds: string[] = [];
+    for (const row of made) {
+      announcementIds.push(row.id);
+    }
+    const campaignIds: string[] = [];
+    for (const row of campaigns) {
+      campaignIds.push(row.id);
+    }
+    const leftAnnouncements = await db
+      .select()
+      .from(announcements)
+      .where(inArray(announcements.id, announcementIds));
+    expect(leftAnnouncements.map((row) => row.subject)).toEqual(["Recent"]);
+    const leftCampaigns = await db
+      .select()
+      .from(notificationCampaigns)
+      .where(inArray(notificationCampaigns.id, campaignIds));
+    expect(leftCampaigns.map((row) => row.title)).toEqual(["Recent"]);
+    await db.delete(announcements).where(inArray(announcements.id, announcementIds));
+    await db.delete(notificationCampaigns).where(inArray(notificationCampaigns.id, campaignIds));
   });
 });

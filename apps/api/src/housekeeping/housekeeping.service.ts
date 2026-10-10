@@ -1,4 +1,11 @@
-import { adminRoles, adminUsers, supportTickets, ticketMessages } from "@gbam/db";
+import {
+  adminRoles,
+  adminUsers,
+  announcements,
+  notificationCampaigns,
+  supportTickets,
+  ticketMessages,
+} from "@gbam/db";
 import { Injectable } from "@nestjs/common";
 import { and, eq, isNotNull, isNull, lte, notExists } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -21,7 +28,30 @@ export class HousekeepingService {
     const closed = await this.closeSolvedTickets(now);
     const ticketsPurged = await this.purgeTickets(now);
     const rolesPurged = await this.purgeRoles(now);
-    return { closed, ticketsPurged, rolesPurged };
+    const messagesPurged = await this.purgeMessaging(now);
+    return { closed, ticketsPurged, rolesPurged, messagesPurged };
+  }
+
+  /**
+   * Announcements and notification campaigns in the bin over 30 days. Their recipient rows
+   * and the notifications in sellers' bells go with them (the database cascades the delete).
+   */
+  private async purgeMessaging(now: Date): Promise<number> {
+    const cutoff = new Date(now.getTime() - BIN_DAYS * DAY_MS);
+    const goneAnnouncements = await this.db
+      .delete(announcements)
+      .where(and(isNotNull(announcements.deletedAt), lte(announcements.deletedAt, cutoff)))
+      .returning({ id: announcements.id });
+    const goneCampaigns = await this.db
+      .delete(notificationCampaigns)
+      .where(
+        and(
+          isNotNull(notificationCampaigns.deletedAt),
+          lte(notificationCampaigns.deletedAt, cutoff),
+        ),
+      )
+      .returning({ id: notificationCampaigns.id });
+    return goneAnnouncements.length + goneCampaigns.length;
   }
 
   /**
