@@ -1,6 +1,7 @@
 import { BullModule } from "@nestjs/bullmq";
 import { Module } from "@nestjs/common";
 import { AuthModule } from "../auth/auth.module.js";
+import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { NotificationsModule } from "../notifications/notifications.module.js";
 import { ORDER_EXPIRY_QUEUE, OrderExpiryQueue } from "./order-expiry.queue.js";
@@ -12,6 +13,7 @@ import { OrdersService } from "./orders.service.js";
   imports: [
     AuthModule,
     NotificationsModule,
+    RateLimiterModule,
     EmailModule,
     BullModule.registerQueue({ name: ORDER_EXPIRY_QUEUE }),
   ],

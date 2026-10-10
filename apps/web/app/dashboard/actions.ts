@@ -4,6 +4,7 @@ import { orderStatusSchema } from "@gbam/shared";
 import { refresh } from "next/cache";
 import { unstable_rethrow } from "next/navigation";
 import { z } from "zod";
+import { retryAfterSeconds } from "@/app/(auth)/action-helpers";
 import { api, ApiError } from "@/lib/api";
 
 export type UpdateStatusState = { error?: string };
@@ -68,4 +69,34 @@ export async function resolveIssueAction(
   }
   refresh();
   return {};
+}
+
+/** "Resend payment request" on an order waiting for payment. */
+export async function resendPaymentAction(
+  orderId: string,
+): Promise<{ notice?: string; error?: string }> {
+  const id = z.uuid().safeParse(orderId);
+  if (!id.success) {
+    return { error: "Invalid request." };
+  }
+  try {
+    await api.resendPaymentRequest(id.data);
+  } catch (error) {
+    unstable_rethrow(error);
+    const wait = retryAfterSeconds(error);
+    if (wait !== null) {
+      const minutes = Math.max(1, Math.ceil(wait / 60));
+      let unit = "minutes";
+      if (minutes === 1) {
+        unit = "minute";
+      }
+      return { error: `It was sent recently. You can send it again in ${minutes} ${unit}.` };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: "This order isn't waiting for payment any more." };
+    }
+    console.error("resendPayment failed");
+    return { error: "Couldn't send it. Please try again." };
+  }
+  return { notice: "Sent again on WhatsApp. You can send it again in 10 minutes if needed." };
 }

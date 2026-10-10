@@ -10,6 +10,7 @@ import {
   Body,
   Controller,
   Get,
+  HttpCode,
   Param,
   ParseUUIDPipe,
   Patch,
@@ -39,6 +40,13 @@ export class OrdersController {
   @Get(":id")
   get(@CurrentSellerId() sellerId: string, @Param("id", ParseUUIDPipe) id: string) {
     return this.orders.getForSeller(sellerId, id);
+  }
+
+  /** "Resend payment request": the customer lost the WhatsApp message. */
+  @Post(":id/resend-payment")
+  @HttpCode(200)
+  resendPayment(@CurrentSellerId() sellerId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.orders.resendPaymentRequest(sellerId, id);
   }
 
   @Patch(":id/issues/:issueId/resolve")

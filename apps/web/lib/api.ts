@@ -270,6 +270,8 @@ export type OrderDetail = Order & {
   }[];
   /** True when stock ran out after the customer paid, so the seller must refund. */
   stockShortfall: boolean;
+  /** While payment is due: the customer's pay link, for "Copy payment link". Else null. */
+  payLink: string | null;
   events: {
     id: string;
     fromStatus: OrderStatus | null;
@@ -759,6 +761,14 @@ async function trackReportIssue(
   });
 }
 
+/** "Resend payment request": the WhatsApp payment message again (at most every 10 minutes). */
+async function resendPaymentRequest(orderId: string) {
+  return request<{ nextAllowedAt: string }>(
+    `/orders/${encodeURIComponent(orderId)}/resend-payment`,
+    { method: "POST", auth: "session" },
+  );
+}
+
 async function resolveOrderIssue(orderId: string, issueId: string) {
   return request<{ id: string }>(
     `/orders/${encodeURIComponent(orderId)}/issues/${encodeURIComponent(issueId)}/resolve`,
@@ -890,6 +900,7 @@ export const api = {
   trackPay,
   trackReportIssue,
   resolveOrderIssue,
+  resendPaymentRequest,
   getTours,
   saveTourStep,
   finishTour,

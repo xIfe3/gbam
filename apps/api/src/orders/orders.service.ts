@@ -41,6 +41,8 @@ import { InjectDb, type Db } from "../infra/infra.module.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { generateOrderCode } from "./order-code.js";
 import { reduceStockForPaidOrder, variantDisplayName } from "./stock.js";
+import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
+import { payPageUrl } from "../payments/checkout-links.js";
 
 // Order codes are random, so two orders could (rarely) get the same one. If that
 // happens we try again with a new code, up to this many times.
@@ -48,6 +50,9 @@ const MAX_CODE_ATTEMPTS = 3;
 
 // Same cap as one line in createOrderSchema; checked again after duplicate lines are merged.
 const MAX_QUANTITY_PER_VARIANT = 99;
+
+/** A seller can resend a payment request at most this often, per order. */
+const PAYMENT_RESEND_GAP_SECONDS = 10 * 60;
 
 /**
  * All order logic lives here. Controllers (HTTP) and the worker call these methods;
@@ -65,6 +70,7 @@ export class OrdersService {
     private readonly notifications: NotificationsQueue,
     private readonly emails: EmailQueue,
     @Inject(ENV) private readonly env: Env,
+    private readonly limiter: RateLimiter,
   ) {}
 
   /** The customer's private tracking link, e.g. https://gbam.app/track/GB-7K3Q?k=… */
@@ -216,7 +222,40 @@ export class OrdersService {
 
     // Which buttons the seller may press next, from the shared state machine.
     const allowedTransitions = nextStatuses(order.status, "seller");
-    return { ...order, allowedTransitions };
+    // While payment is due: the customer's pay link, for the seller's "Copy payment link".
+    let payLink: string | null = null;
+    if (order.status === "awaiting_payment") {
+      payLink = payPageUrl(this.env.WEB_URL, order.code, order.trackingKey);
+    }
+    return { ...order, allowedTransitions, payLink };
+  }
+
+  /**
+   * "Resend payment request": the customer lost the WhatsApp message (deleted the chat...),
+   * so it's sent again with the same link. At most once every 10 minutes per order.
+   */
+  async resendPaymentRequest(sellerId: string, orderId: string) {
+    const rows = await this.db
+      .select({ status: orders.status })
+      .from(orders)
+      .where(and(eq(orders.id, orderId), eq(orders.sellerId, sellerId)));
+    const order = rows[0];
+    if (!order) {
+      throw new NotFoundException("Order not found");
+    }
+    if (order.status !== "awaiting_payment") {
+      throw new ConflictException("Only orders waiting for payment can be sent a payment request");
+    }
+    const limit = await this.limiter.hit(
+      `payment-resend:${orderId}`,
+      1,
+      PAYMENT_RESEND_GAP_SECONDS,
+    );
+    if (!limit.allowed) {
+      throw new TooManyRequestsError(limit.retryAfterSeconds);
+    }
+    await this.notifications.paymentResend(orderId);
+    return { nextAllowedAt: new Date(Date.now() + PAYMENT_RESEND_GAP_SECONDS * 1000) };
   }
 
   /** The seller marks a customer's problem as dealt with. Another shop's issue → 404. */

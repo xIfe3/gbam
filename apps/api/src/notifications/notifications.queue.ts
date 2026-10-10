@@ -37,6 +37,24 @@ export class NotificationsQueue {
   }
 
   /**
+   * The seller pressed "Resend payment request": the same WhatsApp payment message again.
+   * Each press is its own job (the time is in the id); OrdersService limits how often.
+   */
+  async paymentResend(orderId: string) {
+    await this.queue.add(
+      "order.payment_reminder",
+      { kind: "order.payment_reminder", orderId, from: "awaiting_payment", to: "awaiting_payment" },
+      {
+        jobId: `resend-${orderId}-${Date.now()}`,
+        attempts: 5,
+        backoff: { type: "exponential", delay: 2_000 },
+        removeOnComplete: 1_000,
+        removeOnFail: 5_000,
+      },
+    );
+  }
+
+  /**
    * Sends the payment request again to a customer who hasn't paid. The job id is fixed per
    * order, so an order can only ever be reminded once. If the customer paid in the meantime,
    * the processor sees the order is no longer awaiting payment and sends nothing.

@@ -10,6 +10,7 @@ import { STATUS_LABEL } from "@/lib/order-labels";
 import { StatusBadge } from "../../status-badge";
 import { MoneyBreakdown } from "./money-breakdown";
 import { CustomerProblems } from "./customer-problems";
+import { PaymentRequestTools } from "./payment-request-tools";
 import { StatusActions } from "./status-actions";
 import { CancelOrder } from "./cancel-order";
 import { RefundOrder } from "./refund-order";
@@ -97,6 +98,11 @@ export default async function OrderPage(props: PageProps<"/dashboard/orders/[id]
             canRequestPayment={canRequestPayment}
           />
         </div>
+        {order.payLink && (
+          <div className="mt-4 border-t border-zinc-100 pt-4">
+            <PaymentRequestTools orderId={order.id} payLink={order.payLink} />
+          </div>
+        )}
       </section>
 
       <CustomerProblems orderId={order.id} issues={order.issues} />

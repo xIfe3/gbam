@@ -92,7 +92,12 @@ describe("OrdersService (integration)", () => {
       amountKobo: 450_000,
       status: "success",
     });
-    const order = await service.transition({ orderId: id, to: "refunded", actor: "seller", sellerId });
+    const order = await service.transition({
+      orderId: id,
+      to: "refunded",
+      actor: "seller",
+      sellerId,
+    });
     expect(order.status).toBe("refunded");
   });
 
@@ -210,7 +215,11 @@ describe("OrdersService (integration)", () => {
 
   async function expectRejected(variant: string, quantity: number, text: string) {
     await expect(
-      service.createFromStorefront(slug, { customer, delivery: TEST_DELIVERY, items: [{ variantId: variant, quantity }] }),
+      service.createFromStorefront(slug, {
+        customer,
+        delivery: TEST_DELIVERY,
+        items: [{ variantId: variant, quantity }],
+      }),
     ).rejects.toThrow(text);
   }
 
@@ -263,7 +272,11 @@ describe("OrdersService (integration)", () => {
       }),
     ).rejects.toMatchObject({ response: { field: "items" } });
     expect(
-      createOrderSchema.safeParse({ customer, delivery: TEST_DELIVERY, items: [{ variantId, quantity: 100 }] }).success,
+      createOrderSchema.safeParse({
+        customer,
+        delivery: TEST_DELIVERY,
+        items: [{ variantId, quantity: 100 }],
+      }).success,
     ).toBe(false);
   });
 
@@ -435,7 +448,12 @@ describe("OrdersService emails (integration)", () => {
 
   it("emails both sides when an order is paid", async () => {
     const order = await placeOrder();
-    await service.transition({ orderId: order.id, to: "awaiting_payment", actor: "seller", sellerId });
+    await service.transition({
+      orderId: order.id,
+      to: "awaiting_payment",
+      actor: "seller",
+      sellerId,
+    });
     await service.transition({ orderId: order.id, to: "paid", actor: "system" });
     const eventId = await latestEventId(order.id);
 
