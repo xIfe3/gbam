@@ -1,6 +1,6 @@
 /** Integration test over HTTP against the dev Postgres + Redis (db 1). */
 import "reflect-metadata";
-import { adminAuditLog, sellers, users } from "@gbam/db";
+import { adminAuditLog, sellerNotifications, sellers, users } from "@gbam/db";
 import { ConflictException, type INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
@@ -159,6 +159,11 @@ describe("Admin shops (integration)", () => {
     expect(entries).toHaveLength(1);
     expect(entries[0]?.note).toBe("Reported for fraud");
     expect(sent.some((job) => job.kind === "shop_suspended" && job.to === target.email)).toBe(true);
+    const bell = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.sellerId, target.id));
+    expect(bell.map((item) => item.title)).toContain("Your shop is paused");
   });
 
   it("reopen restores ordering", async () => {
@@ -178,6 +183,11 @@ describe("Admin shops (integration)", () => {
     expect(reopened.status).toBe(200);
     const order = await placeOrder(target.slug, target.variantId);
     expect(order.status).toBe("pending");
+    const bell = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.sellerId, target.id));
+    expect(bell.map((item) => item.title)).toContain("Your shop is open again");
   });
 
   it("bulk suspend skips already suspended", async () => {

@@ -1,6 +1,13 @@
 /** Integration test against the dev Postgres + Redis (db 1). The email queue is a recorder. */
 import "reflect-metadata";
-import { adminAuditLog, contactMessages, sellers, supportTickets, ticketMessages } from "@gbam/db";
+import {
+  adminAuditLog,
+  contactMessages,
+  sellerNotifications,
+  sellers,
+  supportTickets,
+  ticketMessages,
+} from "@gbam/db";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { eq, inArray } from "drizzle-orm";
 import type { Redis } from "ioredis";
@@ -165,6 +172,12 @@ describe("TicketsService (integration)", () => {
     });
     const audit = await db.select().from(adminAuditLog).where(eq(adminAuditLog.targetId, id));
     expect(audit.map((entry) => entry.action)).toEqual(["ticket.reply"]);
+    // The seller also sees it in their dashboard bell.
+    const bell = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.sellerId, sellerId));
+    expect(bell.some((item) => item.link === `/dashboard/help/${id}`)).toBe(true);
   });
 
   it("contact ticket reply email carries the private link", async () => {

@@ -16,6 +16,8 @@ import { AnnouncementsAdminController } from "./announcements-admin.controller.j
 import { AnnouncementsAdminService } from "./announcements-admin.service.js";
 import { AuditService } from "./audit.service.js";
 import { MoneyAdminService } from "./money-admin.service.js";
+import { NotificationsAdminController } from "./notifications-admin.controller.js";
+import { NotificationsAdminService } from "./notifications-admin.service.js";
 import { NumbersAdminController } from "./numbers-admin.controller.js";
 import { OrdersAdminController } from "./orders-admin.controller.js";
 import { OrdersAdminService } from "./orders-admin.service.js";
@@ -69,6 +71,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     SystemAdminController,
     TicketsAdminController,
     AnnouncementsAdminController,
+    NotificationsAdminController,
   ],
   providers: [
     AdminAuthService,
@@ -88,6 +91,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     SystemAdminService,
     TicketsAdminService,
     AnnouncementsAdminService,
+    NotificationsAdminService,
     // A "factory" provider: Nest looks up each queue (by its token) and passes them all in,
     // and the list becomes SYSTEM_QUEUES.
     {

@@ -15,6 +15,7 @@ import type { Redis } from "ioredis";
 import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
+import { SellerNotificationsService } from "../messaging/seller-notifications.service.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { InjectDb, REDIS, type Db } from "../infra/infra.module.js";
 import { InjectPaystack, type PaystackClient } from "../integrations/integrations.module.js";
@@ -67,6 +68,7 @@ export class PayoutsService {
     @InjectPaystack() private readonly paystack: PaystackClient,
     private readonly limiter: RateLimiter,
     private readonly emails: EmailQueue,
+    private readonly notifications: SellerNotificationsService,
   ) {}
 
   /** Nigerian banks, from Redis when we fetched them in the last 24 hours. */
@@ -381,6 +383,12 @@ export class PayoutsService {
         shopName,
         bankName: saved.bankName,
         accountLast4: saved.accountLast4,
+      });
+      await this.notifications.notify(sellerId, {
+        type: "warning",
+        title: "Your payout account changed",
+        body: `Payouts now go to ${saved.bankName}, account ending ${saved.accountLast4}. If you didn't do this, ask us in Help straight away.`,
+        link: "/dashboard/settings",
       });
     } catch (error) {
       this.logger.error(`Could not queue the payout-change email for seller ${sellerId}`, error);

@@ -4,7 +4,7 @@
  * Covers spec 8: signup → verify → bank → subaccount (stubbed Paystack).
  */
 import "reflect-metadata";
-import { sellers, users } from "@gbam/db";
+import { sellerNotifications, sellers, users } from "@gbam/db";
 import { FakePaystackClient } from "@gbam/integrations";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
@@ -290,5 +290,13 @@ describe("Payout endpoints over HTTP (integration)", () => {
       }
     }
     expect(alert).toMatchObject({ bankName: "Access Bank", accountLast4: "3210" });
+    // And a warning in the dashboard bell.
+    const bell = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.sellerId, seller.sellerId));
+    expect(
+      bell.some((item) => item.type === "warning" && item.title.includes("payout account")),
+    ).toBe(true);
   });
 });

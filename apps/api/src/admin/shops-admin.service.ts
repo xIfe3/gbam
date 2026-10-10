@@ -18,6 +18,7 @@ import { AuthService } from "../auth/auth.service.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import type { AdminContext } from "./admin-auth.service.js";
+import { SellerNotificationsService } from "../messaging/seller-notifications.service.js";
 import { AuditService } from "./audit.service.js";
 
 const PAGE_SIZE = 50;
@@ -54,6 +55,7 @@ export class ShopsAdminService {
     private readonly audit: AuditService,
     private readonly authService: AuthService,
     private readonly emails: EmailQueue,
+    private readonly notifications: SellerNotificationsService,
   ) {}
 
   async list(query: ShopListQuery) {
@@ -267,11 +269,30 @@ export class ShopsAdminService {
             .update(sellers)
             .set({ suspendedAt: new Date(), suspendedReason: reason })
             .where(eq(sellers.id, sellerId));
+          await this.notifications.notify(
+            sellerId,
+            {
+              type: "warning",
+              title: "Your shop is paused",
+              body: "Customers can't place orders or pay for now. Check your email, or ask us in Help.",
+              link: "/dashboard/help",
+            },
+            tx,
+          );
         } else {
           await tx
             .update(sellers)
             .set({ suspendedAt: null, suspendedReason: null })
             .where(eq(sellers.id, sellerId));
+          await this.notifications.notify(
+            sellerId,
+            {
+              type: "info",
+              title: "Your shop is open again",
+              body: "Customers can order and pay again.",
+            },
+            tx,
+          );
         }
         await this.audit.record(
           {

@@ -7,6 +7,7 @@ import { AuditService } from "../admin/audit.service.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { SellerNotificationsService } from "../messaging/seller-notifications.service.js";
 
 export type NewTicket = {
   source: TicketSource;
@@ -53,6 +54,7 @@ export class TicketsService {
     @Inject(ENV) private readonly env: Env,
     private readonly emails: EmailQueue,
     private readonly audit: AuditService,
+    private readonly notifications: SellerNotificationsService,
   ) {}
 
   /** The admin page for a ticket. */
@@ -204,6 +206,19 @@ export class TicketsService {
         { adminId: admin.id, action: "ticket.reply", targetType: "ticket", targetId: ticketId, ip },
         tx,
       );
+      // Sellers also see it in their dashboard bell (contact-form senders only get the email).
+      if (ticket.sellerId) {
+        await this.notifications.notify(
+          ticket.sellerId,
+          {
+            type: "info",
+            title: "Gbam replied to your request",
+            body: `#${ticket.number}: ${ticket.subject}`,
+            link: `/dashboard/help/${ticket.id}`,
+          },
+          tx,
+        );
+      }
       return message.id;
     });
 
