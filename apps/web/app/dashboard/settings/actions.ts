@@ -50,7 +50,8 @@ export async function updateShopAction(_prev: FormState, formData: FormData): Pr
  */
 export async function updateEmailsAction(_prev: FormState, formData: FormData): Promise<FormState> {
   const ticked = formData.get("newOrderEmails") === "on";
-  const input = emailSettingsSchema.safeParse({ newOrderEmails: ticked });
+  const news = formData.get("newsEmails") === "on";
+  const input = emailSettingsSchema.safeParse({ newOrderEmails: ticked, newsEmails: news });
   if (!input.success) {
     return { error: "Something went wrong. Please try again." };
   }

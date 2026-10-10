@@ -57,9 +57,15 @@ export function ShopForm({ businessName, phone }: { businessName: string; phone:
 
 /**
  * Optional emails. Payment, password and bank-account emails always go out (they're about
- * money and safety); only the "new order" email can be turned off.
+ * money and safety); only "new order" emails and Gbam's news and tips can be turned off.
  */
-export function EmailsForm({ newOrderEmails }: { newOrderEmails: boolean }) {
+export function EmailsForm({
+  newOrderEmails,
+  newsEmails,
+}: {
+  newOrderEmails: boolean;
+  newsEmails: boolean;
+}) {
   const [state, formAction] = useActionState<FormState, FormData>(updateEmailsAction, {});
   return (
     <form action={formAction} className="flex flex-col gap-4">
@@ -73,6 +79,15 @@ export function EmailsForm({ newOrderEmails }: { newOrderEmails: boolean }) {
           className="accent-brand size-5"
         />
         Email me when a new order comes in
+      </label>
+      <label className="flex min-h-11 items-center gap-3 text-sm text-zinc-700">
+        <input
+          type="checkbox"
+          name="newsEmails"
+          defaultChecked={newsEmails}
+          className="accent-brand size-5"
+        />
+        Send me news and tips from Gbam (new features, a few times a month at most)
       </label>
       <div>
         <SubmitButton pendingLabel="Saving…">Save</SubmitButton>

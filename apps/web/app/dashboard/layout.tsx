@@ -4,7 +4,8 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
 import { PendingButton } from "@/components/brand/form-bits";
 import { Logo } from "@/components/brand/logo";
-import { api, type TourStates } from "@/lib/api";
+import { NotificationBell } from "@/components/dashboard/notification-bell";
+import { api, type BellData, type TourStates } from "@/lib/api";
 import { DashboardNav } from "./dashboard-nav";
 import { PayoutBanner } from "./payout-banner";
 import { SuspendedBanner } from "./suspended-banner";
@@ -37,6 +38,15 @@ export default async function DashboardLayout({ children }: { children: React.Re
     console.error("loading tours failed", reason);
   }
 
+  // The bell's notifications. If they can't load, the bell is just left out this time.
+  let bell: BellData | null = null;
+  try {
+    bell = await api.bell();
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("loading notifications failed");
+  }
+
   let shopName = user.email;
   let needsPayoutAccount = false;
   let suspended = false;
@@ -59,6 +69,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
             <span className="text-ink-muted truncate text-sm font-medium">{shopName}</span>
           </Link>
           <div className="flex items-center gap-2">
+            {bell && <NotificationBell data={bell} />}
             <HelpButton />
             <form action={logoutAction}>
               <PendingButton

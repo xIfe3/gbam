@@ -621,6 +621,8 @@ export type ShopSettings = {
   payoutAccount: PayoutAccount | null;
   /** Email the owner when a new order comes in. */
   newOrderEmails: boolean;
+  /** Gbam's "news and tips" announcement emails. */
+  newsEmails: boolean;
 };
 
 async function getSettings() {
@@ -654,7 +656,7 @@ async function saveDeliverySettings(body: {
   });
 }
 
-async function updateEmailSettings(body: { newOrderEmails: boolean }) {
+async function updateEmailSettings(body: { newOrderEmails: boolean; newsEmails?: boolean }) {
   return request<ShopSettings>("/settings/emails", {
     method: "PATCH",
     body: JSON.stringify(body),
@@ -833,8 +835,49 @@ async function replyPublicTicket(id: string, key: string, message: string) {
   );
 }
 
+/** The bell in the dashboard: Gbam's notifications to this shop, newest first. */
+export type BellData = {
+  unread: number;
+  items: {
+    id: string;
+    type: "info" | "warning" | "action";
+    title: string;
+    body: string;
+    link: string | null;
+    readAt: string | null;
+    createdAt: string;
+  }[];
+};
+
+async function bell() {
+  return request<BellData>("/bell", { auth: "session" });
+}
+
+async function markNotificationRead(id: string) {
+  return request<{ ok: true }>(`/bell/${encodeURIComponent(id)}/read`, {
+    method: "POST",
+    auth: "session",
+  });
+}
+
+async function markAllNotificationsRead() {
+  return request<{ ok: true }>("/bell/read-all", { method: "POST", auth: "session" });
+}
+
+/** The "Unsubscribe" button on /unsubscribe: turns off Gbam's news and tips emails. */
+async function unsubscribe(sellerId: string, token: string) {
+  return request<{ ok: true }>("/email/unsubscribe", {
+    method: "POST",
+    body: JSON.stringify({ s: sellerId, t: token }),
+  });
+}
+
 /** Usage: `await api.getOrder(id)` */
 export const api = {
+  bell,
+  markNotificationRead,
+  markAllNotificationsRead,
+  unsubscribe,
   helpTickets,
   helpTicket,
   openHelpTicket,

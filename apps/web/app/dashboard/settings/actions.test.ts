@@ -117,15 +117,21 @@ describe("saveDeliveryAction", () => {
 describe("updateEmailsAction", () => {
   it("a ticked box turns new-order emails on", async () => {
     apiMock.updateEmailSettings.mockResolvedValue({});
-    const state = await updateEmailsAction({}, form({ newOrderEmails: "on" }));
-    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({ newOrderEmails: true });
+    const state = await updateEmailsAction({}, form({ newOrderEmails: "on", newsEmails: "on" }));
+    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({
+      newOrderEmails: true,
+      newsEmails: true,
+    });
     expect(state.notice).toContain("We'll email you");
   });
 
   it("an unticked box (missing from the form) turns them off", async () => {
     apiMock.updateEmailSettings.mockResolvedValue({});
     const state = await updateEmailsAction({}, form({}));
-    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({ newOrderEmails: false });
+    expect(apiMock.updateEmailSettings).toHaveBeenCalledWith({
+      newOrderEmails: false,
+      newsEmails: false,
+    });
     expect(state.notice).toContain("won't email you");
   });
 });

@@ -116,7 +116,7 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
           We always email you about payments, password and bank account changes. New-order emails
           are up to you.
         </p>
-        <EmailsForm newOrderEmails={settings.newOrderEmails} />
+        <EmailsForm newOrderEmails={settings.newOrderEmails} newsEmails={settings.newsEmails} />
       </section>
 
       <section aria-labelledby="security-heading" className={sectionClass}>
