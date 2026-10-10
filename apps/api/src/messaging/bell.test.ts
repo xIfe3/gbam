@@ -99,6 +99,25 @@ describe("Notification bell over HTTP (integration)", () => {
     return { status: res.status, json };
   }
 
+  async function callJson(method: string, path: string, authorization: string, body: unknown) {
+    const res = await fetch(`${baseUrl}${path}`, {
+      method,
+      headers: {
+        authorization,
+        "content-type": "application/json",
+        "x-client-ip": `test-${randomUUID()}`,
+        "x-internal-secret": INTERNAL_SECRET,
+      },
+      body: JSON.stringify(body),
+    });
+    const text = await res.text();
+    let json: unknown = null;
+    if (text !== "") {
+      json = JSON.parse(text);
+    }
+    return { status: res.status, json };
+  }
+
   it("seller sees only their own, newest first, ended ones hidden", async () => {
     const me = await seller();
     const other = await seller();
@@ -184,5 +203,91 @@ describe("Notification bell over HTTP (integration)", () => {
     expect(bell.unread).toBe(0);
     expect(bell.items).toEqual([]);
     await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, campaign.id));
+  });
+  type Page = {
+    rows: { id: string; title: string; readAt: string | null; deletedAt: string | null }[];
+    total: number;
+    unread: number;
+  };
+
+  it("the notifications page: tabs, type filter and search", async () => {
+    const me = await seller();
+    await notifications.notify(me.sellerId, {
+      type: "info",
+      title: "Payouts are faster",
+      body: "Next day",
+    });
+    await notifications.notify(me.sellerId, {
+      type: "warning",
+      title: "Shop paused",
+      body: "Check email",
+    });
+    const all = (await call("GET", "/bell/all", me.authorization)).json as Page;
+    expect(all.total).toBe(2);
+    const warnings = (await call("GET", "/bell/all?type=warning", me.authorization)).json as Page;
+    expect(warnings.rows.map((row) => row.title)).toEqual(["Shop paused"]);
+    const found = (await call("GET", "/bell/all?q=payouts", me.authorization)).json as Page;
+    expect(found.rows.map((row) => row.title)).toEqual(["Payouts are faster"]);
+    const first = all.rows[0];
+    if (!first) {
+      throw new Error("no rows");
+    }
+    await call("POST", `/bell/${first.id}/read`, me.authorization);
+    const unread = (await call("GET", "/bell/all?tab=unread", me.authorization)).json as Page;
+    expect(unread.total).toBe(1);
+    expect(unread.unread).toBe(1);
+  });
+
+  it("one notification, mark unread again", async () => {
+    const me = await seller();
+    await notifications.notify(me.sellerId, { type: "info", title: "Hello", body: "World" });
+    const list = (await call("GET", "/bell/all", me.authorization)).json as Page;
+    const id = list.rows[0]?.id ?? "";
+    await call("POST", `/bell/${id}/read`, me.authorization);
+    const one = await call("GET", `/bell/${id}`, me.authorization);
+    expect(one.status).toBe(200);
+    expect((one.json as { title: string; readAt: string | null }).readAt).not.toBeNull();
+    expect((await call("POST", `/bell/${id}/unread`, me.authorization)).status).toBe(200);
+    const again = (await call("GET", `/bell/${id}`, me.authorization)).json as {
+      readAt: string | null;
+    };
+    expect(again.readAt).toBeNull();
+  });
+
+  it("trash: out of the bell, restorable, deletable for good, emptied", async () => {
+    const me = await seller();
+    for (const title of ["One", "Two", "Three"]) {
+      await notifications.notify(me.sellerId, { type: "info", title, body: "x" });
+    }
+    const list = (await call("GET", "/bell/all", me.authorization)).json as Page;
+    const ids = list.rows.map((row) => row.id);
+    const bulk = await callJson("POST", "/bell/bulk", me.authorization, { ids, action: "trash" });
+    expect(bulk.status).toBe(200);
+    expect(((await call("GET", "/bell", me.authorization)).json as Bell).items).toEqual([]);
+    const trash = (await call("GET", "/bell/all?tab=trash", me.authorization)).json as Page;
+    expect(trash.total).toBe(3);
+    await call("POST", `/bell/${ids[0]}/restore`, me.authorization);
+    expect(((await call("GET", "/bell", me.authorization)).json as Bell).items).toHaveLength(1);
+    expect((await call("DELETE", `/bell/${ids[1]}`, me.authorization)).status).toBe(200);
+    expect((await call("GET", `/bell/${ids[1]}`, me.authorization)).status).toBe(404);
+    await call("POST", "/bell/trash/empty", me.authorization);
+    expect(((await call("GET", "/bell/all?tab=trash", me.authorization)).json as Page).total).toBe(
+      0,
+    );
+    // Deleting for good only works on what's in the trash.
+    expect((await call("DELETE", `/bell/${ids[0]}`, me.authorization)).status).toBe(409);
+  });
+
+  it("bulk only touches the seller's own", async () => {
+    const me = await seller();
+    const other = await seller();
+    await notifications.notify(other.sellerId, { type: "info", title: "Theirs", body: "x" });
+    const theirs = (await call("GET", "/bell/all", other.authorization)).json as Page;
+    const result = await callJson("POST", "/bell/bulk", me.authorization, {
+      ids: [theirs.rows[0]?.id],
+      action: "trash",
+    });
+    expect(result.json).toEqual({ changed: 0 });
+    expect(((await call("GET", "/bell/all", other.authorization)).json as Page).total).toBe(1);
   });
 });

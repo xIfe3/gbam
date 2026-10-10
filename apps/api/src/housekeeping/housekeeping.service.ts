@@ -3,6 +3,7 @@ import {
   adminUsers,
   announcements,
   notificationCampaigns,
+  sellerNotifications,
   supportTickets,
   ticketMessages,
 } from "@gbam/db";
@@ -51,7 +52,14 @@ export class HousekeepingService {
         ),
       )
       .returning({ id: notificationCampaigns.id });
-    return goneAnnouncements.length + goneCampaigns.length;
+    // Notifications sellers put in their own trash.
+    const goneNotifications = await this.db
+      .delete(sellerNotifications)
+      .where(
+        and(isNotNull(sellerNotifications.deletedAt), lte(sellerNotifications.deletedAt, cutoff)),
+      )
+      .returning({ id: sellerNotifications.id });
+    return goneAnnouncements.length + goneCampaigns.length + goneNotifications.length;
   }
 
   /**

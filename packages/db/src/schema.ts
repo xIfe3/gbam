@@ -951,6 +951,8 @@ export const sellerNotifications = pgTable(
     link: text("link"),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
+    /** In the seller's trash: out of the bell, restorable, deleted for good after 30 days. */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: createdAt(),
   },
   (t) => [index("seller_notifications_seller_idx").on(t.sellerId, t.createdAt)],

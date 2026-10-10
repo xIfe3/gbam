@@ -169,6 +169,13 @@
       "when": 1791640656998,
       "tag": "0023_shop_images",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1791648488826,
+      "tag": "0024_notification_trash",
+      "breakpoints": true
     }
   ]
 }

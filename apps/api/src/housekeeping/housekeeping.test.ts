@@ -5,6 +5,8 @@ import {
   adminUsers,
   announcements,
   notificationCampaigns,
+  sellerNotifications,
+  sellers,
   supportTickets,
   ticketMessages,
 } from "@gbam/db";
@@ -13,6 +15,7 @@ import { eq, inArray } from "drizzle-orm";
 import { randomUUID } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
+import { createTestSeller } from "../test-helpers.js";
 import { HousekeepingService } from "./housekeeping.service.js";
 
 process.loadEnvFile?.("../../.env");
@@ -189,5 +192,42 @@ describe("Housekeeping (integration)", () => {
     expect(leftCampaigns.map((row) => row.title)).toEqual(["Recent"]);
     await db.delete(announcements).where(inArray(announcements.id, announcementIds));
     await db.delete(notificationCampaigns).where(inArray(notificationCampaigns.id, campaignIds));
+  });
+  it("notifications in a seller's trash over 30 days are deleted for good", async () => {
+    const seller = await createTestSeller(db, "house");
+    try {
+      const rows = await db
+        .insert(sellerNotifications)
+        .values([
+          {
+            sellerId: seller.id,
+            type: "info",
+            title: "Old",
+            body: "x",
+            deletedAt: new Date(Date.now() - 31 * DAY),
+          },
+          {
+            sellerId: seller.id,
+            type: "info",
+            title: "Recent",
+            body: "x",
+            deletedAt: new Date(Date.now() - 2 * DAY),
+          },
+          { sellerId: seller.id, type: "info", title: "Kept", body: "x" },
+        ])
+        .returning({ id: sellerNotifications.id });
+      await housekeeping.run(new Date());
+      const ids: string[] = [];
+      for (const row of rows) {
+        ids.push(row.id);
+      }
+      const left = await db
+        .select()
+        .from(sellerNotifications)
+        .where(inArray(sellerNotifications.id, ids));
+      expect(left.map((row) => row.title).sort()).toEqual(["Kept", "Recent"]);
+    } finally {
+      await db.delete(sellers).where(eq(sellers.id, seller.id));
+    }
   });
 });
