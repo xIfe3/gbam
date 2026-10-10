@@ -1,4 +1,5 @@
 import { contentEntries } from "@gbam/db";
+import { isMarketingPage, resolveMarketing } from "@gbam/shared";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
 import { and, asc, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -75,5 +76,29 @@ export class ContentService {
       throw new NotFoundException("Content not found");
     }
     return entry;
+  }
+
+  /** A marketing page's fields: what's published, and today's defaults for anything else. */
+  async marketing(page: string) {
+    if (!isMarketingPage(page)) {
+      throw new NotFoundException("No such page");
+    }
+    const [entry] = await this.db
+      .select({ data: contentEntries.data })
+      .from(contentEntries)
+      .where(
+        and(
+          eq(contentEntries.type, "marketing_page"),
+          eq(contentEntries.slug, page),
+          isNotNull(contentEntries.publishedAt),
+          lte(contentEntries.publishedAt, new Date()),
+          isNull(contentEntries.deletedAt),
+        ),
+      );
+    let saved: unknown = null;
+    if (entry) {
+      saved = entry.data;
+    }
+    return resolveMarketing(page, saved);
   }
 }

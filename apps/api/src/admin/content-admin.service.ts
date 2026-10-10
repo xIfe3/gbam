@@ -1,6 +1,10 @@
 import { adminUsers, contentEntries, contentVersions, type DbTransaction } from "@gbam/db";
 import {
+  isMarketingPage,
   legalSectionSchema,
+  MARKETING_DEFAULTS,
+  MARKETING_PAGE_LABELS,
+  MARKETING_SCHEMAS,
   type ContentDraft,
   type ContentStatus,
   type NewContentInput,
@@ -75,8 +79,17 @@ function liveFields(entry: EntryRow): ContentDraft {
   };
 }
 
-/** A legal page's sections are checked one by one, so a broken section can't be published. */
-function checkData(type: string, data: ContentDraft["data"]) {
+/**
+ * Extra fields are checked by kind: a marketing page's against that page's fields, a legal
+ * page's sections one by one. So nothing broken can be saved or published.
+ */
+function checkData(type: string, slug: string, data: ContentDraft["data"]) {
+  if (type === "marketing_page") {
+    if (!isMarketingPage(slug) || !MARKETING_SCHEMAS[slug].safeParse(data).success) {
+      throw new BadRequestException("Some of the page's fields are missing or too long");
+    }
+    return;
+  }
   if (type !== "legal" || data === null || data.sections === undefined) {
     return;
   }
@@ -178,7 +191,7 @@ export class ContentAdminService {
 
   /** A new entry starts as a draft (not public until it's published). */
   async create(input: NewContentInput, admin: AdminContext, ip: string | null) {
-    checkData(input.type, input.data);
+    checkData(input.type, input.slug, input.data);
     const draft: ContentDraft = {
       title: input.title,
       summary: input.summary,
@@ -212,7 +225,7 @@ export class ContentAdminService {
   /** Saves the draft. The public keeps seeing the published version until Publish. */
   async saveDraft(id: string, draft: ContentDraft, admin: AdminContext, ip: string | null) {
     const entry = await this.find(id);
-    checkData(entry.type, draft.data);
+    checkData(entry.type, entry.slug, draft.data);
     await this.db.transaction(async (tx) => {
       await tx.update(contentEntries).set({ draft }).where(eq(contentEntries.id, id));
       await this.record(tx, admin, "content.edit", id, ip);
@@ -240,7 +253,7 @@ export class ContentAdminService {
     if (draft) {
       fields = draft;
     }
-    checkData(entry.type, fields.data);
+    checkData(entry.type, entry.slug, fields.data);
 
     await this.db.transaction(async (tx) => {
       // Lock the row so two admins publishing at once can't take the same version number.
@@ -331,6 +344,52 @@ export class ContentAdminService {
     await this.findAny(id);
     await this.setBin(id, null, "content.restore", admin, ip);
     return { ok: true };
+  }
+
+  /**
+   * The entry behind a marketing page, made on first use with today's words (published, so
+   * nothing on the site changes). Returns its id, for the usual draft and publish screens.
+   */
+  async openMarketing(page: string, admin: AdminContext, ip: string | null) {
+    if (!isMarketingPage(page)) {
+      throw new NotFoundException("No such page");
+    }
+    const existing = await this.db
+      .select({ id: contentEntries.id })
+      .from(contentEntries)
+      .where(and(eq(contentEntries.type, "marketing_page"), eq(contentEntries.slug, page)));
+    const found = existing[0];
+    if (found) {
+      return found;
+    }
+    return this.db.transaction(async (tx) => {
+      const rows = await tx
+        .insert(contentEntries)
+        .values({
+          type: "marketing_page",
+          slug: page,
+          title: `${MARKETING_PAGE_LABELS[page]} page`,
+          body: "",
+          data: MARKETING_DEFAULTS[page],
+          publishedAt: new Date(),
+        })
+        .onConflictDoNothing()
+        .returning({ id: contentEntries.id });
+      let row = rows[0];
+      if (!row) {
+        // Opened at the same moment by someone else: use theirs.
+        const again = await tx
+          .select({ id: contentEntries.id })
+          .from(contentEntries)
+          .where(and(eq(contentEntries.type, "marketing_page"), eq(contentEntries.slug, page)));
+        row = again[0];
+      }
+      if (!row) {
+        throw new Error("Failed to open the marketing page");
+      }
+      await this.record(tx, admin, "content.create", row.id, ip);
+      return row;
+    });
   }
 
   /** A photo for an article: resized like product photos, stored on R2, its address returned. */

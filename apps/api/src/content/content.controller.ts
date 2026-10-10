@@ -6,6 +6,15 @@ import { ContentService } from "./content.service.js";
 export class ContentController {
   constructor(private readonly content: ContentService) {}
 
+  /**
+   * A marketing page's words and photos: the published ones, today's defaults for the rest.
+   * Declared before ":type/:slug" so "marketing" isn't read as a content type.
+   */
+  @Get("marketing/:page")
+  marketing(@Param("page") page: string) {
+    return this.content.marketing(page);
+  }
+
   @Get(":type")
   list(@Param("type") type: string) {
     return this.content.list(type);

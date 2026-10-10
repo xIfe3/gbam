@@ -3,6 +3,7 @@ export * from "./content";
 export * from "./delivery";
 export * from "./fees";
 export * from "./format";
+export * from "./marketing";
 export * from "./messaging";
 export * from "./order-state";
 export * from "./platform-settings";

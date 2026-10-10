@@ -73,6 +73,18 @@ export class ContentAdminController {
     return this.content.create(body, admin, this.ip(req));
   }
 
+  /** Opens (and on first use creates) the entry behind a marketing page. */
+  @Post("marketing/:page")
+  @HttpCode(200)
+  @RequirePermission("content.edit")
+  openMarketing(
+    @Req() req: Request,
+    @CurrentAdmin() admin: AdminContext,
+    @Param("page") page: string,
+  ) {
+    return this.content.openMarketing(page, admin, this.ip(req));
+  }
+
   /** Declared before ":id" routes so "images" isn't read as an id. */
   @Post("images")
   @RequirePermission("content.edit")

@@ -1,6 +1,7 @@
 /** Integration test over HTTP against the dev Postgres + Redis (db 1). */
 import "reflect-metadata";
 import { adminAuditLog, contentEntries } from "@gbam/db";
+import { MARKETING_DEFAULTS, type MarketingFields } from "@gbam/shared";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { eq, inArray } from "drizzle-orm";
@@ -255,5 +256,63 @@ describe("Admin content API (integration)", () => {
     const body = (await res.json()) as { url: string };
     expect(body.url).toMatch(/^https:\/\/photos\.test\/content\/.+\.webp$/);
     expect(stored).toHaveLength(1);
+  });
+  /** The mission page's headline as the public sees it. */
+  async function missionTitle(): Promise<string> {
+    const fields = (await publicContent.marketing("mission")) as MarketingFields<"mission">;
+    return fields.header.title;
+  }
+
+  it("marketing pages: defaults until published, then the published fields", async () => {
+    // A test of its own page's row: remove any leftover so it starts from the defaults.
+    await db.delete(contentEntries).where(eq(contentEntries.type, "marketing_page"));
+    const before = await publicContent.marketing("mission");
+    expect(before).toEqual(MARKETING_DEFAULTS.mission);
+
+    const opened = await callAdmin(
+      baseUrl,
+      "POST",
+      "/admin/content/marketing/mission",
+      editor.token,
+    );
+    expect(opened.status).toBe(200);
+    const id = (opened.json as { id: string }).id;
+    ids.push(id);
+    // Opening it twice gives the same entry.
+    const again = await callAdmin(
+      baseUrl,
+      "POST",
+      "/admin/content/marketing/mission",
+      editor.token,
+    );
+    expect((again.json as { id: string }).id).toBe(id);
+
+    const header = { ...MARKETING_DEFAULTS.mission.header, title: "Selling made calm" };
+    const save = await callAdmin(baseUrl, "PATCH", `/admin/content/${id}/draft`, editor.token, {
+      ...fields("Mission", ""),
+      data: { ...MARKETING_DEFAULTS.mission, header },
+    });
+    expect(save.status).toBe(200);
+    // Not live until published.
+    expect(await missionTitle()).toBe(MARKETING_DEFAULTS.mission.header.title);
+    await callAdmin(baseUrl, "POST", `/admin/content/${id}/publish`, publisher.token, {});
+    expect(await missionTitle()).toBe("Selling made calm");
+    await db.delete(contentEntries).where(eq(contentEntries.id, id));
+  });
+
+  it("a marketing draft must fit the page's fields", async () => {
+    await db.delete(contentEntries).where(eq(contentEntries.type, "marketing_page"));
+    const opened = await callAdmin(baseUrl, "POST", "/admin/content/marketing/about", editor.token);
+    const id = (opened.json as { id: string }).id;
+    ids.push(id);
+    const bad = await callAdmin(baseUrl, "PATCH", `/admin/content/${id}/draft`, editor.token, {
+      ...fields("About", ""),
+      data: { seoDescription: "", header: { title: "x" } },
+    });
+    expect(bad.status).toBe(400);
+    expect(
+      (await callAdmin(baseUrl, "POST", "/admin/content/marketing/nope", editor.token)).status,
+    ).toBe(404);
+    await db.delete(contentEntries).where(eq(contentEntries.id, id));
   });
 });
