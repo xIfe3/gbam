@@ -51,6 +51,15 @@ describe("NotificationBell", () => {
     expect(screen.getByText("Your payout account changed")).toBeInTheDocument();
   });
 
+  it("has a See all link to the notifications page", () => {
+    render(<NotificationBell data={DATA} />);
+    fireEvent.click(screen.getByRole("button", { name: /Notifications/ }));
+    expect(screen.getByRole("link", { name: "See all" })).toHaveAttribute(
+      "href",
+      "/dashboard/notifications",
+    );
+  });
+
   it("opening an unread one marks it read and goes to its page", async () => {
     render(<NotificationBell data={DATA} />);
     fireEvent.click(screen.getByRole("button", { name: /Notifications/ }));
@@ -58,7 +67,8 @@ describe("NotificationBell", () => {
       fireEvent.click(screen.getByRole("button", { name: /Gbam replied to your request/ }));
     });
     expect(markRead).toHaveBeenCalledWith("n1");
-    expect(push).toHaveBeenCalledWith("/dashboard/help/t1");
+    // A tap opens the notification's own page (it has an Open button to go further).
+    expect(push).toHaveBeenCalledWith("/dashboard/notifications/n1");
   });
 
   it("mark all read", async () => {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import {
@@ -7,33 +8,15 @@ import {
   markNotificationReadAction,
 } from "@/app/dashboard/bell-actions";
 import type { BellData } from "@/lib/api";
+import { formatWhen, typeMark } from "./notification-bits";
 
 export type { BellData };
 
 type Item = BellData["items"][number];
 
-function formatWhen(iso: string): string {
-  return new Date(iso).toLocaleString("en-NG", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    timeZone: "Africa/Lagos",
-  });
-}
-
-/** A small mark per type, so the type never depends on colour alone. */
-function typeMark(type: Item["type"]): string {
-  if (type === "warning") {
-    return "!";
-  }
-  if (type === "action") {
-    return "→";
-  }
-  return "i";
-}
-
 /**
  * The bell in the dashboard header: how many unread, and a list of Gbam's notifications.
- * Opening one marks it read and goes to its page (if it has one).
+ * Opening one marks it read and shows it on its own page (which has the Open button).
  */
 export function NotificationBell({ data }: { data: BellData }) {
   const [open, setOpen] = useState(false);
@@ -51,10 +34,8 @@ export function NotificationBell({ data }: { data: BellData }) {
       if (item.readAt === null) {
         await markNotificationReadAction(item.id);
       }
-      if (item.link) {
-        setOpen(false);
-        router.push(item.link);
-      }
+      setOpen(false);
+      router.push(`/dashboard/notifications/${item.id}`);
     });
   }
 
@@ -134,6 +115,13 @@ export function NotificationBell({ data }: { data: BellData }) {
               );
             })}
           </ul>
+          <Link
+            href="/dashboard/notifications"
+            onClick={() => setOpen(false)}
+            className="text-brand-hover mt-2 block rounded-xl p-2 text-center text-sm font-bold"
+          >
+            See all
+          </Link>
         </div>
       )}
     </div>

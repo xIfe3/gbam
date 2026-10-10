@@ -917,6 +917,73 @@ async function markAllNotificationsRead() {
   return request<{ ok: true }>("/bell/read-all", { method: "POST", auth: "session" });
 }
 
+/** One notification on the notifications page; `deletedAt` is set while it's in the trash. */
+export type SellerNotification = BellData["items"][number] & { deletedAt: string | null };
+
+export type NotificationTab = "all" | "unread" | "trash";
+export type NotificationBulkAction = "read" | "unread" | "trash" | "restore";
+
+export type NotificationsPage = {
+  rows: SellerNotification[];
+  total: number;
+  page: number;
+  pageSize: number;
+  /** Unread ones outside the trash, for the Unread tab's count. */
+  unread: number;
+};
+
+/** The notifications page: one tab, optionally one type and some search words. */
+async function notificationsPage(query: {
+  tab: NotificationTab;
+  type?: string;
+  q?: string;
+  page: number;
+}) {
+  const params = new URLSearchParams();
+  params.set("tab", query.tab);
+  params.set("page", String(query.page));
+  if (query.type) {
+    params.set("type", query.type);
+  }
+  if (query.q) {
+    params.set("q", query.q);
+  }
+  return request<NotificationsPage>(`/bell/all?${params.toString()}`, { auth: "session" });
+}
+
+async function notification(id: string) {
+  return request<SellerNotification>(`/bell/${encodeURIComponent(id)}`, { auth: "session" });
+}
+
+/** POST /bell/:id/unread, /trash or /restore: the three one-notification changes. */
+async function changeNotification(id: string, change: "unread" | "trash" | "restore") {
+  return request<{ ok: true }>(`/bell/${encodeURIComponent(id)}/${change}`, {
+    method: "POST",
+    auth: "session",
+  });
+}
+
+/** Deletes it for good. The API only allows this from the trash. */
+async function deleteNotification(id: string) {
+  return request<{ ok: true }>(`/bell/${encodeURIComponent(id)}`, {
+    method: "DELETE",
+    auth: "session",
+  });
+}
+
+async function emptyNotificationTrash() {
+  return request<{ ok: true }>("/bell/trash/empty", { method: "POST", auth: "session" });
+}
+
+/** The same change for several ticked notifications at once (up to 100). */
+async function bulkNotifications(ids: string[], action: NotificationBulkAction) {
+  return request<{ changed: number }>("/bell/bulk", {
+    method: "POST",
+    auth: "session",
+    body: JSON.stringify({ ids, action }),
+  });
+}
+
 /** The "Unsubscribe" button on /unsubscribe: turns off Gbam's news and tips emails. */
 async function unsubscribe(sellerId: string, token: string) {
   return request<{ ok: true }>("/email/unsubscribe", {
@@ -930,6 +997,12 @@ export const api = {
   bell,
   markNotificationRead,
   markAllNotificationsRead,
+  notificationsPage,
+  notification,
+  changeNotification,
+  deleteNotification,
+  emptyNotificationTrash,
+  bulkNotifications,
   unsubscribe,
   helpTickets,
   helpTicket,
