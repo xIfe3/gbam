@@ -4,6 +4,7 @@ import type { Queue } from "bullmq";
 import { AuthModule } from "../auth/auth.module.js";
 import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
+import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { PlatformModule } from "../platform/platform.module.js";
 import { MessagingModule } from "../messaging/messaging.module.js";
@@ -15,6 +16,8 @@ import { AnalyticsAdminService } from "./analytics-admin.service.js";
 import { AnnouncementsAdminController } from "./announcements-admin.controller.js";
 import { AnnouncementsAdminService } from "./announcements-admin.service.js";
 import { AuditService } from "./audit.service.js";
+import { ContentAdminController } from "./content-admin.controller.js";
+import { ContentAdminService } from "./content-admin.service.js";
 import { MoneyAdminService } from "./money-admin.service.js";
 import { NotificationsAdminController } from "./notifications-admin.controller.js";
 import { NotificationsAdminService } from "./notifications-admin.service.js";
@@ -53,6 +56,8 @@ for (const name of SYSTEM_QUEUE_NAMES) {
   imports: [
     AuthModule,
     EmailModule,
+    // Photo storage (R2) for content images. Global in the app; listed so tests get it too.
+    IntegrationsModule,
     OrdersModule,
     PlatformModule,
     RateLimiterModule,
@@ -72,6 +77,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     TicketsAdminController,
     AnnouncementsAdminController,
     NotificationsAdminController,
+    ContentAdminController,
   ],
   providers: [
     AdminAuthService,
@@ -92,6 +98,7 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     TicketsAdminService,
     AnnouncementsAdminService,
     NotificationsAdminService,
+    ContentAdminService,
     // A "factory" provider: Nest looks up each queue (by its token) and passes them all in,
     // and the list becomes SYSTEM_QUEUES.
     {
