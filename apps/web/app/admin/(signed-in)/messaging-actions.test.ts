@@ -140,6 +140,19 @@ describe("announcement actions", () => {
   });
 });
 
+describe("a bad audience field", () => {
+  it("is reported where the form shows it, in words", async () => {
+    const preview = await previewAnnouncementAction({}, form({ ...ANNOUNCEMENT, shopId: "not-an-id" }));
+    expect(preview.fieldErrors?.audience).toBe('Check the "Who it goes to" fields');
+    expect(adminApiMock.previewAnnouncement).not.toHaveBeenCalled();
+    const notification = await sendNotificationAction(
+      {},
+      form({ type: "info", title: "Hi", body: "Hello", confirmCount: "1", noOrderDays: "0" }),
+    );
+    expect(notification.fieldErrors?.audience).toBe('Check the "Who it goes to" fields');
+  });
+});
+
 describe("notification actions", () => {
   it("sends with the typed count", async () => {
     adminApiMock.sendNotification.mockResolvedValue({ id: "c1" });

@@ -204,6 +204,7 @@ export function AnnouncementForm({
         </div>
       </div>
       <AudienceFields audience={initial?.audience} />
+      <FieldError message={fieldErrors.audience} />
       <div className="flex flex-wrap gap-2">
         {/* formAction on a button: this one runs the preview instead of saving. */}
         <button
@@ -354,6 +355,7 @@ export function NotificationForm({
         </div>
       </div>
       <AudienceFields />
+      <FieldError message={fieldErrors.audience} />
       <div className="flex flex-wrap items-end gap-3">
         <button
           type="submit"

@@ -3,7 +3,7 @@
 import { announcementSchema, notificationSchema } from "@gbam/shared";
 import { refresh } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
-import { fieldErrorsFrom, text, type FormState } from "@/app/(auth)/action-helpers";
+import { fieldErrorsFrom as schemaErrors, text, type FormState } from "@/app/(auth)/action-helpers";
 import { audienceFromForm, lagosDateTime } from "@/components/admin/audience-form";
 import { adminApi, type AnnouncementBody } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
@@ -29,6 +29,18 @@ function failure(error: unknown): string {
     return "Announcements aren't set up yet: UNSUBSCRIBE_SIGNING_KEY is missing on the API.";
   }
   return "Something went wrong on our side. Please try again.";
+}
+
+/**
+ * The form's errors by field. A problem in the audience (a shop id that isn't one, 0 days...)
+ * is filed under "audience", shown next to the "Who it goes to" box in plain words.
+ */
+function fieldErrorsFrom(error: Parameters<typeof schemaErrors>[0]): Record<string, string> {
+  const errors = schemaErrors(error);
+  if (errors.audience) {
+    errors.audience = 'Check the "Who it goes to" fields';
+  }
+  return errors;
 }
 
 /** "" (an empty box) counts as not given. */
