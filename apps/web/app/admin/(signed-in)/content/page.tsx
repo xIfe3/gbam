@@ -84,7 +84,7 @@ export default async function ContentPage(props: { searchParams: SearchParams })
       </FilterBar>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="admin-list w-full text-left text-sm">
           <thead className="border-b border-zinc-200 text-zinc-500">
             <tr>
               <th className="p-3">Title</th>
@@ -101,14 +101,16 @@ export default async function ContentPage(props: { searchParams: SearchParams })
           <tbody>
             {rows.map((row) => (
               <tr key={row.id} className="border-b border-zinc-100 last:border-0">
-                <td className="p-3">
+                <td data-primary className="p-3">
                   <Link href={`/admin/content/${row.id}`} className="font-bold underline">
                     {row.title}
                   </Link>
                   <span className="block text-zinc-500">/{row.slug}</span>
                 </td>
-                <td className="p-3">{typeLabel(row.type)}</td>
-                <td className="p-3">
+                <td data-label="Kind" className="p-3">
+                  {typeLabel(row.type)}
+                </td>
+                <td data-label="Status" className="p-3">
                   {CONTENT_STATUS_LABELS[row.status]}
                   {row.hasDraft && (
                     <span className="text-coral-deep block text-xs font-bold">
@@ -116,7 +118,9 @@ export default async function ContentPage(props: { searchParams: SearchParams })
                     </span>
                   )}
                 </td>
-                <td className="p-3">{shortTime(row.updatedAt)}</td>
+                <td data-label="Changed" className="p-3">
+                  {shortTime(row.updatedAt)}
+                </td>
                 {inBin && (
                   <td className="p-3">
                     <ActionButton

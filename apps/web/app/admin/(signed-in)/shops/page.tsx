@@ -106,7 +106,7 @@ export default async function ShopsPage(props: { searchParams: SearchParams }) {
           </div>
         )}
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="admin-list w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-zinc-500">
               <tr>
                 {canSuspend && (
@@ -126,21 +126,31 @@ export default async function ShopsPage(props: { searchParams: SearchParams }) {
               {result.rows.map((row) => (
                 <tr key={row.id} className="border-b border-zinc-100 last:border-0">
                   {canSuspend && (
-                    <td className="p-3">
+                    <td data-select className="p-3">
                       <RowCheckbox id={row.id} label={row.businessName} />
                     </td>
                   )}
-                  <td className="p-3">
+                  <td data-primary className="p-3">
                     <Link href={`/admin/shops/${row.id}`} className="font-bold underline">
                       {row.businessName}
                     </Link>
                     <span className="block text-zinc-500">/{row.slug}</span>
                   </td>
-                  <td className="p-3">{row.ownerEmail ?? "—"}</td>
-                  <td className="p-3">{STATUS_LABEL[row.status]}</td>
-                  <td className="p-3 tabular-nums">{row.productCount}</td>
-                  <td className="p-3">{row.hasBank ? "Yes" : "No"}</td>
-                  <td className="p-3">{shortTime(row.createdAt)}</td>
+                  <td data-label="Owner" className="p-3">
+                    {row.ownerEmail ?? "—"}
+                  </td>
+                  <td data-label="Status" className="p-3">
+                    {STATUS_LABEL[row.status]}
+                  </td>
+                  <td data-label="Products" className="p-3 tabular-nums">
+                    {row.productCount}
+                  </td>
+                  <td data-label="Bank" className="p-3">
+                    {row.hasBank ? "Yes" : "No"}
+                  </td>
+                  <td data-label="Joined" className="p-3">
+                    {shortTime(row.createdAt)}
+                  </td>
                 </tr>
               ))}
             </tbody>

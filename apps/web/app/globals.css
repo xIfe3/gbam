@@ -14,7 +14,8 @@
   --color-ink-subtle: #6b7a72;
   /* Set by next/font in layout.tsx */
   --font-display: var(--font-fraunces), ui-serif, Georgia, serif;
-  --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-sans:
+    var(--font-dm-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
 
 body {
@@ -30,4 +31,84 @@ body {
   /* Keep it above the tour card when it's scrolled into view. */
   scroll-margin-bottom: 20rem;
   scroll-margin-top: 1rem;
+}
+
+/* Admin on phones: the filters sheet slides up, the menu slides in from the side. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes drawer-in {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+@media (max-width: 767px) {
+  .sheet-up {
+    animation: sheet-up 200ms ease-out;
+  }
+  .drawer-in {
+    animation: drawer-in 200ms ease-out;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-up,
+  .drawer-in {
+    animation: none;
+  }
+}
+
+/*
+ * Admin lists on phones: each table row becomes a card. Cells carry data-label (the
+ * column's name), shown before the value; the row's main cell (data-primary) comes first and
+ * larger, and the tick box (data-select) sits in the card's corner. Desktop keeps the table.
+ */
+@media (max-width: 767px) {
+  .admin-list thead {
+    display: none;
+  }
+  .admin-list,
+  .admin-list tbody {
+    display: block;
+    width: 100%;
+  }
+  .admin-list tr {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    padding: 0.875rem 1rem;
+    border-bottom: 1px solid var(--color-zinc-100, #f4f4f5);
+  }
+  .admin-list td {
+    display: flex;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0 !important;
+    text-align: right;
+  }
+  .admin-list td[data-label]::before {
+    content: attr(data-label);
+    color: var(--color-ink-subtle);
+    font-weight: 600;
+    text-align: left;
+  }
+  .admin-list td[data-primary] {
+    display: block;
+    padding-right: 2.5rem !important;
+    text-align: left;
+    font-size: 1rem;
+  }
+  .admin-list td[data-select] {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+  }
 }

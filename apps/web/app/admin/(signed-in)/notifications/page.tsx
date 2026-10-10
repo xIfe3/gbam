@@ -52,7 +52,7 @@ export default async function NotificationsPage(props: { searchParams: SearchPar
       )}
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="admin-list w-full text-left text-sm">
           <thead className="border-b border-zinc-200 text-zinc-500">
             <tr>
               <th className="p-3">Notification</th>
@@ -67,15 +67,19 @@ export default async function NotificationsPage(props: { searchParams: SearchPar
           <tbody>
             {campaigns.map((campaign) => (
               <tr key={campaign.id} className="border-b border-zinc-100 align-top last:border-0">
-                <td className="p-3">
+                <td data-primary className="p-3">
                   <span className="font-bold">{campaign.title}</span>
                   <span className="text-ink-muted block">{campaign.body}</span>
                 </td>
-                <td className="p-3">{NOTIFICATION_TYPE_LABELS[campaign.type]}</td>
-                <td className="p-3">
+                <td data-label="Type" className="p-3">
+                  {NOTIFICATION_TYPE_LABELS[campaign.type]}
+                </td>
+                <td data-label="Read" className="p-3">
                   {campaign.readCount} of {campaign.recipientCount}
                 </td>
-                <td className="p-3">{shortTime(campaign.createdAt)}</td>
+                <td data-label="Sent" className="p-3">
+                  {shortTime(campaign.createdAt)}
+                </td>
                 <td className="p-3">
                   {!inBin && (
                     <ActionButton

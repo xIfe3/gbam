@@ -179,7 +179,7 @@ export default async function TicketsPage(props: { searchParams: SearchParams })
           </div>
         )}
         <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-          <table className="w-full text-left text-sm">
+          <table className="admin-list w-full text-left text-sm">
             <thead className="border-b border-zinc-200 text-zinc-500">
               <tr>
                 {canHandle && !inBin && (
@@ -208,11 +208,11 @@ export default async function TicketsPage(props: { searchParams: SearchParams })
                 return (
                   <tr key={row.id} className="border-b border-zinc-100 last:border-0">
                     {canHandle && !inBin && (
-                      <td className="p-3">
+                      <td data-select className="p-3">
                         <RowCheckbox id={row.id} label={row.subject} />
                       </td>
                     )}
-                    <td className="p-3">
+                    <td data-primary className="p-3">
                       <Link href={`/admin/tickets/${row.id}`} className="font-bold underline">
                         {row.subject}
                       </Link>
@@ -220,11 +220,21 @@ export default async function TicketsPage(props: { searchParams: SearchParams })
                         #{row.number} · {SOURCE_LABELS[row.source]}
                       </span>
                     </td>
-                    <td className="p-3">{from}</td>
-                    <td className="p-3">{TICKET_STATUS_LABELS[row.status]}</td>
-                    <td className={priorityClasses}>{PRIORITY_LABELS[row.priority]}</td>
-                    <td className="p-3">{row.assigneeName ?? "—"}</td>
-                    <td className="p-3">{shortTime(row.updatedAt)}</td>
+                    <td data-label="From" className="p-3">
+                      {from}
+                    </td>
+                    <td data-label="Status" className="p-3">
+                      {TICKET_STATUS_LABELS[row.status]}
+                    </td>
+                    <td data-label="Priority" className={priorityClasses}>
+                      {PRIORITY_LABELS[row.priority]}
+                    </td>
+                    <td data-label="Assigned" className="p-3">
+                      {row.assigneeName ?? "—"}
+                    </td>
+                    <td data-label="Last activity" className="p-3">
+                      {shortTime(row.updatedAt)}
+                    </td>
                   </tr>
                 );
               })}

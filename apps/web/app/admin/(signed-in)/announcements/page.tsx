@@ -49,7 +49,7 @@ export default async function AnnouncementsPage(props: { searchParams: SearchPar
         unsubscribed, and suspended or closed shops, never get them.
       </p>
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="admin-list w-full text-left text-sm">
           <thead className="border-b border-zinc-200 text-zinc-500">
             <tr>
               <th className="p-3">Subject</th>
@@ -72,13 +72,17 @@ export default async function AnnouncementsPage(props: { searchParams: SearchPar
               }
               return (
                 <tr key={row.id} className="border-b border-zinc-100 last:border-0">
-                  <td className="p-3">
+                  <td data-primary className="p-3">
                     <Link href={`/admin/announcements/${row.id}`} className="font-bold underline">
                       {row.subject}
                     </Link>
                   </td>
-                  <td className="p-3">{ANNOUNCEMENT_STATUS_LABELS[row.status]}</td>
-                  <td className="p-3">{when}</td>
+                  <td data-label="Status" className="p-3">
+                    {ANNOUNCEMENT_STATUS_LABELS[row.status]}
+                  </td>
+                  <td data-label="When" className="p-3">
+                    {when}
+                  </td>
                   {inBin && (
                     <td className="p-3">
                       <ActionButton

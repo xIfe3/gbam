@@ -71,7 +71,7 @@ export default async function OrdersPage(props: { searchParams: SearchParams }) 
       </FilterBar>
 
       <div className="overflow-x-auto rounded-xl border border-zinc-200 bg-white">
-        <table className="w-full text-left text-sm">
+        <table className="admin-list w-full text-left text-sm">
           <thead className="border-b border-zinc-200 text-zinc-500">
             <tr>
               <th className="p-3">Order</th>
@@ -85,7 +85,7 @@ export default async function OrdersPage(props: { searchParams: SearchParams }) 
           <tbody>
             {result.rows.map((row) => (
               <tr key={row.id} className="border-b border-zinc-100 last:border-0">
-                <td className="p-3">
+                <td data-primary className="p-3">
                   <Link href={`/admin/orders/${row.id}`} className="font-bold underline">
                     {row.code}
                   </Link>
@@ -95,14 +95,22 @@ export default async function OrdersPage(props: { searchParams: SearchParams }) 
                     </span>
                   )}
                 </td>
-                <td className="p-3">{row.shopName}</td>
-                <td className="p-3">
+                <td data-label="Shop" className="p-3">
+                  {row.shopName}
+                </td>
+                <td data-label="Customer" className="p-3">
                   {row.customerName}
                   <span className="block text-zinc-500">+{row.customerPhone}</span>
                 </td>
-                <td className="p-3">{row.status}</td>
-                <td className="p-3 tabular-nums">{formatNaira(row.totalKobo)}</td>
-                <td className="p-3">{shortTime(row.createdAt)}</td>
+                <td data-label="Status" className="p-3">
+                  {row.status}
+                </td>
+                <td data-label="Total" className="p-3 tabular-nums">
+                  {formatNaira(row.totalKobo)}
+                </td>
+                <td data-label="Placed" className="p-3">
+                  {shortTime(row.createdAt)}
+                </td>
               </tr>
             ))}
           </tbody>

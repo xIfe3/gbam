@@ -40,20 +40,8 @@ export function Pagination({
 
 export const filterInputClasses = "min-h-11 rounded-lg border-2 border-zinc-200 bg-white px-2";
 
-/**
- * The filter bar: a plain GET form, so submitting it puts the filters in the address bar
- * (?q=…&status=…). Bookmarkable, shareable, and Back works.
- */
-export function FilterBar({ children }: { children: React.ReactNode }) {
-  return (
-    <form method="get" className="flex flex-wrap items-end gap-2" role="search">
-      {children}
-      <button type="submit" className="bg-brand min-h-11 rounded-full px-5 font-bold text-white">
-        Apply
-      </button>
-    </form>
-  );
-}
+// The filter bar is a client component (it opens as a bottom sheet on phones).
+export { FilterBar } from "./filter-bar";
 
 /** "Today 09:12" style time for tables (Lagos time). */
 export function shortTime(iso: string | null): string {
