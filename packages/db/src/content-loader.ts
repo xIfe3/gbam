@@ -1,6 +1,5 @@
 import { readdir, readFile } from "node:fs/promises";
 import path from "node:path";
-import { sql } from "drizzle-orm";
 import matter from "gray-matter";
 import type { Db } from "./client";
 import { contentEntries, contentTypeEnum } from "./schema";
@@ -132,21 +131,14 @@ export async function loadContentFiles(rootDir: string): Promise<ContentFile[]> 
 /** Inserts or updates each file by (type, slug). Returns how many files were written. */
 export async function upsertContent(db: Db, files: ContentFile[]): Promise<number> {
   for (const file of files) {
+    // Insert-only: the database is the master copy (admins edit content in the admin area),
+    // so an entry that already exists is left exactly as it is. The Markdown files are only
+    // the starting content for entries that don't exist yet.
     await db
       .insert(contentEntries)
       .values(file)
-      .onConflictDoUpdate({
+      .onConflictDoNothing({
         target: [contentEntries.type, contentEntries.slug],
-        set: {
-          title: file.title,
-          summary: file.summary,
-          body: file.body,
-          data: file.data,
-          category: file.category,
-          sortOrder: file.sortOrder,
-          publishedAt: file.publishedAt,
-          updatedAt: sql`now()`,
-        },
       });
   }
   return files.length;

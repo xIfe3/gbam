@@ -1,9 +1,10 @@
 import { contentEntries } from "@gbam/db";
 import { BadRequestException, Injectable, NotFoundException } from "@nestjs/common";
-import { and, asc, desc, eq, isNotNull, lte } from "drizzle-orm";
+import { and, asc, desc, eq, isNotNull, isNull, lte } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 
-// Must match the content_type enum in @gbam/db.
+// The public content types (the content_type enum in @gbam/db, minus marketing_page, which
+// has its own endpoint).
 export const CONTENT_TYPES = ["help_article", "faq", "blog_post", "changelog", "legal"] as const;
 export type ContentType = (typeof CONTENT_TYPES)[number];
 
@@ -39,6 +40,8 @@ export class ContentService {
           eq(contentEntries.type, kind),
           isNotNull(contentEntries.publishedAt),
           lte(contentEntries.publishedAt, new Date()),
+          // Not in the admin's bin.
+          isNull(contentEntries.deletedAt),
         ),
       )
       .orderBy(asc(contentEntries.sortOrder), desc(contentEntries.publishedAt));
@@ -64,6 +67,8 @@ export class ContentService {
           eq(contentEntries.slug, slug),
           isNotNull(contentEntries.publishedAt),
           lte(contentEntries.publishedAt, new Date()),
+          // Not in the admin's bin.
+          isNull(contentEntries.deletedAt),
         ),
       );
     if (!entry) {

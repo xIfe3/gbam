@@ -61,6 +61,8 @@ export const contentTypeEnum = pgEnum("content_type", [
   "blog_post",
   "changelog",
   "legal",
+  // Text and photos of a marketing page (home, features...), as typed fields in `data`.
+  "marketing_page",
 ]);
 
 const id = () => uuid("id").primaryKey().defaultRandom();
@@ -158,10 +160,42 @@ export const contentEntries = pgTable(
     sortOrder: integer("sort_order").notNull().default(0),
     /** null = draft, not shown publicly. */
     publishedAt: timestamp("published_at", { withTimezone: true }),
+    /** The search engine description (meta description). */
+    seoDescription: text("seo_description"),
+    /**
+     * Unpublished changes from the content editor ({ title, summary, body, data, category,
+     * sortOrder, seoDescription }). The public only ever sees the fields above; Publish copies
+     * this draft over them. null = nothing waiting to be published.
+     */
+    draft: jsonb("draft"),
+    /** In the bin (restorable for 30 days). */
+    deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
   (t) => [uniqueIndex("content_entries_type_slug_uq").on(t.type, t.slug)],
+);
+
+/** Every time an entry is published, a copy of what went live, so it can be compared or restored. */
+export const contentVersions = pgTable(
+  "content_versions",
+  {
+    id: id(),
+    entryId: uuid("entry_id")
+      .notNull()
+      .references(() => contentEntries.id, { onDelete: "cascade" }),
+    /** 1 for the first publish, then 2, 3... */
+    version: integer("version").notNull(),
+    title: text("title").notNull(),
+    summary: text("summary"),
+    body: text("body").notNull(),
+    data: jsonb("data"),
+    category: text("category"),
+    seoDescription: text("seo_description"),
+    publishedBy: uuid("published_by").references(() => adminUsers.id, { onDelete: "set null" }),
+    createdAt: createdAt(),
+  },
+  (t) => [unique("content_versions_entry_version_uq").on(t.entryId, t.version)],
 );
 
 /** A seller is the tenant. Every other row hangs off seller_id. */

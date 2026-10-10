@@ -148,6 +148,13 @@
       "when": 1791535681971,
       "tag": "0020_messaging",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1791633474692,
+      "tag": "0021_content_editor",
+      "breakpoints": true
     }
   ]
 }

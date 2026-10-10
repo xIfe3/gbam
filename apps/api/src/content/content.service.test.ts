@@ -116,4 +116,22 @@ describe("ContentService (integration)", () => {
   it("throws BadRequestException for an unknown type", async () => {
     await expect(service.list("nonsense")).rejects.toBeInstanceOf(BadRequestException);
   });
+  it("binned entries are not public", async () => {
+    const slug = `bin-${randomUUID().slice(0, 8)}`;
+    await db.insert(contentEntries).values({
+      type: "help_article",
+      slug,
+      title: "Binned",
+      body: "Gone",
+      publishedAt: new Date("2026-01-01"),
+      deletedAt: new Date(),
+    });
+    try {
+      const list = await service.list("help_article");
+      expect(list.some((entry) => entry.slug === slug)).toBe(false);
+      await expect(service.get("help_article", slug)).rejects.toBeInstanceOf(NotFoundException);
+    } finally {
+      await db.delete(contentEntries).where(inArray(contentEntries.slug, [slug]));
+    }
+  });
 });

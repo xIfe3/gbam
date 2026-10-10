@@ -4,8 +4,9 @@
  *
  *   node node_modules/@gbam/db/dist/sync-content.js
  *
- * Each file is an "upsert" keyed by (type, slug), so re-running it is safe: unchanged
- * files rewrite the same values and edited files are updated. Unlike the seed, it creates
+ * Insert-only, keyed by (type, slug): files for entries that don't exist yet are added, and
+ * existing entries are never changed, because admins edit content in the admin area and the
+ * database is the master copy. Re-running it is safe. Unlike the seed, it creates
  * no demo users or sellers, so it is allowed in production.
  */
 import { createDb } from "./client";
