@@ -1,7 +1,7 @@
 import { EmailError, type EmailClient, type SendEmailInput } from "@gbam/integrations";
 import { UnrecoverableError, type Job } from "bullmq";
 import { DEFAULT_PLATFORM_SETTINGS } from "@gbam/shared";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import type { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { EmailProcessor } from "./email.processor.js";
 import type { EmailJob } from "./templates.js";
@@ -29,7 +29,18 @@ const job = {
   data: { kind: "verify_email", to: "a@b.com", code: "123456" },
 } as Job<EmailJob>;
 
+afterEach(() => {
+  vi.unstubAllEnvs();
+});
+
 describe("EmailProcessor", () => {
+  it("on staging, every subject says so", async () => {
+    vi.stubEnv("APP_ENV", "staging");
+    const { processor, sent } = makeProcessor(null);
+    await processor.process(job);
+    expect(sent[0]?.subject).toBe("[Staging] Your Gbam code: 123456");
+  });
+
   it("sends the rendered email and returns the id", async () => {
     const { processor, sent } = makeProcessor(null);
     await expect(processor.process(job)).resolves.toEqual({ id: "email_1" });

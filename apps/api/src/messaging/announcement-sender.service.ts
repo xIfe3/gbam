@@ -4,6 +4,7 @@ import type { Audience } from "@gbam/shared";
 import { Inject, Injectable } from "@nestjs/common";
 import { and, eq } from "drizzle-orm";
 import { setTimeout as wait } from "node:timers/promises";
+import { markStaging } from "../email/staging.js";
 import { renderEmail } from "../email/templates.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -88,7 +89,7 @@ export class AnnouncementSenderService {
           unsubscribeUrl: links.unsubscribeUrl,
           oneClickUrl: links.oneClickUrl,
         });
-        const error = await this.trySend(message);
+        const error = await this.trySend(markStaging(message));
         if (error === null) {
           sent = sent + 1;
           await this.db

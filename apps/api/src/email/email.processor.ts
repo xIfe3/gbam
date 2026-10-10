@@ -4,6 +4,7 @@ import { UnrecoverableError, type Job } from "bullmq";
 import { EmailError } from "@gbam/integrations";
 import { InjectEmail, type EmailClient } from "../integrations/integrations.module.js";
 import { EMAILS_QUEUE } from "./email.queue.js";
+import { markStaging } from "./staging.js";
 import { renderEmail, type EmailJob } from "./templates.js";
 import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { reportJobFailure } from "../instrument.js";
@@ -40,11 +41,12 @@ export class EmailProcessor extends WorkerHost {
   async process(job: Job<EmailJob>) {
     // Gbam's own inbox addresses come from Admin → Settings.
     const settings = await this.platform.get();
-    const message = renderEmail(job.data, {
+    const rendered = renderEmail(job.data, {
       support: settings.supportEmail,
       contact: settings.contactEmail,
       privacy: settings.privacyEmail,
     });
+    const message = markStaging(rendered);
     try {
       const sent = await this.email.send(message);
       return { id: sent.id };

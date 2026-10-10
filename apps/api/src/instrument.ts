@@ -14,7 +14,8 @@ const dsn = process.env.SENTRY_DSN;
 if (dsn) {
   Sentry.init({
     dsn,
-    environment: process.env.NODE_ENV ?? "development",
+    // APP_ENV=staging tags the staging copy's errors, so they're never mistaken for live ones.
+    environment: process.env.APP_ENV ?? process.env.NODE_ENV ?? "development",
     // What Sentry may collect on its own: nothing personal. Job data and code variables are
     // off too, because they can hold sign-in codes, emails and phone numbers.
     dataCollection: {

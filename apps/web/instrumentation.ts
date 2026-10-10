@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { appEnv } from "@/lib/app-env";
 import { sentryOptions } from "@/lib/sentry-options";
 
 /**
@@ -13,7 +14,7 @@ export function register() {
   // Next runs code in two places: Node.js (pages, server actions) and the "edge" (proxy.ts).
   // Sentry needs to be started in whichever one is loading this file.
   if (process.env.NEXT_RUNTIME === "nodejs" || process.env.NEXT_RUNTIME === "edge") {
-    Sentry.init({ dsn, environment: process.env.NODE_ENV, ...sentryOptions });
+    Sentry.init({ dsn, environment: appEnv(), ...sentryOptions });
   }
 }
 
