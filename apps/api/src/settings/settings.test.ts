@@ -55,6 +55,7 @@ describe("SettingsService (integration)", () => {
       phone: seller.whatsappPhone,
       payoutAccount: { bankName: "Access Bank", accountLast4: "6789", bankAccountName: "ADA OBI" },
       newOrderEmails: true,
+      newsEmails: true,
     });
   });
 
@@ -66,6 +67,16 @@ describe("SettingsService (integration)", () => {
 
     const on = await service.updateEmails(seller.id, { newOrderEmails: true });
     expect(on.newOrderEmails).toBe(true);
+  });
+
+  it("email settings save newsEmails, and leave it alone when not sent", async () => {
+    const seller = await newSeller();
+    const off = await service.updateEmails(seller.id, { newOrderEmails: true, newsEmails: false });
+    expect(off.newsEmails).toBe(false);
+    // An older page sends only newOrderEmails: news stays as it was.
+    const same = await service.updateEmails(seller.id, { newOrderEmails: false });
+    expect(same.newsEmails).toBe(false);
+    expect(same.newOrderEmails).toBe(false);
   });
 
   it("has no payout account when none is set up", async () => {

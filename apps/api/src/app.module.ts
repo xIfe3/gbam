@@ -6,6 +6,7 @@ import { AuthModule } from "./auth/auth.module.js";
 import { ContactModule } from "./contact/contact.module.js";
 import { TicketsModule } from "./tickets/tickets.module.js";
 import { HousekeepingModule } from "./housekeeping/housekeeping.module.js";
+import { MessagingModule } from "./messaging/messaging.module.js";
 import { ContentModule } from "./content/content.module.js";
 import { HealthController } from "./health/health.controller.js";
 import { InfraModule } from "./infra/infra.module.js";
@@ -32,6 +33,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     ContactModule,
     TicketsModule,
     HousekeepingModule,
+    MessagingModule,
     ContentModule,
     InfraModule,
     IntegrationsModule,

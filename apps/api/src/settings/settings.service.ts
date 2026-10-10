@@ -13,6 +13,8 @@ export type ShopSettings = {
   payoutAccount: { bankName: string; accountLast4: string; bankAccountName: string } | null;
   /** Email the owner when a new order comes in. */
   newOrderEmails: boolean;
+  /** Gbam's "news and tips" announcements. */
+  newsEmails: boolean;
 };
 
 /**
@@ -31,7 +33,11 @@ export class SettingsService {
     }
 
     let payoutAccount: ShopSettings["payoutAccount"] = null;
-    if (seller.bankName !== null && seller.accountLast4 !== null && seller.bankAccountName !== null) {
+    if (
+      seller.bankName !== null &&
+      seller.accountLast4 !== null &&
+      seller.bankAccountName !== null
+    ) {
       payoutAccount = {
         bankName: seller.bankName,
         accountLast4: seller.accountLast4,
@@ -44,6 +50,7 @@ export class SettingsService {
       phone: seller.whatsappPhone,
       payoutAccount,
       newOrderEmails: seller.newOrderEmails,
+      newsEmails: seller.newsEmails,
     };
   }
 
@@ -69,10 +76,14 @@ export class SettingsService {
 
   /** Turns optional emails (like "new order") on or off. */
   async updateEmails(sellerId: string, input: EmailSettingsInput): Promise<ShopSettings> {
-    await this.db
-      .update(sellers)
-      .set({ newOrderEmails: input.newOrderEmails })
-      .where(eq(sellers.id, sellerId));
+    const changes: { newOrderEmails: boolean; newsEmails?: boolean } = {
+      newOrderEmails: input.newOrderEmails,
+    };
+    // Older pages don't send newsEmails: then it's left as it is.
+    if (input.newsEmails !== undefined) {
+      changes.newsEmails = input.newsEmails;
+    }
+    await this.db.update(sellers).set(changes).where(eq(sellers.id, sellerId));
     return this.get(sellerId);
   }
 }
