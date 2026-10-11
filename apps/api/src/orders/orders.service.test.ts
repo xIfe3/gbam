@@ -463,6 +463,34 @@ describe("OrdersService emails (integration)", () => {
     expect(toCustomer?.data).toMatchObject({ kind: "payment_confirmed", to: "ada@example.com" });
   });
 
+  it("the customer's paid email says how they paid, with the Paystack reference", async () => {
+    const order = await placeOrder();
+    await service.transition({
+      orderId: order.id,
+      to: "awaiting_payment",
+      actor: "seller",
+      sellerId,
+    });
+    // What PaymentsService.confirm() saves just before it marks the order paid.
+    const reference = `gbam_${order.code}_0badf00d`;
+    await db.insert(payments).values({
+      orderId: order.id,
+      reference,
+      amountKobo: order.totalKobo,
+      status: "success",
+      method: "bank_transfer",
+    });
+    await service.transition({ orderId: order.id, to: "paid", actor: "system" });
+    const eventId = await latestEventId(order.id);
+
+    const toCustomer = await emailQueue.getJob(`paid-customer-${eventId}`);
+    expect(toCustomer?.data).toMatchObject({
+      kind: "payment_confirmed",
+      paidWith: "Bank transfer",
+      paymentReference: reference,
+    });
+  });
+
   it("emails the customer when the order is cancelled", async () => {
     const order = await placeOrder();
     await service.transition({ orderId: order.id, to: "cancelled", actor: "seller", sellerId });

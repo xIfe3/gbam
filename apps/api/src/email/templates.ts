@@ -82,6 +82,10 @@ export type EmailJob =
       deliveryLabel: string | null;
       totalKobo: number;
       trackingUrl: string;
+      /** "Card", "Bank transfer", "USSD"…; null when we can't tell. (Optional: older jobs.) */
+      paidWith?: string | null;
+      /** Paystack's reference for the payment, the customer's proof of payment. */
+      paymentReference?: string | null;
     }
   | {
       kind: "order_cancelled";
@@ -666,6 +670,15 @@ function paymentConfirmedEmail(
   if (amounts !== null) {
     breakdownText.push(amounts);
     breakdownHtml.push(smallPrint(escapeHtml(amounts)));
+  }
+  // How they paid and the reference: what a customer quotes if they ever need to prove it.
+  if (job.paidWith) {
+    breakdownText.push(`Paid by: ${job.paidWith}`);
+    breakdownHtml.push(smallPrint(`Paid by: ${escapeHtml(job.paidWith)}`));
+  }
+  if (job.paymentReference) {
+    breakdownText.push(`Payment reference: ${job.paymentReference}`);
+    breakdownHtml.push(smallPrint(`Payment reference: ${escapeHtml(job.paymentReference)}`));
   }
   const text = [
     `We got your payment of ${total} for your order from ${job.shopName}.`,

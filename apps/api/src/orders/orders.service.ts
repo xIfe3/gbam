@@ -38,6 +38,7 @@ import { EmailQueue } from "../email/email.queue.js";
 import type { EmailJob } from "../email/templates.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
+import { paymentMethodLabel } from "../payments/payment-method-label.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { generateOrderCode } from "./order-code.js";
 import { reduceStockForPaidOrder, variantDisplayName } from "./stock.js";
@@ -441,6 +442,24 @@ export class OrdersService {
     return details;
   }
 
+  /**
+   * How the order was paid, for the customer's "Payment confirmed" email: the newest
+   * successful payment's method and Paystack reference. Both null if there's none.
+   */
+  private async paidWith(orderId: string) {
+    const rows = await this.db
+      .select({ reference: payments.reference, method: payments.method, raw: payments.raw })
+      .from(payments)
+      .where(and(eq(payments.orderId, orderId), eq(payments.status, "success")))
+      .orderBy(desc(payments.updatedAt))
+      .limit(1);
+    const payment = rows[0];
+    if (!payment) {
+      return { label: null, reference: null };
+    }
+    return { label: paymentMethodLabel(payment.method, payment.raw), reference: payment.reference };
+  }
+
   /** Queues one email; logs instead of throwing if the queue can't take it. */
   private async queueEmail(jobId: string, job: EmailJob) {
     try {
@@ -514,6 +533,7 @@ export class OrdersService {
         return;
       }
       if (to === "paid") {
+        const paid = await this.paidWith(orderId);
         await this.queueEmail(`paid-customer-${eventId}`, {
           kind: "payment_confirmed",
           to: customerEmail,
@@ -524,6 +544,8 @@ export class OrdersService {
           deliveryLabel: details.deliveryZoneName,
           totalKobo: details.totalKobo,
           trackingUrl,
+          paidWith: paid.label,
+          paymentReference: paid.reference,
         });
       } else if (to === "cancelled") {
         await this.queueEmail(`cancelled-${eventId}`, {

@@ -121,6 +121,44 @@ describe("renderEmail", () => {
     expect(email.html).toContain("Delivery (Lekki / VI)");
   });
 
+  it("the paid email says how they paid and the payment reference", () => {
+    const email = renderEmail({
+      kind: "payment_confirmed",
+      to: "a@b.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      subtotalKobo: 1_200_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: null,
+      totalKobo: 1_200_000,
+      trackingUrl: "https://gbam.app/track/GB-7K2Q",
+      paidWith: "Bank transfer",
+      paymentReference: "gbam_GB-7K2Q_9f2c41ab",
+    });
+    expect(email.text).toContain("Paid by: Bank transfer");
+    expect(email.text).toContain("Payment reference: gbam_GB-7K2Q_9f2c41ab");
+    expect(email.html).toContain("Bank transfer");
+    expect(email.html).toContain("gbam_GB-7K2Q_9f2c41ab");
+  });
+
+  it("the paid email leaves out how they paid when we can't tell", () => {
+    const email = renderEmail({
+      kind: "payment_confirmed",
+      to: "a@b.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      subtotalKobo: 1_200_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: null,
+      totalKobo: 1_200_000,
+      trackingUrl: "https://gbam.app/track/GB-7K2Q",
+      paidWith: null,
+      paymentReference: "gbam_GB-7K2Q_9f2c41ab",
+    });
+    expect(email.text).not.toContain("Paid by");
+    expect(email.text).toContain("Payment reference: gbam_GB-7K2Q_9f2c41ab");
+  });
+
   it("free delivery says Free", () => {
     const email = renderEmail({
       kind: "payment_confirmed",
