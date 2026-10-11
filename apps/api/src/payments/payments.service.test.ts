@@ -15,7 +15,7 @@ import type {
 } from "@gbam/integrations";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { and, eq } from "drizzle-orm";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
 import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
@@ -40,6 +40,8 @@ class StubPaystack implements PaystackClient {
   charges = 0;
   lastTransfer: BankTransferChargeInput | undefined = undefined;
   lastUssd: UssdChargeInput | undefined = undefined;
+  /** Set to make Paystack hand back a different expiry than we asked for. */
+  transferExpiresAt: Date | undefined = undefined;
 
   async chargeBankTransfer(input: BankTransferChargeInput) {
     this.charges++;
@@ -50,7 +52,7 @@ class StubPaystack implements PaystackClient {
       bankName: "Wema Bank",
       accountNumber: "1260367879",
       accountName: "PAYSTACK CHECKOUT",
-      expiresAt: input.expiresAt,
+      expiresAt: this.transferExpiresAt ?? input.expiresAt,
     };
   }
 
@@ -462,12 +464,51 @@ describe("PaymentsService (integration)", () => {
       ).rejects.toBeInstanceOf(NotEnoughTimeToPayError);
     });
 
+    it("if Paystack hands back a later expiry, the order's deadline still wins", async () => {
+      const settings = await platform.get();
+      const order = await orderMovedToAwaitingPayment();
+      await askedForPaymentAgo(order.id, settings.cancelAfterHours * 60 - 20);
+      paystack.transferExpiresAt = new Date(Date.now() + 8 * 60 * MINUTE);
+      try {
+        const transfer = await service.startDirectPayment(order.id, { method: "bank_transfer" });
+        const minutesLeft = (transfer.expiresAt.getTime() - Date.now()) / MINUTE;
+        expect(minutesLeft).toBeLessThanOrEqual(20);
+      } finally {
+        paystack.transferExpiresAt = undefined;
+      }
+    });
+
     it("refuses once the order isn't awaiting payment", async () => {
       const order = await orderMovedToAwaitingPayment();
       await db.update(orders).set({ status: "paid" }).where(eq(orders.id, order.id));
       await expect(
         service.startDirectPayment(order.id, { method: "bank_transfer" }),
       ).rejects.toBeInstanceOf(OrderNotAwaitingPaymentError);
+    });
+
+    it("paying twice (transfer, then card) is flagged for a refund; a repeated webhook isn't", async () => {
+      const order = await orderMovedToAwaitingPayment();
+      const transfer = await service.startDirectPayment(order.id, { method: "bank_transfer" });
+      const link = await service.ensurePaymentLink(order.id);
+      // vi.spyOn: watches the real method (it still runs) so we can see if it was called.
+      const needsRefund = vi.spyOn(ordersService, "emailSupportNeedsRefund");
+      try {
+        expect(await service.confirm(link.reference)).toBe("paid");
+        // Paystack sends the same webhook again: nothing to refund.
+        expect(await service.confirm(link.reference)).toBe("paid");
+        expect(needsRefund).not.toHaveBeenCalled();
+
+        // The transfer lands too: a second payment for an order that's already paid.
+        expect(await service.confirm(transfer.reference)).toBe("paid");
+        expect(needsRefund).toHaveBeenCalledTimes(1);
+        expect(needsRefund.mock.calls[0]?.[2]).toBe(transfer.reference);
+        // ...and its own repeated webhook doesn't flag it again.
+        expect(await service.confirm(transfer.reference)).toBe("paid");
+        expect(needsRefund).toHaveBeenCalledTimes(1);
+        expect(await statusOf(order.id)).toBe("paid");
+      } finally {
+        needsRefund.mockRestore();
+      }
     });
 
     it("two taps at once open only one account", async () => {

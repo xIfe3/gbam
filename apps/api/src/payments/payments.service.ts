@@ -13,7 +13,7 @@ import {
   type OrderStatus,
 } from "@gbam/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { and, desc, eq, gt, isNotNull, max } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, max, ne } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -369,8 +369,11 @@ export class PaymentsService {
           accountNumber: account.accountNumber,
           accountName: account.accountName,
         };
-        // Paystack may round the time a little; its own time is the one that counts.
-        expiresAt = account.expiresAt;
+        // Paystack may round the time a little. Use its time if it's earlier, but never a
+        // later one: the account must not outlive the order.
+        if (account.expiresAt.getTime() < expiresAt.getTime()) {
+          expiresAt = account.expiresAt;
+        }
       } else {
         const ussd = await this.paystack.chargeUssd({ ...input, bankType: choice.bank });
         instructions = { kind: "ussd", bank: choice.bank, ussdCode: ussd.ussdCode };
@@ -441,10 +444,14 @@ export class PaymentsService {
       return "ignored";
     }
 
-    await this.db
+    // Mark it successful, but only if it wasn't already: `returning` tells us whether this
+    // run was the first to confirm it. A repeat of the same webhook gets nothing back.
+    const newlyConfirmed = await this.db
       .update(payments)
       .set({ status: "success", paystackFeeKobo: verified.paystackFeeKobo, raw: verified.raw })
-      .where(eq(payments.id, payment.id));
+      .where(and(eq(payments.id, payment.id), ne(payments.status, "success")))
+      .returning({ id: payments.id });
+    const firstTimeConfirmed = newlyConfirmed.length > 0;
 
     try {
       await this.orders.transition({ orderId: payment.orderId, to: "paid", actor: "system" });
@@ -456,17 +463,29 @@ export class PaymentsService {
 
       // The state machine refused "→ paid". Why?
       const alreadyPaid = PAID_OR_LATER.includes(error.from);
-      if (alreadyPaid) {
-        // A duplicate webhook for an order we already marked paid. Nothing to do.
+      if (alreadyPaid && !firstTimeConfirmed) {
+        // A repeat of this same payment's webhook. Nothing to do.
+      } else if (alreadyPaid) {
+        // A DIFFERENT payment already paid this order (an order can have a card link, a
+        // transfer account and USSD codes open at once): the customer paid twice.
+        await this.logNeedsRefund(
+          reference,
+          payment.orderId,
+          `The customer paid twice: the order was already "${error.from}" from another payment, so this one has to go back.`,
+        );
       } else {
         // e.g. the seller cancelled the order while the customer was paying.
-        await this.logNeedsRefund(reference, payment.orderId, error.from);
+        await this.logNeedsRefund(
+          reference,
+          payment.orderId,
+          `The customer paid, but the order was already "${error.from}", so the money can't be kept.`,
+        );
       }
     }
     return "paid";
   }
 
-  private async logNeedsRefund(reference: string, orderId: string, status: OrderStatus) {
+  private async logNeedsRefund(reference: string, orderId: string, reason: string) {
     const sellerRows = await this.db
       .select({ slug: sellers.slug })
       .from(orders)
@@ -478,14 +497,8 @@ export class PaymentsService {
       store = sellerRows[0].slug;
     }
 
-    this.logger.error(
-      `Payment ${reference} succeeded but the order is "${status}" (store ${store}). NEEDS REFUND.`,
-    );
+    this.logger.error(`Payment ${reference} (store ${store}): ${reason} NEEDS REFUND.`);
     // The log is a backup; the email is what makes sure someone actually refunds them.
-    await this.orders.emailSupportNeedsRefund(
-      orderId,
-      `The customer paid, but the order was already "${status}", so the money can't be kept.`,
-      reference,
-    );
+    await this.orders.emailSupportNeedsRefund(orderId, reason, reference);
   }
 }

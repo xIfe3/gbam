@@ -72,6 +72,28 @@ describe("PayOptions", () => {
     expect(screen.getByText(/This account has expired/)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "I've sent the money" })).toBeNull();
     expect(screen.getByRole("button", { name: "Get a new account" })).toBeInTheDocument();
+    // Someone who sent the money just before it ran out mustn't be pushed to pay again.
+    await tap("I already sent the money");
+    expect(push).toHaveBeenCalledWith(`/track/GB-7B2Q?k=${KEY}&paid=1`);
+  });
+
+  it("an old USSD code: a new one is offered, without claiming the old can't take money", async () => {
+    vi.mocked(directPayAction).mockResolvedValue({
+      payment: {
+        method: "ussd",
+        reference: "gbam_GB-7B2Q_1a2b3c4d",
+        amountKobo: 1000000,
+        expiresAt: new Date(Date.now() - 1000).toISOString(),
+        bank: "737",
+        ussdCode: "*737*33*4*26945#",
+      },
+    });
+    show();
+    fireEvent.click(screen.getByRole("radio", { name: "USSD" }));
+    await tap("Get USSD code");
+    expect(screen.getByText(/This code may have stopped working/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Get a new code" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "I already paid" })).toBeInTheDocument();
   });
 
   it("USSD: pick your bank, get the code, and dial it with one tap", async () => {

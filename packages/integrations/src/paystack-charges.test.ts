@@ -91,6 +91,30 @@ describe("HttpPaystackClient.chargeBankTransfer", () => {
     });
   });
 
+  it("keeps the time we asked for if Paystack's expiry can't be read", async () => {
+    stubFetch({
+      status: 200,
+      body: {
+        status: true,
+        message: "Charge attempted",
+        data: {
+          reference: BASE.reference,
+          status: "pending_bank_transfer",
+          account_name: "PAYSTACK CHECKOUT",
+          account_number: "1260367879",
+          bank: { name: "Wema Bank" },
+          account_expires_at: "soon-ish",
+        },
+      },
+    });
+    const expiresAt = new Date("2026-10-11T06:07:16.000Z");
+    const charge = await new HttpPaystackClient("sk_test_x").chargeBankTransfer({
+      ...BASE,
+      expiresAt,
+    });
+    expect(charge.expiresAt).toEqual(expiresAt);
+  });
+
   it("fails clearly when Paystack doesn't hand out an account", async () => {
     stubFetch({
       status: 200,
@@ -145,7 +169,10 @@ describe("HttpPaystackClient.chargeUssd", () => {
 
 describe("FakePaystackClient direct charges", () => {
   it("hands out a pretend account and USSD code, so dev works without keys", async () => {
-    const fake = new FakePaystackClient(async () => undefined, () => undefined);
+    const fake = new FakePaystackClient(
+      async () => undefined,
+      () => undefined,
+    );
     const expiresAt = new Date(Date.now() + 30 * 60_000);
     const transfer = await fake.chargeBankTransfer({ ...BASE, expiresAt });
     expect(transfer.reference).toBe(BASE.reference);

@@ -106,10 +106,12 @@ function DetailRow({
 function Countdown({
   expiresAt,
   what,
+  expiredMessage,
   onRenew,
 }: {
   expiresAt: string;
   what: string;
+  expiredMessage: string;
   onRenew: () => void;
 }) {
   const left = useTimeLeft(expiresAt);
@@ -119,7 +121,7 @@ function Countdown({
   return (
     <div className="flex flex-col gap-2">
       <p role="alert" className="bg-blush text-ink rounded-xl p-3 text-sm">
-        This {what} has expired. Don&apos;t send money to it.
+        {expiredMessage}
       </p>
       <button type="button" onClick={onRenew} className={BIG_BUTTON}>
         {`Get a new ${what}`}
@@ -285,7 +287,9 @@ export function PayOptions({
           <TransferFooter
             expiresAt={payment.expiresAt}
             what="account"
+            expiredMessage="This account has expired. Don't send money to it."
             doneLabel="I've sent the money"
+            lateDoneLabel="I already sent the money"
             onDone={paid}
             onRenew={() => start({ method: "bank_transfer" })}
           />
@@ -311,7 +315,11 @@ export function PayOptions({
           <TransferFooter
             expiresAt={payment.expiresAt}
             what="code"
+            // Paystack doesn't know our time limit for USSD codes, so we don't claim the old
+            // one can't take money; a payment for a still-open order is kept as normal.
+            expiredMessage="This code may have stopped working. Get a new one to be safe."
             doneLabel="I've dialled and paid"
+            lateDoneLabel="I already paid"
             onDone={paid}
             onRenew={() => start({ method: "ussd", bank })}
           />
@@ -363,23 +371,42 @@ export function PayOptions({
 function TransferFooter({
   expiresAt,
   what,
+  expiredMessage,
   doneLabel,
+  lateDoneLabel,
   onDone,
   onRenew,
 }: {
   expiresAt: string;
   what: string;
+  expiredMessage: string;
   doneLabel: string;
+  /** After it runs out: for someone who paid just before, so they aren't pushed to pay again. */
+  lateDoneLabel: string;
   onDone: () => void;
   onRenew: () => void;
 }) {
   const left = useTimeLeft(expiresAt);
   return (
     <div className="flex flex-col gap-3">
-      <Countdown expiresAt={expiresAt} what={what} onRenew={onRenew} />
+      <Countdown
+        expiresAt={expiresAt}
+        what={what}
+        expiredMessage={expiredMessage}
+        onRenew={onRenew}
+      />
       {left > 0 && (
         <button type="button" onClick={onDone} className={BIG_BUTTON}>
           {doneLabel}
+        </button>
+      )}
+      {left === 0 && (
+        <button
+          type="button"
+          onClick={onDone}
+          className="text-brand-hover min-h-11 font-bold underline"
+        >
+          {lateDoneLabel}
         </button>
       )}
     </div>

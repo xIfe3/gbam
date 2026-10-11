@@ -215,7 +215,11 @@ export class HttpPaystackClient implements PaystackClient {
     // show the customer Paystack's own time.
     let expiresAt = input.expiresAt;
     if (body.account_expires_at) {
-      expiresAt = new Date(body.account_expires_at);
+      const fromPaystack = new Date(body.account_expires_at);
+      // A time we can't read ("Invalid Date") is ignored: ours is still right.
+      if (!Number.isNaN(fromPaystack.getTime())) {
+        expiresAt = fromPaystack;
+      }
     }
     return {
       reference: body.reference,
