@@ -176,6 +176,13 @@
       "when": 1791648488826,
       "tag": "0024_notification_trash",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1791697487180,
+      "tag": "0025_own_pay_screens",
+      "breakpoints": true
     }
   ]
 }

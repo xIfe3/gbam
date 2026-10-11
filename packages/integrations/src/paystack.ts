@@ -11,6 +11,13 @@ import { z } from "zod";
 export interface PaystackClient {
   initializeTransaction(input: InitializeTransactionInput): Promise<InitializedTransaction>;
   verifyTransaction(reference: string): Promise<VerifiedTransaction>;
+  /**
+   * "Pay by transfer" on our own screen: Paystack opens a one-off bank account for this
+   * payment. Money sent to it before `expiresAt` pays the order (the usual webhook).
+   */
+  chargeBankTransfer(input: BankTransferChargeInput): Promise<BankTransferCharge>;
+  /** "Pay by USSD" on our own screen: a code the customer dials with their bank. */
+  chargeUssd(input: UssdChargeInput): Promise<UssdCharge>;
   /** Nigerian banks a seller can be paid into. */
   listBanks(): Promise<Bank[]>;
   /** Asks the bank whose account this is. Fails if the number does not exist at that bank. */
@@ -47,6 +54,29 @@ export type InitializeTransactionInput = {
 };
 
 export type InitializedTransaction = { authorizationUrl: string; reference: string };
+
+/** What every payment we start needs; the split works exactly as in a checkout. */
+export type DirectChargeInput = Omit<InitializeTransactionInput, "callbackUrl">;
+
+export type BankTransferChargeInput = DirectChargeInput & {
+  /** When the account stops taking money. Paystack allows 15 minutes to 8 hours. */
+  expiresAt: Date;
+};
+
+export type BankTransferCharge = {
+  reference: string;
+  bankName: string;
+  accountNumber: string;
+  accountName: string;
+  expiresAt: Date;
+};
+
+export type UssdChargeInput = DirectChargeInput & {
+  /** The bank's USSD prefix, e.g. "737" for GTBank (see USSD_BANKS in @gbam/shared). */
+  bankType: string;
+};
+
+export type UssdCharge = { reference: string; ussdCode: string };
 
 export type VerifiedTransaction = {
   reference: string;
@@ -103,6 +133,24 @@ const MAX_BANK_PAGES = 20;
 
 const initializeData = z.object({ authorization_url: z.url(), reference: z.string() });
 
+// POST /charge answers "Charge attempted" with a status saying what happens next. For a
+// transfer that's "pending_bank_transfer" plus the account; anything else means no account.
+const bankTransferData = z
+  .object({
+    reference: z.string(),
+    status: z.string(),
+    account_name: z.string().optional(),
+    account_number: z.string().optional(),
+    bank: z.object({ name: z.string() }).loose().optional(),
+    account_expires_at: z.string().optional(),
+  })
+  .loose();
+
+// For USSD it's "pay_offline" plus the code to dial.
+const ussdData = z
+  .object({ reference: z.string(), status: z.string(), ussd_code: z.string().optional() })
+  .loose();
+
 const verifyData = z
   .object({
     reference: z.string(),
@@ -119,13 +167,13 @@ export class HttpPaystackClient implements PaystackClient {
     private readonly baseUrl = "https://api.paystack.co",
   ) {}
 
-  async initializeTransaction(input: InitializeTransactionInput) {
+  /** The fields every payment sends: who pays, how much, and the seller split. */
+  private paymentParams(input: DirectChargeInput): Record<string, unknown> {
     const params: Record<string, unknown> = {
       reference: input.reference,
       amount: input.amountKobo,
       email: input.email,
       currency: "NGN",
-      callback_url: input.callbackUrl,
       metadata: input.metadata,
     };
     if (input.split) {
@@ -136,12 +184,60 @@ export class HttpPaystackClient implements PaystackClient {
       // Paystack's fee comes out of the seller's share, not ours.
       params.bearer = "subaccount";
     }
+    return params;
+  }
+
+  async initializeTransaction(input: InitializeTransactionInput) {
+    const params = this.paymentParams(input);
+    params.callback_url = input.callbackUrl;
 
     const body = await this.request("/transaction/initialize", initializeData, {
       method: "POST",
       body: JSON.stringify(params),
     });
     return { authorizationUrl: body.authorization_url, reference: body.reference };
+  }
+
+  async chargeBankTransfer(input: BankTransferChargeInput) {
+    const params = this.paymentParams(input);
+    params.bank_transfer = { account_expires_at: input.expiresAt.toISOString() };
+    const body = await this.request("/charge", bankTransferData, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    const accountNumber = body.account_number;
+    const accountName = body.account_name;
+    const bank = body.bank;
+    if (body.status !== "pending_bank_transfer" || !accountNumber || !accountName || !bank) {
+      throw new PaystackError(`Paystack didn't open a transfer account (${body.status})`);
+    }
+    // Paystack may round the expiry (it keeps it between 15 minutes and 8 hours), so we
+    // show the customer Paystack's own time.
+    let expiresAt = input.expiresAt;
+    if (body.account_expires_at) {
+      expiresAt = new Date(body.account_expires_at);
+    }
+    return {
+      reference: body.reference,
+      bankName: bank.name,
+      accountNumber,
+      accountName,
+      expiresAt,
+    };
+  }
+
+  async chargeUssd(input: UssdChargeInput) {
+    const params = this.paymentParams(input);
+    params.ussd = { type: input.bankType };
+    const body = await this.request("/charge", ussdData, {
+      method: "POST",
+      body: JSON.stringify(params),
+    });
+    const ussdCode = body.ussd_code;
+    if (body.status !== "pay_offline" || !ussdCode) {
+      throw new PaystackError(`Paystack didn't give a USSD code (${body.status})`);
+    }
+    return { reference: body.reference, ussdCode };
   }
 
   async verifyTransaction(reference: string) {
@@ -360,6 +456,22 @@ export class FakePaystackClient implements PaystackClient {
       authorizationUrl: `https://checkout.paystack.com/fake-${input.reference}`,
       reference: input.reference,
     };
+  }
+
+  async chargeBankTransfer(input: BankTransferChargeInput) {
+    this.log(`[fake paystack] transfer account for ${input.reference}, ${input.amountKobo} kobo`);
+    return {
+      reference: input.reference,
+      bankName: "Fake Bank",
+      accountNumber: "0123456789",
+      accountName: "GBAM TEST CHECKOUT",
+      expiresAt: input.expiresAt,
+    };
+  }
+
+  async chargeUssd(input: UssdChargeInput) {
+    this.log(`[fake paystack] USSD ${input.bankType} code for ${input.reference}`);
+    return { reference: input.reference, ussdCode: `*${input.bankType}*000*1234#` };
   }
 
   async verifyTransaction(reference: string) {

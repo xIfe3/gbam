@@ -1,6 +1,8 @@
 import {
+  directPaySchema,
   reportIssueSchema,
   trackLookupSchema,
+  type DirectPayChoice,
   type ReportIssueInput,
   type TrackLookupInput,
 } from "@gbam/shared";
@@ -42,6 +44,17 @@ export class TrackingController {
   @HttpCode(200)
   pay(@Param("code") code: string, @Query("key") key: unknown) {
     return this.tracking.payLink(code, oneString(key));
+  }
+
+  /** Our own pay screen: a transfer account or a USSD code (cards use Paystack's pop-up). */
+  @Post(":code/pay/direct")
+  @HttpCode(200)
+  directPay(
+    @Param("code") code: string,
+    @Query("key") key: unknown,
+    @Body(new ZodPipe(directPaySchema)) body: DirectPayChoice,
+  ) {
+    return this.tracking.directPay(code, oneString(key), body);
   }
 
   @Post(":code/issues")

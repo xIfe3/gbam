@@ -4,10 +4,11 @@
  * Redis db 1, fake Paystack, and a fake email queue that records what would be sent.
  */
 import "reflect-metadata";
-import { deliveryZones, orders, sellers, users } from "@gbam/db";
+import { deliveryZones, orderEvents, orders, sellers, users } from "@gbam/db";
+import { FakePaystackClient } from "@gbam/integrations";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
-import { eq, inArray } from "drizzle-orm";
+import { and, eq, inArray } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import { randomInt, randomUUID } from "node:crypto";
 import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
@@ -17,7 +18,8 @@ import { DomainErrorsFilter } from "../common/domain-errors.filter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import type { EmailJob } from "../email/templates.js";
 import { DB, InfraModule, REDIS, type Db } from "../infra/infra.module.js";
-import { IntegrationsModule } from "../integrations/integrations.module.js";
+import { PlatformSettingsService } from "../infra/platform-settings.service.js";
+import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
@@ -52,6 +54,14 @@ describe("Order tracking over HTTP (integration)", () => {
     })
       .overrideProvider(EmailQueue)
       .useValue(fakeQueue)
+      // The fake, even when .env has a real test key: these tests never call Paystack.
+      .overrideProvider(PAYSTACK)
+      .useValue(
+        new FakePaystackClient(
+          async () => undefined,
+          () => undefined,
+        ),
+      )
       .compile();
     app = moduleRef.createNestApplication();
     app.useGlobalFilters(new DomainErrorsFilter());
@@ -327,6 +337,69 @@ describe("Order tracking over HTTP (integration)", () => {
     // The pop-up on /pay needs the access code: the last part of Paystack's checkout link.
     expect(link.accessCode).not.toBeNull();
     expect(link.url.endsWith(`/${link.accessCode}`)).toBe(true);
+  });
+
+  it("pay by transfer or USSD on our own screen, only while awaiting payment", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    usedKeys.push(`track-direct-pay:${order.id}`);
+    const url = `/track/${order.code}/pay/direct?key=${order.trackingKey}`;
+    const early = await call("POST", url, { method: "bank_transfer" });
+    expect(early.status).toBe(409);
+
+    await db.update(orders).set({ status: "awaiting_payment" }).where(eq(orders.id, order.id));
+    const transfer = await call("POST", url, { method: "bank_transfer" });
+    expect(transfer.status).toBe(200);
+    expect(transfer.json).toMatchObject({
+      method: "bank_transfer",
+      amountKobo: 1000000,
+      accountNumber: expect.stringMatching(/^\d{10}$/),
+      bankName: expect.any(String),
+      accountName: expect.any(String),
+      expiresAt: expect.any(String),
+    });
+
+    const ussd = await call("POST", url, { method: "ussd", bank: "737" });
+    expect(ussd.status).toBe(200);
+    expect(ussd.json).toMatchObject({ method: "ussd", bank: "737" });
+    expect((ussd.json as { ussdCode: string }).ussdCode).toMatch(/^\*737\*/);
+
+    // A bank Paystack doesn't take USSD from, or card (cards use Paystack's pop-up).
+    expect((await call("POST", url, { method: "ussd", bank: "822" })).status).toBe(400);
+    expect((await call("POST", url, { method: "card" })).status).toBe(400);
+    // Someone else's key: no hint the order exists.
+    const wrongKey = `/track/${order.code}/pay/direct?key=${"x".repeat(43)}`;
+    expect((await call("POST", wrongKey, { method: "bank_transfer" })).status).toBe(404);
+  });
+
+  it("says so when there isn't time left to pay by transfer", async () => {
+    const shop = await newShop();
+    const order = await placeOrder(shop);
+    usedKeys.push(`track-direct-pay:${order.id}`);
+    // Asking for payment needs a payout account.
+    await db
+      .update(sellers)
+      .set({ paystackSubaccountCode: "ACCT_tracktest" })
+      .where(eq(sellers.id, shop.sellerId));
+    await ordersService.transition({
+      orderId: order.id,
+      to: "awaiting_payment",
+      actor: "seller",
+      sellerId: shop.sellerId,
+    });
+    // Moved to awaiting payment so long ago that it's cancelled in 5 minutes.
+    const settings = await moduleRef.get(PlatformSettingsService).get();
+    const askedAt = new Date(Date.now() - (settings.cancelAfterHours * 60 - 5) * 60_000);
+    await db
+      .update(orderEvents)
+      .set({ createdAt: askedAt })
+      .where(and(eq(orderEvents.orderId, order.id), eq(orderEvents.toStatus, "awaiting_payment")));
+
+    const res = await call("POST", `/track/${order.code}/pay/direct?key=${order.trackingKey}`, {
+      method: "bank_transfer",
+    });
+    expect(res.status).toBe(409);
+    expect(res.json).toMatchObject({ code: "NOT_ENOUGH_TIME" });
   });
 
   it("reporting a problem emails the seller, shows on both sides, and is limited to 3 an hour", async () => {

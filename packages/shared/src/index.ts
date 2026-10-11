@@ -6,6 +6,7 @@ export * from "./format";
 export * from "./marketing";
 export * from "./messaging";
 export * from "./order-state";
+export * from "./pay-methods";
 export * from "./platform-settings";
 export * from "./products";
 export * from "./schemas";

@@ -453,6 +453,12 @@ export const orderItems = pgTable(
   (t) => [index("order_items_order_idx").on(t.orderId)],
 );
 
+export type PaymentMethod = "checkout" | "bank_transfer" | "ussd";
+
+export type PaymentInstructions =
+  | { kind: "bank_transfer"; bankName: string; accountNumber: string; accountName: string }
+  | { kind: "ussd"; bank: string; ussdCode: string };
+
 export const payments = pgTable(
   "payments",
   {
@@ -471,6 +477,18 @@ export const payments = pgTable(
     /** Paystack's actual fee, read back from Paystack once paid. null until then. */
     paystackFeeKobo: bigint("paystack_fee_kobo", { mode: "number" }),
     status: paymentStatusEnum("status").notNull().default("pending"),
+    /**
+     * How the customer is paying: "checkout" = Paystack's pop-up or page (card and the
+     * rest); "bank_transfer" / "ussd" = gbam's own pay screens.
+     */
+    method: text("method").$type<PaymentMethod>().notNull().default("checkout"),
+    /**
+     * Our own screens: the account or USSD code we showed, so a reload shows the same one.
+     * (Paystack's one-off account details, never the customer's own bank account.)
+     */
+    instructions: jsonb("instructions").$type<PaymentInstructions>(),
+    /** When the transfer account or USSD code stops working. null for checkout links. */
+    expiresAt: timestamp("expires_at", { withTimezone: true }),
     raw: jsonb("raw"),
     createdAt: createdAt(),
     updatedAt: updatedAt(),

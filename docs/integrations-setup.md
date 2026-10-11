@@ -31,9 +31,16 @@ How we stay safe:
   and checks the amount before marking an order paid.
 - A payment for an order the seller already cancelled is logged as `NEEDS REFUND`.
 
-Paystack needs an email per transaction; customers only give a phone number, so we send
-`<phone>@customers.gbam.app`. Paystack receipts to that address won't arrive. Collect real
-emails later if receipts matter.
+Paystack needs an email per transaction. If the customer left one at checkout we send it;
+otherwise we send `<phone>@customers.gbam.app` (nothing arrives there). Gbam emails its own
+receipts, so turn off Paystack's customer receipts in the dashboard to avoid two.
+
+**Our own pay screens (transfer and USSD).** The /pay page asks the API
+(`POST /track/:code/pay/direct`) for a one-off transfer account or a USSD code through
+Paystack's Charge API, with the same seller split as a card checkout. Cards still go
+through Paystack's pop-up, so card numbers never touch gbam. The money arrives through the
+same `charge.success` webhook. USSD works for GTBank (737), UBA (919) and Zenith (966):
+the ones Paystack accepted in test mode (October 2026).
 
 ## Fees: who gets what
 

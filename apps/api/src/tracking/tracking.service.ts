@@ -1,13 +1,30 @@
 import { customers, orderEvents, orderIssues, orderItems, orders, sellers, users } from "@gbam/db";
-import { ISSUE_REASON_LABEL, type ReportIssueInput, type TrackLookupInput } from "@gbam/shared";
-import { ConflictException, Inject, Injectable, Logger, NotFoundException } from "@nestjs/common";
+import { PaystackError } from "@gbam/integrations";
+import {
+  ISSUE_REASON_LABEL,
+  type DirectPayChoice,
+  type ReportIssueInput,
+  type TrackLookupInput,
+} from "@gbam/shared";
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  Logger,
+  NotFoundException,
+  ServiceUnavailableException,
+} from "@nestjs/common";
 import { and, asc, desc, eq, like } from "drizzle-orm";
 import { RateLimiter, TooManyRequestsError } from "../common/rate-limiter.js";
 import { EmailQueue } from "../email/email.queue.js";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { accessCodeFrom } from "../payments/checkout-links.js";
-import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
+import {
+  NotEnoughTimeToPayError,
+  OrderNotAwaitingPaymentError,
+  PaymentsService,
+} from "../payments/payments.service.js";
 
 // One answer for every failed lookup, so nobody can tell "wrong code" from "wrong phone".
 const NOT_FOUND = "We couldn't find an order with that code and phone number";
@@ -21,6 +38,11 @@ const LOOKUP_WINDOW_SECONDS = 15 * 60;
 // screenshot) only 10,000 phone endings are possible, so this is what really stops guessing.
 const CODE_MISS_LIMIT = 20;
 const CODE_MISS_WINDOW_SECONDS = 60 * 60;
+
+// Transfer/USSD starts per order per hour. Each one can ask Paystack for a new account, so
+// someone hammering the button can't make us open hundreds.
+const DIRECT_PAY_LIMIT = 20;
+const DIRECT_PAY_WINDOW_SECONDS = 60 * 60;
 
 // Problem reports per order per hour.
 const ISSUE_LIMIT = 3;
@@ -190,6 +212,48 @@ export class TrackingService {
       // It changed between our check and the lock (e.g. just paid): say so, don't charge twice.
       if (error instanceof OrderNotAwaitingPaymentError) {
         throw new ConflictException("This order isn't waiting for payment.");
+      }
+      throw error;
+    }
+  }
+
+  /**
+   * "Pay by transfer" / "Pay by USSD" on our own pay screen: the account to send money to,
+   * or the code to dial. 409 with code NOT_ENOUGH_TIME when the order is cancelled too soon
+   * for that; 503 when Paystack can't open one (the page then offers Paystack's pop-up).
+   */
+  async directPay(code: string, key: string, choice: DirectPayChoice) {
+    const order = await this.orderFor(code, key);
+    if (order.status !== "awaiting_payment") {
+      throw new ConflictException("This order isn't waiting for payment.");
+    }
+    const limit = await this.limiter.hit(
+      `track-direct-pay:${order.id}`,
+      DIRECT_PAY_LIMIT,
+      DIRECT_PAY_WINDOW_SECONDS,
+    );
+    if (!limit.allowed) {
+      throw new TooManyRequestsError(limit.retryAfterSeconds);
+    }
+    try {
+      return await this.payments.startDirectPayment(order.id, choice);
+    } catch (error) {
+      if (error instanceof OrderNotAwaitingPaymentError) {
+        throw new ConflictException("This order isn't waiting for payment.");
+      }
+      if (error instanceof NotEnoughTimeToPayError) {
+        throw new ConflictException({
+          code: "NOT_ENOUGH_TIME",
+          message: "There isn't enough time left to pay by transfer or USSD. Pay by card instead.",
+        });
+      }
+      if (error instanceof PaystackError) {
+        // The message names only the endpoint (never account numbers), so it's safe to log.
+        this.logger.warn(`Paystack couldn't start a ${choice.method} payment: ${error.message}`);
+        throw new ServiceUnavailableException({
+          code: "PAYSTACK_UNAVAILABLE",
+          message: "We couldn't set that up just now.",
+        });
       }
       throw error;
     }
