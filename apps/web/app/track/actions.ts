@@ -1,10 +1,16 @@
 "use server";
 
-import { ISSUE_REASONS, reportIssueSchema, trackLookupSchema } from "@gbam/shared";
+import {
+  directPaySchema,
+  ISSUE_REASONS,
+  reportIssueSchema,
+  trackLookupSchema,
+  type DirectPayChoice,
+} from "@gbam/shared";
 import { revalidatePath } from "next/cache";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { z } from "zod";
-import { api, ApiError } from "@/lib/api";
+import { api, ApiError, type DirectPaymentView } from "@/lib/api";
 
 // Server Actions for the customer tracking pages. The browser can send anything, so each
 // one checks its input again before calling the API.
@@ -70,6 +76,70 @@ export async function payNowAction(code: string, key: string): Promise<PayNowRes
       return { error: GONE };
     }
     console.error("track pay failed");
+    return { error: GENERIC };
+  }
+}
+
+/** The API's error `code`, when it sent one (e.g. NOT_ENOUGH_TIME). */
+function errorCode(error: ApiError): string {
+  const body = error.body;
+  if (typeof body === "object" && body !== null && "code" in body) {
+    const code = (body as { code: unknown }).code;
+    if (typeof code === "string") {
+      return code;
+    }
+  }
+  return "";
+}
+
+export type DirectPayResult = {
+  payment?: DirectPaymentView;
+  error?: string;
+  /** Too little time left for a transfer: point the customer to card. */
+  useCard?: boolean;
+  /** Paystack couldn't set it up: offer Paystack's own pop-up instead. */
+  useCheckout?: boolean;
+};
+
+/** "Pay by transfer" / "Pay by USSD": the account or code to show, or what to do instead. */
+export async function directPayAction(
+  code: string,
+  key: string,
+  choice: DirectPayChoice,
+): Promise<DirectPayResult> {
+  // The browser can send anything: check the key and the choice again here.
+  const parsedChoice = directPaySchema.safeParse(choice);
+  if (!keySchema.safeParse(key).success || !parsedChoice.success) {
+    return { error: GENERIC };
+  }
+  try {
+    const payment = await api.trackDirectPay(code, key, parsedChoice.data);
+    return { payment };
+  } catch (error) {
+    unstable_rethrow(error);
+    if (
+      error instanceof ApiError &&
+      error.status === 409 &&
+      errorCode(error) === "NOT_ENOUGH_TIME"
+    ) {
+      return { error: error.message, useCard: true };
+    }
+    if (error instanceof ApiError && error.status === 409) {
+      return { error: "This order isn't waiting for payment any more. Refresh the page." };
+    }
+    if (error instanceof ApiError && error.status === 404) {
+      return { error: GONE };
+    }
+    if (error instanceof ApiError && error.status === 429) {
+      return { error: TOO_MANY };
+    }
+    if (error instanceof ApiError && error.status === 503) {
+      return {
+        error: "We couldn't set that up just now. You can still pay in Paystack's secure window.",
+        useCheckout: true,
+      };
+    }
+    console.error("direct pay failed");
     return { error: GENERIC };
   }
 }

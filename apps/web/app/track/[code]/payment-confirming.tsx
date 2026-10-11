@@ -3,10 +3,13 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
-// Paystack tells us about a payment through a webhook, usually within seconds. We look
-// again every few seconds for about a minute, then stop and let the customer refresh.
-const CHECK_EVERY_MS = 3000;
-const MAX_CHECKS = 20;
+// Paystack tells us about a payment through a webhook. For a card that's usually seconds,
+// so we look again every few seconds for a minute. A bank transfer can take a few minutes,
+// so after that we keep looking, less often, for up to 10 minutes, then let them refresh.
+const FAST_CHECK_MS = 3000;
+const FAST_CHECKS = 20;
+const SLOW_CHECK_MS = 15_000;
+const SLOW_CHECKS = 36;
 
 /**
  * Right after paying in the pop-up: "Confirming your payment…" while we wait for Paystack's
@@ -18,21 +21,29 @@ export function PaymentConfirming() {
   const [checks, setChecks] = useState(0);
 
   useEffect(() => {
-    if (checks >= MAX_CHECKS) {
+    if (checks >= FAST_CHECKS + SLOW_CHECKS) {
       return;
+    }
+    let wait = FAST_CHECK_MS;
+    if (checks >= FAST_CHECKS) {
+      wait = SLOW_CHECK_MS;
     }
     const timer = setTimeout(() => {
       router.refresh();
       setChecks(checks + 1);
-    }, CHECK_EVERY_MS);
+    }, wait);
     // Cleanup: stop the timer when the page changes or this box goes away.
     return () => clearTimeout(timer);
   }, [checks, router]);
 
   let message = "Confirming your payment with Paystack… This usually takes a few seconds.";
-  if (checks >= MAX_CHECKS) {
+  if (checks >= FAST_CHECKS) {
     message =
-      "Still waiting for Paystack to confirm. If money left your account, it will show here soon. Refresh the page in a minute.";
+      "Still waiting for Paystack to confirm. Bank transfers can take a few minutes; this page keeps checking.";
+  }
+  if (checks >= FAST_CHECKS + SLOW_CHECKS) {
+    message =
+      "Still waiting for Paystack to confirm. If money left your account, it will show here soon. Refresh the page in a few minutes.";
   }
 
   return (

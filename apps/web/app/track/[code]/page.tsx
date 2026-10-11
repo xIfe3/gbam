@@ -5,7 +5,7 @@ import { OrderTotals } from "@/components/orders/order-totals";
 import { notFound, redirect } from "next/navigation";
 import { ShopHeader } from "@/app/[slug]/shop-header";
 import { api, ApiError, type TrackedOrder } from "@/lib/api";
-import { PayNowButton } from "./pay-now-button";
+import { PayOptions } from "./pay-options";
 import { PaymentConfirming } from "./payment-confirming";
 import { ReportIssueForm } from "./report-issue-form";
 
@@ -81,7 +81,8 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
     }
     stoppedText = `${stoppedText}. Message the seller if you have questions.`;
   }
-  // paid=1 is added after paying in Paystack's pop-up (see PayNowButton).
+  // paid=1 is added after paying: in Paystack's pop-up, or after a transfer or USSD
+  // (see PayOptions).
   const justPaid = searchParams.paid === "1";
   const whatsappText = encodeURIComponent(`Hi ${shop.businessName}, about my order ${order.code}`);
 
@@ -146,7 +147,7 @@ export default async function TrackOrderPage(props: PageProps<"/track/[code]">) 
 
         {tracked.canPay && justPaid && <PaymentConfirming />}
         {tracked.canPay && !justPaid && (
-          <PayNowButton code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
+          <PayOptions code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
         )}
         {justPaid && order.status === "paid" && (
           <p role="status" className="rounded-2xl bg-emerald-50 p-5 font-bold text-emerald-900">

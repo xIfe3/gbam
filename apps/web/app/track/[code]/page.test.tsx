@@ -18,7 +18,11 @@ vi.mock("@/lib/api", () => {
   }
   return { api: { trackView: vi.fn() }, ApiError };
 });
-vi.mock("../actions", () => ({ payNowAction: vi.fn(), reportIssueAction: vi.fn() }));
+vi.mock("../actions", () => ({
+  payNowAction: vi.fn(),
+  directPayAction: vi.fn(),
+  reportIssueAction: vi.fn(),
+}));
 
 import { api, ApiError } from "@/lib/api";
 import TrackOrderPage from "./page";
@@ -71,7 +75,9 @@ describe("customer tracking page", () => {
 
   it("offers Pay only while payment is awaited", async () => {
     const { unmount } = render(await TrackOrderPage(props("secret-key-abcdefghijklmnop")));
-    expect(screen.getByRole("button", { name: "Pay ₦10,000 securely" })).toBeInTheDocument();
+    // Transfer, USSD or card, on our own screen.
+    expect(screen.getByRole("radio", { name: "Bank transfer" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Get account details" })).toBeInTheDocument();
     unmount();
     vi.mocked(api.trackView).mockResolvedValue({
       ...TRACKED,
@@ -79,7 +85,7 @@ describe("customer tracking page", () => {
       order: { ...TRACKED.order, status: "paid" },
     } as never);
     render(await TrackOrderPage(props("secret-key-abcdefghijklmnop")));
-    expect(screen.queryByRole("button", { name: /Pay .* securely/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Bank transfer" })).toBeNull();
   });
 
   it("right after paying, waits for confirmation instead of offering Pay again", async () => {
@@ -87,7 +93,7 @@ describe("customer tracking page", () => {
       await TrackOrderPage(props("secret-key-abcdefghijklmnop", { paid: "1" })),
     );
     expect(screen.getByRole("status")).toHaveTextContent("Confirming your payment");
-    expect(screen.queryByRole("button", { name: /Pay .* securely/ })).toBeNull();
+    expect(screen.queryByRole("radio", { name: "Bank transfer" })).toBeNull();
     unmount();
 
     vi.mocked(api.trackView).mockResolvedValue({

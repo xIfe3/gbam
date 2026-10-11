@@ -4,7 +4,7 @@ import Link from "next/link";
 import { OrderTotals } from "@/components/orders/order-totals";
 import { notFound, redirect } from "next/navigation";
 import { ShopHeader } from "@/app/[slug]/shop-header";
-import { PayNowButton } from "@/app/track/[code]/pay-now-button";
+import { PayOptions } from "@/app/track/[code]/pay-options";
 import { api, ApiError, type TrackedOrder } from "@/lib/api";
 
 // Private page (the address holds the order's key): out of search results, and the key is
@@ -86,7 +86,7 @@ export default async function PayPage(props: PageProps<"/pay/[code]">) {
           />
         </section>
 
-        <PayNowButton code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
+        <PayOptions code={order.code} trackingKey={key} totalKobo={order.totalKobo} />
 
         <p className="text-ink-muted text-sm">
           Something not right? Message {shop.businessName} before paying, or{" "}

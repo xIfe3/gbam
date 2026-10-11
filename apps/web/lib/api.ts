@@ -1,6 +1,6 @@
 // "server-only" makes the build fail if a browser component ever imports this file.
 import "server-only";
-import type { OrderStatus, TicketStatus } from "@gbam/shared";
+import type { DirectPayChoice, OrderStatus, TicketStatus } from "@gbam/shared";
 import { headers } from "next/headers";
 import { cache } from "react";
 import { redirect, unstable_rethrow } from "next/navigation";
@@ -793,6 +793,35 @@ async function trackPay(code: string, key: string) {
   });
 }
 
+/** What our own pay screen shows: where to send the money, or the code to dial. */
+export type DirectPaymentView =
+  | {
+      method: "bank_transfer";
+      reference: string;
+      amountKobo: number;
+      /** ISO time the account stops taking money. */
+      expiresAt: string;
+      bankName: string;
+      accountNumber: string;
+      accountName: string;
+    }
+  | {
+      method: "ussd";
+      reference: string;
+      amountKobo: number;
+      expiresAt: string;
+      bank: string;
+      ussdCode: string;
+    };
+
+/** "Pay by transfer" / "Pay by USSD": a one-off account or a code, from Paystack. */
+async function trackDirectPay(code: string, key: string, choice: DirectPayChoice) {
+  return request<DirectPaymentView>(trackPath(code, key, "/pay/direct"), {
+    method: "POST",
+    body: JSON.stringify(choice),
+  });
+}
+
 async function trackReportIssue(
   code: string,
   key: string,
@@ -1014,6 +1043,7 @@ export const api = {
   trackLookup,
   trackView,
   trackPay,
+  trackDirectPay,
   trackReportIssue,
   resolveOrderIssue,
   resendPaymentRequest,

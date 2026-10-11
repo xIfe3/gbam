@@ -18,7 +18,7 @@ vi.mock("@/lib/api", () => {
   }
   return { api: { trackView: vi.fn() }, ApiError };
 });
-vi.mock("@/app/track/actions", () => ({ payNowAction: vi.fn() }));
+vi.mock("@/app/track/actions", () => ({ payNowAction: vi.fn(), directPayAction: vi.fn() }));
 
 import { api } from "@/lib/api";
 import PayPage from "./page";
@@ -61,7 +61,9 @@ describe("review & pay page", () => {
     expect(screen.getByRole("heading", { name: "GB-7B2Q" })).toBeInTheDocument();
     expect(screen.getByText("From Ada Bakes")).toBeInTheDocument();
     expect(screen.getByText("2 × Cake – Large")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pay ₦10,000 securely" })).toBeInTheDocument();
+    // Transfer, USSD or card, on our own screen.
+    expect(screen.getByRole("radio", { name: "Bank transfer" })).toBeChecked();
+    expect(screen.getByRole("button", { name: "Get account details" })).toBeInTheDocument();
   });
 
   it("sends an order that can't be paid any more to its tracking page", async () => {

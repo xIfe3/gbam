@@ -16,10 +16,16 @@ export function PayNowButton({
   code,
   trackingKey,
   totalKobo,
+  label,
+  intro = "This order is waiting for payment.",
 }: {
   code: string;
   trackingKey: string;
   totalKobo: number;
+  /** The button's words; "Pay ₦… securely" unless given. */
+  label?: string;
+  /** The line above the button. */
+  intro?: string;
 }) {
   const router = useRouter();
   // useTransition: React tracks the request as "pending" so the button can show it's working.
@@ -51,21 +57,24 @@ export function PayNowButton({
     });
   }
 
-  let label = `Pay ${formatNaira(totalKobo)} securely`;
+  let buttonText = `Pay ${formatNaira(totalKobo)} securely`;
+  if (label) {
+    buttonText = label;
+  }
   if (pending) {
-    label = "Opening Paystack…";
+    buttonText = "Opening Paystack…";
   }
 
   return (
     <section className="bg-brand-tint flex flex-col gap-3 rounded-2xl p-5">
-      <p className="text-ink font-bold">This order is waiting for payment.</p>
+      <p className="text-ink font-bold">{intro}</p>
       <button
         type="button"
         onClick={pay}
         disabled={pending}
         className="bg-brand hover:bg-brand-hover focus-visible:outline-brand min-h-12 rounded-full px-6 text-base font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
       >
-        {label}
+        {buttonText}
       </button>
       <p className="text-ink-muted text-xs">
         🔒 Your card details go straight to Paystack. Gbam and the seller never see them.
