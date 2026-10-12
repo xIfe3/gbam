@@ -113,11 +113,32 @@ describe("OrdersService (integration)", () => {
     expect(paid.status).toBe("paid");
   });
 
-  it("blocks requesting payment until the seller has a payout account", async () => {
+  it("refuses new orders while the shop has no payout account", async () => {
     await db.update(sellers).set({ paystackSubaccountCode: null }).where(eq(sellers.id, sellerId));
     try {
-      const { id } = await placeOrder();
+      let caught: unknown = null;
+      try {
+        await placeOrder();
+      } catch (error) {
+        caught = error;
+      }
+      // The customer could never pay, so the order is refused up front.
+      expect(caught).toBeInstanceOf(ConflictException);
+      const body = (caught as ConflictException).getResponse();
+      expect(body).toMatchObject({ code: "SHOP_NOT_READY" });
+    } finally {
+      await db
+        .update(sellers)
+        .set({ paystackSubaccountCode: "ACCT_test123" })
+        .where(eq(sellers.id, sellerId));
+    }
+  });
 
+  it("blocks requesting payment until the seller has a payout account", async () => {
+    // The order was placed while the shop had an account; the account was removed after.
+    const { id } = await placeOrder();
+    await db.update(sellers).set({ paystackSubaccountCode: null }).where(eq(sellers.id, sellerId));
+    try {
       let caught: unknown = null;
       try {
         await service.transition({

@@ -12,7 +12,7 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { DeliveryService } from "../settings/delivery.service.js";
 import { SettingsModule } from "../settings/settings.module.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { addTestPayoutAccount, createTestProduct, createTestSeller } from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -49,6 +49,7 @@ describe("Orders with delivery (integration)", () => {
   ) {
     const seller = await createTestSeller(db, "delivorder");
     sellerIds.push(seller.id);
+    await addTestPayoutAccount(db, seller.id);
     const created = await createTestProduct(db, seller.id, { priceKobo: 150_000 });
     const saved = await delivery.save(seller.id, { zones, pickupNote });
     return { seller, variantId: created.variant.id, zones: saved.zones };

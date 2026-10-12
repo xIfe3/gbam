@@ -150,6 +150,8 @@ describe("Storefront endpoints over HTTP (integration)", () => {
       // No zones set up yet: checkout asks for an address with no delivery fee.
       delivery: { zones: [], pickupNote: null },
       suspended: false,
+      // A brand-new test shop has no bank account yet, so it can't take orders.
+      acceptingOrders: false,
     });
     expect(body.products).toHaveLength(1);
     const card = body.products[0];
@@ -158,6 +160,20 @@ describe("Storefront endpoints over HTTP (integration)", () => {
     expect(card?.maxPriceKobo).toBe(50_000);
     expect(card?.photoUrl).toBeNull();
     expect(card?.soldOut).toBe(false);
+  });
+
+  it("says the shop is accepting orders once it has a payout account", async () => {
+    const seller = await newSeller();
+    await createTestProduct(db, seller.id, { name: "Puff puff", priceKobo: 50_000 });
+    await db
+      .update(sellers)
+      .set({ paystackSubaccountCode: "ACCT_test123" })
+      .where(eq(sellers.id, seller.id));
+
+    const { status, body } = await getList(seller.slug);
+    expect(status).toBe(200);
+    expect(body.store).toMatchObject({ acceptingOrders: true });
+    expect(body.products).toHaveLength(1);
   });
 
   it("returns 404 for an unknown store", async () => {

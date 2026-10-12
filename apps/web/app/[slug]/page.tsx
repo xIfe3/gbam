@@ -73,6 +73,18 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           description="Please check back later, or message the seller on WhatsApp."
         />
       )}
+      {/* No bank account yet: products are shown, but checkout would be refused. */}
+      {store.suspended !== true && store.acceptingOrders === false && (
+        <EmptyState
+          art={
+            <span aria-hidden="true" className="text-4xl">
+              🕒
+            </span>
+          }
+          title="This shop isn't taking orders yet"
+          description="Have a look around, and message the seller on WhatsApp to order."
+        />
+      )}
       {/* A paused (suspended) shop shows only the notice above. */}
       {store.suspended !== true &&
         (products.length === 0 ? (
@@ -131,7 +143,9 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           Track an order
         </Link>
       </footer>
-      <BasketBar shopSlug={store.slug} clearOnMount={paidCode !== null} />
+      {store.acceptingOrders !== false && (
+        <BasketBar shopSlug={store.slug} clearOnMount={paidCode !== null} />
+      )}
       {/* Counts a visit (numbers only, no cookies). */}
       <Beacon kind="storefront" shop={store.slug} />
     </main>

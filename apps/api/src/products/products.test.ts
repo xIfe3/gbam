@@ -2,7 +2,7 @@
  * HTTP-level test of the seller product endpoints: a real Nest app on a random port, the
  * dev Postgres and Redis db 1, a LocalPhotoStorage in a temp folder, and plain fetch().
  */
-import { TEST_DELIVERY } from "../test-helpers.js";
+import { addTestPayoutAccount, TEST_DELIVERY } from "../test-helpers.js";
 import "reflect-metadata";
 import {
   customers,
@@ -151,6 +151,7 @@ describe("Seller product endpoints over HTTP (integration)", () => {
       throw new Error("Signup made no shop");
     }
     sellerIds.push(seller.id);
+    await addTestPayoutAccount(db, seller.id);
     return { authorization: `Bearer ${result.sessionToken}`, sellerId: seller.id };
   }
 

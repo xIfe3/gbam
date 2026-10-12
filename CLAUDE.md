@@ -17,6 +17,13 @@ top to bottom over code that is short. When in doubt, write it out.
 - Framework syntax that can't be avoided (decorators, Zod schemas, Drizzle queries) is fine.
   Comment it the first time it appears in a file.
 
+## Scope freeze (from the panel review, until the pilot decision on 2026-11-10)
+
+See `PANEL/99-chair-decision-memo.md`. Only work on its Critical Path. Frozen, no new
+features or plans: admin roles/invites/team/sessions, the content CMS, announcements,
+notification campaigns, the seller bell, guided tours, admin analytics and the visit beacon,
+and new marketing pages. Bug fixes in frozen areas are fine.
+
 ## Workflow
 
 - Work in phases. The owner reviews each phase before it's committed.

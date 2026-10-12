@@ -6,7 +6,7 @@ describe("PayoutBanner", () => {
   it("asks for a bank account and links to the get-paid step", () => {
     render(<PayoutBanner />);
     expect(
-      screen.getByText("Add your bank account to start receiving payments"),
+      screen.getByText("Your shop can't take orders until you add your bank account"),
     ).toBeInTheDocument();
     const link = screen.getByRole("link", { name: /add bank account/i });
     expect(link).toHaveAttribute("href", "/signup/get-paid");

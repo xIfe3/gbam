@@ -17,7 +17,7 @@ import type { EmailJob } from "../email/templates.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
+import { addTestPayoutAccount, createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
 import { TicketsModule } from "./tickets.module.js";
 import { TicketsService } from "./tickets.service.js";
 
@@ -116,6 +116,7 @@ describe("Help tickets over HTTP (integration)", () => {
     if (!seller) {
       throw new Error("Signup made no shop");
     }
+    await addTestPayoutAccount(db, seller.id);
     return {
       authorization: `Bearer ${result.sessionToken}`,
       sellerId: seller.id,

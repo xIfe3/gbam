@@ -191,6 +191,8 @@ export type Storefront = {
     delivery: DeliverySettings;
     /** Gbam paused the shop: no products are listed and nothing can be ordered. */
     suspended?: boolean;
+    /** false = no bank account yet: products show, but orders are refused. */
+    acceptingOrders?: boolean;
   };
   products: StorefrontProductCard[];
 };

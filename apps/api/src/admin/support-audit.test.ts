@@ -11,7 +11,12 @@ import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
+import {
+  addTestPayoutAccount,
+  createTestProduct,
+  createTestSeller,
+  TEST_DELIVERY,
+} from "../test-helpers.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminTestData, callAdmin, listen, type TestAdmin } from "./admin-test-helpers.js";
 import { AdminModule } from "./admin.module.js";
@@ -117,6 +122,7 @@ describe("Admin support inbox and audit log (integration)", () => {
   it("problem reports can be resolved by an admin", async () => {
     const seller = await createTestSeller(db, "adminissue");
     sellerIds.push(seller.id);
+    await addTestPayoutAccount(db, seller.id);
     const { variant } = await createTestProduct(db, seller.id);
     const order = await moduleRef.get(OrdersService).createFromStorefront(seller.slug, {
       customer: { name: "Ada", phone: "2348011112222" },

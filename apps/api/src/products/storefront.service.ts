@@ -53,6 +53,7 @@ export class StorefrontService {
           ...this.looks(seller),
           delivery: { zones: [], pickupNote: null },
           suspended: true,
+          acceptingOrders: false,
         },
         products: [],
       };
@@ -159,6 +160,8 @@ export class StorefrontService {
         ...this.looks(seller),
         delivery,
         suspended: false,
+        // No bank account yet → checkout would be refused, so the page says so up front.
+        acceptingOrders: seller.paystackSubaccountCode !== null,
       },
       products: cards,
     };
@@ -252,6 +255,7 @@ export class StorefrontService {
         id: sellers.id,
         businessName: sellers.businessName,
         suspendedAt: sellers.suspendedAt,
+        paystackSubaccountCode: sellers.paystackSubaccountCode,
         logoKey: sellers.logoKey,
         bannerKey: sellers.bannerKey,
       })

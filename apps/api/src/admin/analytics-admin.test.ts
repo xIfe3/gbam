@@ -14,7 +14,12 @@ import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
+import {
+  addTestPayoutAccount,
+  createTestProduct,
+  createTestSeller,
+  TEST_DELIVERY,
+} from "../test-helpers.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminTestData, callAdmin, listen, type TestAdmin } from "./admin-test-helpers.js";
 import { AdminModule } from "./admin.module.js";
@@ -158,6 +163,7 @@ describe("Admin analytics (integration)", () => {
 
   it("active shops counts paid orders in the window, and expired vs cancelled", async () => {
     const seller = await verifiedSeller();
+    await addTestPayoutAccount(db, seller.id);
     const { variant } = await createTestProduct(db, seller.id);
     const place = () =>
       orders.createFromStorefront(seller.slug, {

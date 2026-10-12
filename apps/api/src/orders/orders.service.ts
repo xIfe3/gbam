@@ -55,6 +55,12 @@ const MAX_QUANTITY_PER_VARIANT = 99;
 /** A seller can resend a payment request at most this often, per order. */
 const PAYMENT_RESEND_GAP_SECONDS = 10 * 60;
 
+/** ...and at most this many times in total, per order. */
+const MAX_PAYMENT_RESENDS = 3;
+
+/** How long the resend total is remembered: a week, far longer than an order waits for payment. */
+const PAYMENT_RESEND_TOTAL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+
 /**
  * All order logic lives here. Controllers (HTTP) and the worker call these methods;
  * they never touch the orders tables directly.
@@ -247,6 +253,16 @@ export class OrdersService {
     if (order.status !== "awaiting_payment") {
       throw new ConflictException("Only orders waiting for payment can be sent a payment request");
     }
+    // Each resend is a paid WhatsApp message, so there's a lifetime cap as well as the gap.
+    const sentSoFar = await this.limiter.count(`payment-resend-total:${orderId}`);
+    if (sentSoFar >= MAX_PAYMENT_RESENDS) {
+      throw new ConflictException({
+        statusCode: 409,
+        message:
+          "This payment request has already been resent 3 times. Copy the payment link and send it to the customer yourself.",
+        code: "RESEND_LIMIT_REACHED",
+      });
+    }
     const limit = await this.limiter.hit(
       `payment-resend:${orderId}`,
       1,
@@ -255,6 +271,11 @@ export class OrdersService {
     if (!limit.allowed) {
       throw new TooManyRequestsError(limit.retryAfterSeconds);
     }
+    await this.limiter.hit(
+      `payment-resend-total:${orderId}`,
+      MAX_PAYMENT_RESENDS,
+      PAYMENT_RESEND_TOTAL_WINDOW_SECONDS,
+    );
     await this.notifications.paymentResend(orderId);
     return { nextAllowedAt: new Date(Date.now() + PAYMENT_RESEND_GAP_SECONDS * 1000) };
   }
@@ -618,7 +639,11 @@ export class OrdersService {
   /** Writes a new order. Runs inside the transaction started by createFromStorefront. */
   private async insertOrder(tx: DbTransaction, slug: string, input: CreateOrderInput) {
     const sellerRows = await tx
-      .select({ id: sellers.id, suspendedAt: sellers.suspendedAt })
+      .select({
+        id: sellers.id,
+        suspendedAt: sellers.suspendedAt,
+        subaccountCode: sellers.paystackSubaccountCode,
+      })
       .from(sellers)
       // No new orders for a closed shop (its owner deleted the account).
       .where(and(eq(sellers.slug, slug), isNull(sellers.closedAt)));
@@ -629,6 +654,15 @@ export class OrdersService {
     // Suspended by Gbam (e.g. while a report is checked): the shop exists but takes no orders.
     if (seller.suspendedAt !== null) {
       throw new ConflictException("This shop isn't taking orders right now");
+    }
+    // No bank account yet (the seller skipped that signup step): the customer could never
+    // pay, so don't take the order at all.
+    if (seller.subaccountCode === null) {
+      throw new ConflictException({
+        statusCode: 409,
+        code: "SHOP_NOT_READY",
+        message: "This shop isn't ready to take orders yet. Please message the seller on WhatsApp.",
+      });
     }
 
     // Add up quantities per variant, in case the same variant appears on two lines.

@@ -42,4 +42,30 @@ describe("storefront page", () => {
     ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "This shop is still setting up" })).toBeNull();
   });
+
+  it("a shop with no bank account yet shows its products and says it can't take orders", async () => {
+    vi.mocked(api.storefront).mockResolvedValue({
+      store: {
+        slug: "mama-ngozi",
+        businessName: "Mama Ngozi Styles",
+        suspended: false,
+        acceptingOrders: false,
+      },
+      products: [
+        {
+          slug: "ankara-dress",
+          name: "Ankara dress",
+          minPriceKobo: 1_500_000,
+          maxPriceKobo: 1_500_000,
+          photoUrl: null,
+          soldOut: false,
+        },
+      ],
+    } as never);
+    render(await StorefrontPage(props()));
+    expect(
+      screen.getByRole("heading", { name: "This shop isn't taking orders yet" }),
+    ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Ankara dress" })).toBeInTheDocument();
+  });
 });

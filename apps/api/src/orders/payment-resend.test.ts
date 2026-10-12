@@ -97,6 +97,27 @@ describe("resending a payment request (integration)", () => {
     await redis.del(`payment-resend:${order.id}`);
   });
 
+  it("allows at most 3 resends per order in total", async () => {
+    const order = await awaitingOrder();
+    for (let i = 0; i < 3; i++) {
+      await service.resendPaymentRequest(sellerId, order.id);
+      // Skip the 10-minute wait between resends; only the total limit is under test.
+      await redis.del(`payment-resend:${order.id}`);
+    }
+
+    let caught: unknown = null;
+    try {
+      await service.resendPaymentRequest(sellerId, order.id);
+    } catch (error) {
+      caught = error;
+    }
+    expect(caught).toBeInstanceOf(ConflictException);
+    const body = (caught as ConflictException).getResponse();
+    expect(body).toMatchObject({ code: "RESEND_LIMIT_REACHED" });
+    expect(await resendJobs(order.id)).toHaveLength(3);
+    await redis.del(`payment-resend:${order.id}`, `payment-resend-total:${order.id}`);
+  });
+
   it("only for orders waiting for payment, and only the shop's own", async () => {
     const pending = await service.createFromStorefront(slug, {
       customer: { name: "Ada", phone: "2348011112222" },

@@ -10,7 +10,7 @@ export function PayoutBanner() {
     >
       <p className="text-ink flex items-start gap-2 text-sm font-medium">
         <Landmark size={18} className="text-coral-deep mt-0.5 shrink-0" aria-hidden="true" />
-        <span>Add your bank account to start receiving payments</span>
+        <span>Your shop can&apos;t take orders until you add your bank account</span>
       </p>
       <Link
         href="/signup/get-paid"

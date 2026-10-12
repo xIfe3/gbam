@@ -17,7 +17,7 @@ import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import { ProductsModule } from "../products/products.module.js";
-import { createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
+import { addTestPayoutAccount, createTestProduct, TEST_DELIVERY } from "../test-helpers.js";
 import { AuthModule } from "./auth.module.js";
 import { AuthService } from "./auth.service.js";
 import { hashToken, newSessionToken } from "./crypto.js";
@@ -210,6 +210,7 @@ describe("SessionGuard over HTTP (integration)", () => {
     if (!bSeller) {
       throw new Error("Expected seller B");
     }
+    await addTestPayoutAccount(db, bSeller.id);
     const { variant } = await createTestProduct(db, bSeller.id, { name: "Suya" });
     const order = await orders.createFromStorefront(bSeller.slug, {
       customer: { name: "Ada", phone: "2348011112222" },

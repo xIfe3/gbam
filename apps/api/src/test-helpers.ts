@@ -9,7 +9,7 @@ import {
   type Product,
   type ProductVariant,
 } from "@gbam/db";
-import { and, like, lt } from "drizzle-orm";
+import { and, eq, like, lt } from "drizzle-orm";
 import { randomInt, randomUUID } from "node:crypto";
 
 type TestProductInput = {
@@ -97,6 +97,17 @@ export async function createTestSeller(db: Db, prefix: string) {
     throw new Error("Failed to create the test seller");
   }
   return seller;
+}
+
+/**
+ * Gives a test shop a (fake) Paystack payout account. A shop takes no orders without one,
+ * so every test that places orders needs this.
+ */
+export async function addTestPayoutAccount(db: Db, sellerId: string) {
+  await db
+    .update(sellers)
+    .set({ paystackSubaccountCode: "ACCT_test123" })
+    .where(eq(sellers.id, sellerId));
 }
 
 /**

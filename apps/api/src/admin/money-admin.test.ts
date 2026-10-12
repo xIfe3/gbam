@@ -11,7 +11,7 @@ import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct, createTestSeller } from "../test-helpers.js";
+import { addTestPayoutAccount, createTestProduct, createTestSeller } from "../test-helpers.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminTestData, callAdmin, listen, type TestAdmin } from "./admin-test-helpers.js";
 import { AdminModule } from "./admin.module.js";
@@ -75,6 +75,7 @@ describe("Admin money (integration)", () => {
     const seller = await createTestSeller(db, "money");
     sellerId = seller.id;
     slug = seller.slug;
+    await addTestPayoutAccount(db, sellerId);
     const created = await createTestProduct(db, sellerId, { priceKobo: 1_000_000 });
     variantId = created.variant.id;
     const zones = await db

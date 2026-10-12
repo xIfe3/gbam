@@ -191,15 +191,11 @@ describe("Payout endpoints over HTTP (integration)", () => {
 
   it("signup → verify → bank → subaccount, then payment can be requested", async () => {
     const seller = await newSeller(true);
-    const order = await pendingOrder(seller.sellerId, seller.slug);
 
-    // Before: no payout account, so "Request payment" is refused.
-    const blocked = await call("PATCH", `/orders/${order.id}/status`, {
-      authorization: seller.authorization,
-      body: { status: "awaiting_payment" },
+    // Before: no payout account, so the shop can't take orders at all.
+    await expect(pendingOrder(seller.sellerId, seller.slug)).rejects.toMatchObject({
+      response: { code: "SHOP_NOT_READY" },
     });
-    expect(blocked.status).toBe(409);
-    expect(blocked.json).toMatchObject({ code: "PAYOUT_ACCOUNT_REQUIRED" });
 
     const banks = await call("GET", "/payouts/banks", { authorization: seller.authorization });
     expect(banks.status).toBe(200);
@@ -241,6 +237,8 @@ describe("Payout endpoints over HTTP (integration)", () => {
     expect(again.status).toBe(409);
     expect(again.json).toMatchObject({ code: "PAYOUT_ACCOUNT_EXISTS" });
 
+    // After: orders are taken, and the seller can request payment.
+    const order = await pendingOrder(seller.sellerId, seller.slug);
     const allowed = await call("PATCH", `/orders/${order.id}/status`, {
       authorization: seller.authorization,
       body: { status: "awaiting_payment" },

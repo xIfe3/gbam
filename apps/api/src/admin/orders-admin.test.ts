@@ -11,7 +11,12 @@ import { DB, InfraModule, type Db } from "../infra/infra.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
-import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
+import {
+  addTestPayoutAccount,
+  createTestProduct,
+  createTestSeller,
+  TEST_DELIVERY,
+} from "../test-helpers.js";
 import { AdminAuthService } from "./admin-auth.service.js";
 import { AdminTestData, callAdmin, listen, type TestAdmin } from "./admin-test-helpers.js";
 import { AdminModule } from "./admin.module.js";
@@ -48,6 +53,7 @@ describe("Admin orders and refunds (integration)", () => {
     const seller = await createTestSeller(db, "adminorders");
     sellerId = seller.id;
     slug = seller.slug;
+    await addTestPayoutAccount(db, sellerId);
     const created = await createTestProduct(db, sellerId, { priceKobo: 200_000 });
     variantId = created.variant.id;
   });
