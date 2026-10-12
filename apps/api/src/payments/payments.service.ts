@@ -13,7 +13,7 @@ import {
   type OrderStatus,
 } from "@gbam/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { and, desc, eq, gt, isNotNull, max, ne } from "drizzle-orm";
+import { and, asc, desc, eq, gt, isNotNull, lt, max, ne } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -35,6 +35,14 @@ const DIRECT_PAY_MINUTES = 30;
 const MIN_MINUTES_TO_PAY = 16;
 /** An open account with less than this left isn't shown again: too little time to pay. */
 const REUSE_MIN_MINUTES_LEFT = 5;
+
+// Re-checking unconfirmed payments with Paystack (see recheckPending).
+/** Younger payments are left to their webhook, which is usually seconds away. */
+const RECHECK_AFTER_MINUTES = 2;
+/** Older payments aren't re-checked: the order has expired by then. */
+const RECHECK_FOR_HOURS = 48;
+/** At most this many per run; the next run (15 minutes later) does the rest. */
+const RECHECK_BATCH_SIZE = 200;
 
 /**
  * Paystack requires an email address. Customers may leave theirs at checkout; if they
@@ -483,6 +491,79 @@ export class PaymentsService {
       }
     }
     return "paid";
+  }
+
+  /**
+   * The safety net for a webhook that never came (our server was down, Paystack gave up
+   * resending, or a transfer landed late). Asks Paystack directly about every payment that
+   * is still unconfirmed, and confirms the ones that went through. The worker runs this
+   * every 15 minutes, just before unpaid orders are cancelled, so a customer who really
+   * paid never has their order cancelled. Returns the references that are now paid.
+   *
+   * Payments younger than RECHECK_AFTER_MINUTES are skipped: their webhook is usually on
+   * its way. Ones older than RECHECK_FOR_HOURS are left alone: by then the order has expired.
+   */
+  async recheckPending(now: Date): Promise<string[]> {
+    const newest = new Date(now.getTime() - RECHECK_AFTER_MINUTES * MINUTE_MS);
+    const oldest = new Date(now.getTime() - RECHECK_FOR_HOURS * HOUR_MS);
+    const rows = await this.db
+      .select({ reference: payments.reference })
+      .from(payments)
+      .where(
+        and(
+          eq(payments.status, "pending"),
+          lt(payments.createdAt, newest),
+          gt(payments.createdAt, oldest),
+        ),
+      )
+      .orderBy(asc(payments.createdAt))
+      .limit(RECHECK_BATCH_SIZE);
+
+    const references: string[] = [];
+    for (const row of rows) {
+      references.push(row.reference);
+    }
+    return this.recheckReferences(references);
+  }
+
+  /**
+   * The admin's "Re-check with Paystack" button: asks Paystack about every unconfirmed
+   * payment of one order, however new. `paid` says whether the order is now paid.
+   */
+  async recheckOrder(orderId: string): Promise<{ checked: number; paid: boolean }> {
+    const rows = await this.db
+      .select({ reference: payments.reference })
+      .from(payments)
+      .where(and(eq(payments.orderId, orderId), eq(payments.status, "pending")));
+    const references: string[] = [];
+    for (const row of rows) {
+      references.push(row.reference);
+    }
+    const confirmed = await this.recheckReferences(references);
+    let paid = false;
+    if (confirmed.length > 0) {
+      paid = true;
+    }
+    return { checked: references.length, paid };
+  }
+
+  /** Runs confirm() on each reference; one failing (Paystack down) doesn't stop the rest. */
+  private async recheckReferences(references: string[]): Promise<string[]> {
+    const paid: string[] = [];
+    for (const reference of references) {
+      try {
+        const result = await this.confirm(reference);
+        if (result === "paid") {
+          paid.push(reference);
+        }
+      } catch (error) {
+        this.logger.error(`Re-check of payment ${reference} failed; will try again later`, error);
+      }
+    }
+    if (paid.length > 0) {
+      this.logger.log(`Re-check found ${paid.length} payment(s) the webhook missed`);
+    }
+    return paid;
   }
 
   private async logNeedsRefund(reference: string, orderId: string, reason: string) {

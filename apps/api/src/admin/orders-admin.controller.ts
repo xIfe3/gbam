@@ -72,6 +72,18 @@ export class OrdersAdminController {
     return this.orders.detail(id);
   }
 
+  /** "Re-check with Paystack" on an order's page (see OrdersAdminService.recheckPayment). */
+  @Post("orders/:id/recheck-payment")
+  @HttpCode(200)
+  @RequirePermission("orders.view")
+  recheckPayment(
+    @Req() req: Request,
+    @CurrentAdmin() admin: AdminContext,
+    @Param("id", ParseUUIDPipe) id: string,
+  ) {
+    return this.orders.recheckPayment(id, admin, clientIp(req, this.env.INTERNAL_API_SECRET));
+  }
+
   @Get("refunds")
   @RequirePermission("refunds.handle")
   refunds(@Query(new ZodPipe(refundsQuerySchema)) query: z.output<typeof refundsQuerySchema>) {

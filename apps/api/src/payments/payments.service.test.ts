@@ -260,6 +260,61 @@ describe("PaymentsService (integration)", () => {
     expect(await statusOf(order.id)).toBe("cancelled");
   });
 
+  describe("re-checking payments whose webhook never came", () => {
+    const MINUTE_MS = 60 * 1000;
+
+    /** Pretends the payment was started `minutesAgo` minutes ago. */
+    async function startedMinutesAgo(reference: string, minutesAgo: number) {
+      const then = new Date(Date.now() - minutesAgo * MINUTE_MS);
+      await db.update(payments).set({ createdAt: then }).where(eq(payments.reference, reference));
+    }
+
+    it("asks Paystack about an unconfirmed payment and marks the order paid", async () => {
+      const { order, link } = await orderAwaitingPayment();
+      await startedMinutesAgo(link.reference, 5);
+
+      const paid = await service.recheckPending(new Date());
+      expect(paid).toContain(link.reference);
+      expect(await statusOf(order.id)).toBe("paid");
+    });
+
+    it("leaves a payment Paystack hasn't completed, and finds it on a later run", async () => {
+      const { order, link } = await orderAwaitingPayment();
+      await startedMinutesAgo(link.reference, 5);
+
+      paystack.verifyResult = () => ({ status: "pending" });
+      try {
+        expect(await service.recheckPending(new Date())).not.toContain(link.reference);
+        expect(await statusOf(order.id)).toBe("awaiting_payment");
+      } finally {
+        // The other tests in this file share this stub.
+        paystack.verifyResult = () => ({});
+      }
+
+      // The bank transfer lands later: the next run catches it.
+      expect(await service.recheckPending(new Date())).toContain(link.reference);
+      expect(await statusOf(order.id)).toBe("paid");
+    });
+
+    it("leaves brand-new payments to the webhook, and gives up after 48 hours", async () => {
+      const fresh = await orderAwaitingPayment();
+      const old = await orderAwaitingPayment();
+      await startedMinutesAgo(old.link.reference, 49 * 60);
+
+      const paid = await service.recheckPending(new Date());
+      expect(paid).not.toContain(fresh.link.reference);
+      expect(paid).not.toContain(old.link.reference);
+      expect(await statusOf(fresh.order.id)).toBe("awaiting_payment");
+    });
+
+    it("re-checks one order on demand (the admin's button), however new its payments", async () => {
+      const { order } = await orderAwaitingPayment();
+      const result = await service.recheckOrder(order.id);
+      expect(result).toEqual({ checked: 1, paid: true });
+      expect(await statusOf(order.id)).toBe("paid");
+    });
+  });
+
   describe("gbam fee and Paystack split", () => {
     // Each order is 2 × ₦500 = ₦1,000 (100,000 kobo), so 1.5% = 1,500 kobo (₦15).
     const setSeller = (values: {

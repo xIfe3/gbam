@@ -18,6 +18,7 @@ const { adminApiMock, FakeApiError, refresh } = vi.hoisted(() => {
       bulkShops: vi.fn(),
       resolveRefund: vi.fn(),
       setFeeWaiver: vi.fn(),
+      recheckPayment: vi.fn(),
     },
     FakeApiError,
     refresh: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("@/lib/api", () => ({ ApiError: FakeApiError }));
 import {
   bulkShopsAction,
   feeWaiverAction,
+  recheckPaymentAction,
   resolveRefundAction,
   suspendShopAction,
 } from "./admin-actions";
@@ -47,6 +49,28 @@ const SHOP = "11111111-1111-4111-8111-111111111111";
 
 beforeEach(() => {
   vi.clearAllMocks();
+});
+
+describe("re-check with Paystack", () => {
+  it("says so when Paystack confirms the payment, and refreshes the page", async () => {
+    adminApiMock.recheckPayment.mockResolvedValue({ checked: 1, paid: true });
+    const state = await recheckPaymentAction("order-1");
+    expect(adminApiMock.recheckPayment).toHaveBeenCalledWith("order-1");
+    expect(state.notice).toBe("Paystack confirmed the payment. The order is now marked paid.");
+    expect(refresh).toHaveBeenCalled();
+  });
+
+  it("says nothing changed when Paystack hasn't received the money yet", async () => {
+    adminApiMock.recheckPayment.mockResolvedValue({ checked: 1, paid: false });
+    const state = await recheckPaymentAction("order-1");
+    expect(state.notice).toBe("Paystack hasn't received this payment yet. Nothing changed.");
+  });
+
+  it("says when there's no unconfirmed payment to check", async () => {
+    adminApiMock.recheckPayment.mockResolvedValue({ checked: 0, paid: false });
+    const state = await recheckPaymentAction("order-1");
+    expect(state.notice).toBe("This order has no unconfirmed payment to check.");
+  });
 });
 
 describe("admin actions", () => {

@@ -17,6 +17,7 @@ import {
 } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { OrdersService } from "../orders/orders.service.js";
+import { PaymentsService } from "../payments/payments.service.js";
 import type { AdminContext } from "./admin-auth.service.js";
 import { AuditService } from "./audit.service.js";
 
@@ -38,6 +39,7 @@ export class OrdersAdminService {
   constructor(
     @InjectDb() private readonly db: Db,
     private readonly orders: OrdersService,
+    private readonly payments: PaymentsService,
     private readonly audit: AuditService,
   ) {}
 
@@ -195,5 +197,31 @@ export class OrdersAdminService {
       );
     });
     return { ok: true };
+  }
+
+  /**
+   * "Re-check with Paystack": a customer says they paid but the order isn't marked paid
+   * (the webhook may never have come). Asks Paystack directly about the order's unconfirmed
+   * payments; if one went through, the order is marked paid the normal way. Safe to press
+   * twice: an already-confirmed payment is simply skipped.
+   */
+  async recheckPayment(orderId: string, actor: AdminContext, ip: string) {
+    const orderRows = await this.db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(eq(orders.id, orderId));
+    if (orderRows.length === 0) {
+      throw new NotFoundException("Order not found");
+    }
+    const result = await this.payments.recheckOrder(orderId);
+    await this.audit.record({
+      adminId: actor.id,
+      action: "order.payment_rechecked",
+      targetType: "order",
+      targetId: orderId,
+      after: result,
+      ip,
+    });
+    return result;
   }
 }

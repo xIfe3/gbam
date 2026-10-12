@@ -86,6 +86,29 @@ async function simple(call: () => Promise<unknown>, done: string): Promise<FormS
   return { notice: done };
 }
 
+// ---- Orders ----
+
+/**
+ * "Re-check with Paystack": asks Paystack about the order's unconfirmed payments (a webhook
+ * may have gone missing) and says plainly what happened.
+ */
+export async function recheckPaymentAction(id: string): Promise<FormState> {
+  let result: { checked: number; paid: boolean };
+  try {
+    result = await adminApi.recheckPayment(id);
+  } catch (error) {
+    return { error: adminFailure(error) };
+  }
+  refresh();
+  if (result.paid) {
+    return { notice: "Paystack confirmed the payment. The order is now marked paid." };
+  }
+  if (result.checked === 0) {
+    return { notice: "This order has no unconfirmed payment to check." };
+  }
+  return { notice: "Paystack hasn't received this payment yet. Nothing changed." };
+}
+
 // ---- Shops ----
 
 export async function suspendShopAction(id: string, _prev: FormState, formData: FormData) {

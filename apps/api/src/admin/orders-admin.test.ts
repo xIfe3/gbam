@@ -1,6 +1,7 @@
 /** Integration test over HTTP against the dev Postgres + Redis (db 1). */
 import "reflect-metadata";
 import { adminAuditLog, orders, payments, refundCases, sellers } from "@gbam/db";
+import { FakePaystackClient } from "@gbam/integrations";
 import type { INestApplication } from "@nestjs/common";
 import { Test, type TestingModule } from "@nestjs/testing";
 import { randomUUID } from "node:crypto";
@@ -8,7 +9,7 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EmailQueue } from "../email/email.queue.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { IntegrationsModule } from "../integrations/integrations.module.js";
+import { IntegrationsModule, PAYSTACK } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
 import { OrdersService } from "../orders/orders.service.js";
 import {
@@ -41,6 +42,10 @@ describe("Admin orders and refunds (integration)", () => {
     })
       .overrideProvider(EmailQueue)
       .useValue({ send: async () => undefined })
+      // Never the real Paystack: the fake says every payment we ask about succeeded, for
+      // the amount we saved.
+      .overrideProvider(PAYSTACK)
+      .useValue(new FakePaystackClient(savedAmount, () => {}))
       .compile();
     app = moduleRef.createNestApplication();
     baseUrl = await listen(app);
@@ -80,6 +85,15 @@ describe("Admin orders and refunds (integration)", () => {
     });
   }
 
+  /** The amount saved for a payment reference (what the fake Paystack reports back). */
+  async function savedAmount(reference: string): Promise<number | undefined> {
+    const rows = await db
+      .select({ amountKobo: payments.amountKobo })
+      .from(payments)
+      .where(eq(payments.reference, reference));
+    return rows[0]?.amountKobo;
+  }
+
   /** A cancelled order that was paid anyway: the case support has to refund. */
   async function paidCancelledOrder() {
     const order = await placeOrder();
@@ -114,6 +128,46 @@ describe("Admin orders and refunds (integration)", () => {
       order: { id: order.id, code: order.code },
       shop: { slug },
     });
+  });
+
+  it("re-checks an order's payment with Paystack, marks it paid, and records who did it", async () => {
+    const order = await placeOrder();
+    await ordersService.transition({
+      orderId: order.id,
+      to: "awaiting_payment",
+      actor: "seller",
+      sellerId,
+    });
+    // A payment whose webhook never arrived: still "pending" on our side.
+    await db.insert(payments).values({
+      orderId: order.id,
+      reference: `gbam_${order.code}_${randomUUID().slice(0, 8)}`,
+      amountKobo: order.totalKobo,
+      platformFeeKobo: 0,
+      status: "pending",
+    });
+
+    const result = await callAdmin(
+      baseUrl,
+      "POST",
+      `/admin/orders/${order.id}/recheck-payment`,
+      finance.token,
+    );
+    expect(result.status).toBe(200);
+    expect(result.json).toEqual({ checked: 1, paid: true });
+
+    const rows = await db.select({ status: orders.status }).from(orders).where(eq(orders.id, order.id));
+    expect(rows[0]?.status).toBe("paid");
+    const entries = await db
+      .select()
+      .from(adminAuditLog)
+      .where(
+        and(
+          eq(adminAuditLog.action, "order.payment_rechecked"),
+          eq(adminAuditLog.targetId, order.id),
+        ),
+      );
+    expect(entries).toHaveLength(1);
   });
 
   it("needs-refund creates one case per payment", async () => {

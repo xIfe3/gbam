@@ -7,6 +7,7 @@ import { shortTime } from "@/components/admin/list-bits";
 import { OrderTotals } from "@/components/orders/order-totals";
 import { adminApi, type AdminOrderDetail } from "@/lib/admin-api";
 import { ApiError } from "@/lib/api";
+import { PaymentRecheck } from "./payment-recheck";
 
 export const metadata: Metadata = { title: "Order · Admin" };
 
@@ -92,6 +93,7 @@ export default async function AdminOrderPage(props: { params: Promise<{ id: stri
             </li>
           ))}
         </ul>
+        <PaymentRecheck orderId={order.id} payments={order.payments} />
       </section>
 
       {order.issues.length > 0 && (

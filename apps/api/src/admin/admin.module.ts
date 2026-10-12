@@ -6,6 +6,7 @@ import { RateLimiterModule } from "../common/rate-limiter.js";
 import { EmailModule } from "../email/email.module.js";
 import { IntegrationsModule } from "../integrations/integrations.module.js";
 import { OrdersModule } from "../orders/orders.module.js";
+import { PaymentsModule } from "../payments/payments.module.js";
 import { PlatformModule } from "../platform/platform.module.js";
 import { MessagingModule } from "../messaging/messaging.module.js";
 import { TicketsModule } from "../tickets/tickets.module.js";
@@ -59,6 +60,8 @@ for (const name of SYSTEM_QUEUE_NAMES) {
     // Photo storage (R2) for content images. Global in the app; listed so tests get it too.
     IntegrationsModule,
     OrdersModule,
+    // PaymentsService: the "Re-check with Paystack" button on an order.
+    PaymentsModule,
     PlatformModule,
     RateLimiterModule,
     TicketsModule,

@@ -547,6 +547,10 @@ export const adminApi = {
   order: (id: string) => adminRequest<AdminOrderDetail>(`/admin/orders/${id}`),
   refunds: (status: "open" | "resolved") =>
     adminRequest<RefundCase[]>(`/admin/refunds${queryString({ status })}`),
+  recheckPayment: (id: string) =>
+    adminRequest<{ checked: number; paid: boolean }>(`/admin/orders/${id}/recheck-payment`, {
+      method: "POST",
+    }),
   resolveRefund: (id: string, reason: string) =>
     adminRequest(`/admin/refunds/${id}/resolve`, { method: "POST", body: { reason } }),
 
