@@ -110,6 +110,28 @@ describe("placeOrder delivery", () => {
     });
   });
 
+  it("says the customer can pay now when the order is waiting for payment", async () => {
+    vi.mocked(api.placeOrder).mockResolvedValue({
+      code: "GB-7K2Q",
+      totalKobo: 650000,
+      trackingKey: "k",
+      status: "awaiting_payment",
+    } as never);
+    const state = await placeOrder("ada", { status: "idle" }, orderForm({}));
+    expect(state).toMatchObject({ status: "success", payNow: true });
+  });
+
+  it("says the seller checks first when the order is still pending", async () => {
+    vi.mocked(api.placeOrder).mockResolvedValue({
+      code: "GB-7K2Q",
+      totalKobo: 650000,
+      trackingKey: "k",
+      status: "pending",
+    } as never);
+    const state = await placeOrder("ada", { status: "idle" }, orderForm({}));
+    expect(state).toMatchObject({ status: "success", payNow: false });
+  });
+
   it("puts a delivery 409 on the delivery field", async () => {
     vi.mocked(api.placeOrder).mockRejectedValue(
       new ApiError(409, {

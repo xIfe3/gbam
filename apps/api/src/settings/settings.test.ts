@@ -56,6 +56,8 @@ describe("SettingsService (integration)", () => {
       payoutAccount: { bankName: "Access Bank", accountLast4: "6789", bankAccountName: "ADA OBI" },
       newOrderEmails: true,
       newsEmails: true,
+      // Test shops approve orders first (see createTestSeller).
+      approveOrdersFirst: true,
       nextSlugChangeAt: null,
       logoUrl: null,
       bannerUrl: null,
@@ -80,6 +82,16 @@ describe("SettingsService (integration)", () => {
     const same = await service.updateEmails(seller.id, { newOrderEmails: false });
     expect(same.newsEmails).toBe(false);
     expect(same.newOrderEmails).toBe(false);
+  });
+
+  it("turns 'approve each order first' on and back off", async () => {
+    const seller = await newSeller();
+
+    const on = await service.updateOrderSettings(seller.id, { approveOrdersFirst: true });
+    expect(on.approveOrdersFirst).toBe(true);
+
+    const off = await service.updateOrderSettings(seller.id, { approveOrdersFirst: false });
+    expect(off.approveOrdersFirst).toBe(false);
   });
 
   it("has no payout account when none is set up", async () => {

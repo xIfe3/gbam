@@ -123,6 +123,8 @@ describe("Payout endpoints over HTTP (integration)", () => {
       throw new Error("Signup made no shop");
     }
     sellerIds.push(seller.id);
+    // This test controls when payment is requested, so the shop approves each order first.
+    await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, seller.id));
     return {
       email,
       authorization: `Bearer ${result.sessionToken}`,

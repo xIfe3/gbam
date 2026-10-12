@@ -263,6 +263,7 @@ describe("BasketView", () => {
       code: "GB-ABCD",
       totalKobo: 1300000,
       trackingKey: "secret-key-abc",
+      payNow: true,
     });
     render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
 
@@ -290,6 +291,50 @@ describe("BasketView", () => {
       key: string;
     }[];
     expect(remembered[0]).toMatchObject({ code: "GB-ABCD", key: "secret-key-abc" });
+  });
+
+  /** Fills in the form and places the order; the server action's answer is `result`. */
+  async function placeWith(result: Awaited<ReturnType<typeof placeOrder>>) {
+    vi.mocked(checkBasketAction).mockResolvedValue(HEALTHY);
+    vi.mocked(placeOrder).mockResolvedValue(result);
+    render(<BasketView shopSlug="ada" businessName="Ada Shoes" delivery={NO_ZONES} />);
+    const order = await screen.findByRole("button", { name: /Place order/ });
+    await waitFor(() => expect(order).toBeEnabled());
+    fireEvent.change(screen.getByLabelText("Your name"), { target: { value: "Bola" } });
+    fireEvent.change(screen.getByLabelText("WhatsApp number"), {
+      target: { value: "08031234567" },
+    });
+    fireEvent.submit(order.closest("form") as HTMLFormElement);
+    await screen.findByText("GB-ABCD");
+  }
+
+  it("lets the customer pay straight away when the order is ready to pay", async () => {
+    await placeWith({
+      status: "success",
+      code: "GB-ABCD",
+      totalKobo: 1300000,
+      trackingKey: "secret-key-abc",
+      payNow: true,
+    });
+    expect(screen.getByRole("link", { name: "Pay ₦13,000 now" })).toHaveAttribute(
+      "href",
+      "/pay/GB-ABCD?k=secret-key-abc",
+    );
+    expect(screen.queryByText(/seller will message you/)).toBeNull();
+  });
+
+  it("says the seller checks the order first when the shop approves orders", async () => {
+    await placeWith({
+      status: "success",
+      code: "GB-ABCD",
+      totalKobo: 1300000,
+      trackingKey: "secret-key-abc",
+      payNow: false,
+    });
+    expect(screen.queryByRole("link", { name: /Pay .* now/ })).toBeNull();
+    expect(
+      screen.getByText(/Ada Shoes will check your order, then send you a payment link on WhatsApp/),
+    ).toBeInTheDocument();
   });
 
   it("uses only the product name for a default variant with an empty title", async () => {

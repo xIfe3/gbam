@@ -183,6 +183,13 @@
       "when": 1791697487180,
       "tag": "0025_own_pay_screens",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1791810739065,
+      "tag": "0026_instant_pay",
+      "breakpoints": true
     }
   ]
 }

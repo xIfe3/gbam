@@ -32,7 +32,7 @@ import {
   Logger,
   NotFoundException,
 } from "@nestjs/common";
-import { and, asc, desc, eq, inArray, isNull, sql, type SQL } from "drizzle-orm";
+import { and, asc, desc, eq, gt, inArray, isNull, sql, type SQL } from "drizzle-orm";
 import { isUniqueViolation } from "../common/db-errors.js";
 import { EmailQueue } from "../email/email.queue.js";
 import type { EmailJob } from "../email/templates.js";
@@ -60,6 +60,9 @@ const MAX_PAYMENT_RESENDS = 3;
 
 /** How long the resend total is remembered: a week, far longer than an order waits for payment. */
 const PAYMENT_RESEND_TOTAL_WINDOW_SECONDS = 7 * 24 * 60 * 60;
+
+/** How long stock stays held for a customer who has been sent to pay (see heldStock). */
+const STOCK_HOLD_MINUTES = 60;
 
 /**
  * All order logic lives here. Controllers (HTTP) and the worker call these methods;
@@ -133,6 +136,25 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Moves a just-placed order to awaiting_payment, as the system. If that fails, the order
+   * stays pending and the seller can still tap "Request payment", so it's logged, not thrown.
+   */
+  // `typeof orders.$inferSelect` is Drizzle's name for "one row of the orders table".
+  private async requestPaymentNow(order: typeof orders.$inferSelect) {
+    try {
+      const moved = await this.transition({
+        orderId: order.id,
+        to: "awaiting_payment",
+        actor: "system",
+      });
+      return moved;
+    } catch (error) {
+      this.logger.error(`Could not request payment for new order ${order.id}`, error);
+      return order;
+    }
+  }
+
   /** Public: a customer places an order on a seller's storefront. */
   async createFromStorefront(slug: string, input: CreateOrderInput) {
     let attempt = 1;
@@ -144,16 +166,22 @@ export class OrdersService {
           return this.insertOrder(tx, slug, input);
         });
 
-        await this.notify(created.eventId, {
-          orderId: created.order.id,
-          from: null,
-          to: "pending",
-        });
-        if (input.customer.email) {
-          await this.sendReceipt(created.order, input.customer.email);
+        let order = created.order;
+        if (created.approveOrdersFirst) {
+          // The seller checks each order first: tell the customer it arrived, and wait for
+          // the seller to tap "Request payment".
+          await this.notify(created.eventId, { orderId: order.id, from: null, to: "pending" });
+        } else {
+          // Instant pay (the default): ask for payment straight away, so the customer can pay
+          // the moment they order. The payment request is their first message, so no
+          // separate "order received" message is sent (each one costs gbam money).
+          order = await this.requestPaymentNow(order);
         }
-        await this.emailSellerNewOrder(created.order.id);
-        return created.order;
+        if (input.customer.email) {
+          await this.sendReceipt(order, input.customer.email);
+        }
+        await this.emailSellerNewOrder(order.id);
+        return order;
       } catch (error) {
         const codeWasTaken = isUniqueViolation(error, "orders_seller_code_uq");
         if (codeWasTaken && attempt < MAX_CODE_ATTEMPTS) {
@@ -636,6 +664,45 @@ export class OrdersService {
     }
   }
 
+  /**
+   * How many units of each variant are "held": in orders placed in the last hour that are
+   * waiting for payment. Stock only comes off when an order is paid, so without this two
+   * customers could both be sent to pay for the last cake.
+   *
+   * The hold lasts STOCK_HOLD_MINUTES, not until the order expires (which can be days), so
+   * an abandoned order doesn't hide stock for long. Two orders placed at the very same
+   * moment can still both get through; the existing "stock shortfall" refund flow covers that.
+   */
+  private async heldStock(tx: DbTransaction, variantIds: string[]): Promise<Map<string, number>> {
+    const since = new Date(Date.now() - STOCK_HOLD_MINUTES * 60 * 1000);
+    const rows = await tx
+      .select({
+        variantId: orderItems.variantId,
+        // sum() comes back from Postgres as text, so it's turned into a number below.
+        held: sql<string>`sum(${orderItems.quantity})`,
+      })
+      .from(orderItems)
+      .innerJoin(orders, eq(orders.id, orderItems.orderId))
+      .where(
+        and(
+          inArray(orderItems.variantId, variantIds),
+          eq(orders.status, "awaiting_payment"),
+          gt(orders.createdAt, since),
+        ),
+      )
+      .groupBy(orderItems.variantId);
+
+    const heldByVariantId = new Map<string, number>();
+    for (const row of rows) {
+      // variantId is null only for a deleted variant, which can't be ordered anyway.
+      if (row.variantId === null) {
+        continue;
+      }
+      heldByVariantId.set(row.variantId, Number(row.held));
+    }
+    return heldByVariantId;
+  }
+
   /** Writes a new order. Runs inside the transaction started by createFromStorefront. */
   private async insertOrder(tx: DbTransaction, slug: string, input: CreateOrderInput) {
     const sellerRows = await tx
@@ -643,6 +710,7 @@ export class OrdersService {
         id: sellers.id,
         suspendedAt: sellers.suspendedAt,
         subaccountCode: sellers.paystackSubaccountCode,
+        approveOrdersFirst: sellers.approveOrdersFirst,
       })
       .from(sellers)
       // No new orders for a closed shop (its owner deleted the account).
@@ -759,6 +827,8 @@ export class OrdersService {
       throw new BadRequestException("One or more products are unavailable");
     }
 
+    const heldByVariantId = await this.heldStock(tx, variantIds);
+
     // Prices ALWAYS come from our database, never from what the browser sent.
     let totalKobo = 0;
     const lines = [];
@@ -766,10 +836,19 @@ export class OrdersService {
       const quantity = quantityByVariantId.get(found.variantId) ?? 0;
       const name = variantDisplayName(found.productName, found.variantTitle);
 
-      // stock null = untracked, so any quantity is fine.
-      if (found.stock !== null && found.stock < quantity) {
-        let message = `${name} has only ${found.stock} left`;
-        if (found.stock === 0) {
+      // stock null = untracked, so any quantity is fine. Otherwise, units other customers
+      // are paying for right now don't count as available.
+      let available: number | null = null;
+      if (found.stock !== null) {
+        const held = heldByVariantId.get(found.variantId) ?? 0;
+        available = found.stock - held;
+        if (available < 0) {
+          available = 0;
+        }
+      }
+      if (available !== null && available < quantity) {
+        let message = `${name} has only ${available} left`;
+        if (available === 0) {
           message = `${name} is sold out`;
         }
         throw new BadRequestException({ statusCode: 400, message, field: "items" });
@@ -833,7 +912,7 @@ export class OrdersService {
       .returning({ id: orderEvents.id });
     const event = firstRow(eventRows, "order event");
 
-    return { order, eventId: event.id };
+    return { order, eventId: event.id, approveOrdersFirst: seller.approveOrdersFirst };
   }
 
   /**

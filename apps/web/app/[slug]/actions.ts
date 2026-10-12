@@ -25,7 +25,14 @@ export type PlaceOrderState =
         landmark: string;
       };
     }
-  | { status: "success"; code: string; totalKobo: number; trackingKey: string };
+  | {
+      status: "success";
+      code: string;
+      totalKobo: number;
+      trackingKey: string;
+      /** true = the customer can pay right away; false = the seller checks the order first. */
+      payNow: boolean;
+    };
 
 /** The basket arrives as JSON text like [{"variantId":"…","quantity":2}]. This checks its shape. */
 const basketSchema = z.array(
@@ -157,11 +164,18 @@ export async function placeOrder(
   // 3. Send it to the API.
   try {
     const order = await api.placeOrder(slug, parsed.data);
+    // Most shops ask for payment the moment an order is placed; shops that approve each
+    // order first leave it "pending" until the seller taps "Request payment".
+    let payNow = false;
+    if (order.status === "awaiting_payment") {
+      payNow = true;
+    }
     return {
       status: "success",
       code: order.code,
       totalKobo: order.totalKobo,
       trackingKey: order.trackingKey,
+      payNow,
     };
   } catch (error) {
     // A delivery problem (zone removed, price changed, no address) goes next to that field.

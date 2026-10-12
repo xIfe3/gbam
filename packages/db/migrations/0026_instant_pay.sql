@@ -1,0 +1,1 @@
+ALTER TABLE "sellers" ADD COLUMN "approve_orders_first" boolean DEFAULT false NOT NULL;

@@ -85,6 +85,40 @@ describe("OrderExpiryService (integration)", () => {
     return row;
   }
 
+  /** An order the seller hasn't approved yet (still pending), placed `hoursAgo` hours ago. */
+  async function pendingOrderPlaced(hoursAgo: number): Promise<string> {
+    const order = await ordersService.createFromStorefront(slug, {
+      customer: { name: "Ada", phone: "2348011112222" },
+      delivery: TEST_DELIVERY,
+      items: [{ variantId, quantity: 1 }],
+    });
+    const then = new Date(Date.now() - hoursAgo * HOUR_MS);
+    await db.update(orders).set({ createdAt: then }).where(eq(orders.id, order.id));
+    return order.id;
+  }
+
+  it("leaves an order the seller hasn't approved alone for its first 24 hours", async () => {
+    const orderId = await pendingOrderPlaced(2);
+    const cancelled = await expiry.expireUnapproved(new Date());
+    expect(cancelled).not.toContain(orderId);
+    expect((await statusOf(orderId)).status).toBe("pending");
+  });
+
+  it("cancels an order the seller never approved after 24 hours, as the system", async () => {
+    const orderId = await pendingOrderPlaced(25);
+    const cancelled = await expiry.expireUnapproved(new Date());
+    expect(cancelled).toContain(orderId);
+
+    expect((await statusOf(orderId)).status).toBe("cancelled");
+    const events = await db
+      .select()
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      .orderBy(desc(orderEvents.createdAt))
+      .limit(1);
+    expect(events[0]).toMatchObject({ toStatus: "cancelled", actor: "system" });
+  });
+
   it("leaves an order alone for its first 24 hours", async () => {
     const orderId = await orderAwaitingPaymentSince(2);
     await expiry.sendDueReminders(new Date());

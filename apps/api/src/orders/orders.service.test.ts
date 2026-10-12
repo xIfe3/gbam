@@ -14,7 +14,13 @@ import { desc, eq } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { EMAILS_QUEUE } from "../email/email.queue.js";
 import { DB, InfraModule, type Db } from "../infra/infra.module.js";
-import { createTestProduct, createTestSeller, TEST_DELIVERY } from "../test-helpers.js";
+import { NOTIFICATIONS_QUEUE } from "../notifications/notifications.queue.js";
+import {
+  addTestPayoutAccount,
+  createTestProduct,
+  createTestSeller,
+  TEST_DELIVERY,
+} from "../test-helpers.js";
 import { OrdersModule } from "./orders.module.js";
 import { OrdersService } from "./orders.service.js";
 
@@ -533,5 +539,103 @@ describe("OrdersService emails (integration)", () => {
     });
     // Remove it so the next run can add it again under the same id.
     await job?.remove();
+  });
+});
+
+describe("Instant pay: customers can pay the moment they order (integration)", () => {
+  let moduleRef: TestingModule;
+  let service: OrdersService;
+  let db: Db;
+  let notifications: Queue;
+  let sellerId: string;
+  let slug: string;
+
+  beforeAll(async () => {
+    moduleRef = await Test.createTestingModule({ imports: [InfraModule, OrdersModule] }).compile();
+    moduleRef.enableShutdownHooks();
+    service = moduleRef.get(OrdersService);
+    db = moduleRef.get(DB);
+    notifications = moduleRef.get<Queue>(getQueueToken(NOTIFICATIONS_QUEUE));
+
+    const seller = await createTestSeller(db, "instant");
+    sellerId = seller.id;
+    slug = seller.slug;
+    await addTestPayoutAccount(db, sellerId);
+    // The real default for new shops: no approving each order first.
+    await db.update(sellers).set({ approveOrdersFirst: false }).where(eq(sellers.id, sellerId));
+  });
+
+  afterAll(async () => {
+    await db.delete(sellers).where(eq(sellers.id, sellerId)); // cascades to everything
+    await moduleRef.close();
+  });
+
+  function order(variantId: string, quantity: number) {
+    return service.createFromStorefront(slug, {
+      customer: { name: "Ada", phone: "2348011112222" },
+      delivery: TEST_DELIVERY,
+      items: [{ variantId, quantity }],
+    });
+  }
+
+  /** The order's status-change events, oldest first. */
+  async function eventsOf(orderId: string) {
+    return db
+      .select()
+      .from(orderEvents)
+      .where(eq(orderEvents.orderId, orderId))
+      .orderBy(orderEvents.createdAt);
+  }
+
+  it("a new order is waiting for payment straight away, asked for by the system", async () => {
+    const { variant } = await createTestProduct(db, sellerId, { name: "Puff puff" });
+    const placed = await order(variant.id, 1);
+    expect(placed.status).toBe("awaiting_payment");
+
+    const events = await eventsOf(placed.id);
+    expect(events.map((e) => e.toStatus)).toEqual(["pending", "awaiting_payment"]);
+    expect(events[1]).toMatchObject({ actor: "system" });
+  });
+
+  it("sends only the payment request, not a separate 'order received' message", async () => {
+    const { variant } = await createTestProduct(db, sellerId, { name: "Meat pie" });
+    const placed = await order(variant.id, 1);
+    const events = await eventsOf(placed.id);
+    const pendingEvent = events[0];
+    const awaitingEvent = events[1];
+    if (!pendingEvent || !awaitingEvent) {
+      throw new Error("Expected two events");
+    }
+    // Each status message is queued under its event's id.
+    expect(await notifications.getJob(pendingEvent.id)).toBeUndefined();
+    const paymentRequest = await notifications.getJob(awaitingEvent.id);
+    expect(paymentRequest?.data).toMatchObject({ orderId: placed.id, to: "awaiting_payment" });
+    await paymentRequest?.remove();
+  });
+
+  it("holds stock while a customer is paying, so the last one can't be sold twice", async () => {
+    const { variant } = await createTestProduct(db, sellerId, { name: "Cake", stock: 1 });
+    const first = await order(variant.id, 1);
+
+    // The only cake is held for the first customer.
+    await expect(order(variant.id, 1)).rejects.toThrow(/sold out/);
+
+    // The first customer gives up: the cake is free again.
+    await service.transition({ orderId: first.id, to: "cancelled", actor: "system" });
+    const second = await order(variant.id, 1);
+    expect(second.status).toBe("awaiting_payment");
+  });
+
+  it("a shop that approves orders first keeps new orders pending", async () => {
+    await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, sellerId));
+    try {
+      const { variant } = await createTestProduct(db, sellerId, { name: "Wedding cake" });
+      const placed = await order(variant.id, 1);
+      expect(placed.status).toBe("pending");
+      const events = await eventsOf(placed.id);
+      expect(events.map((e) => e.toStatus)).toEqual(["pending"]);
+    } finally {
+      await db.update(sellers).set({ approveOrdersFirst: false }).where(eq(sellers.id, sellerId));
+    }
   });
 });

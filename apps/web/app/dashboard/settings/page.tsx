@@ -6,6 +6,7 @@ import { FormError, FormNotice } from "@/components/brand/form-bits";
 import { api, ApiError, type Bank } from "@/lib/api";
 import { SITE_HOST } from "@/lib/site";
 import { DeliveryForm } from "./delivery-form";
+import { OrdersForm } from "./orders-form";
 import { CloseAccountForm, EmailsForm, PasswordForm, ShopForm } from "./settings-forms";
 import { ShopLinkForm } from "./shop-link-form";
 import { ShopImagesForm } from "@/components/dashboard/shop-images-form";
@@ -131,6 +132,17 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
           for delivery with their order. Changing a price never changes orders already placed.
         </p>
         <DeliveryForm zones={delivery.zones} pickupNote={delivery.pickupNote} />
+      </section>
+
+      <section aria-labelledby="orders-heading" className={sectionClass}>
+        <h2 id="orders-heading" className="mb-1 font-semibold">
+          Orders
+        </h2>
+        <p className="mb-4 text-sm text-zinc-500">
+          Customers can pay the moment they order. If you make things to order and need to check
+          each order first, tick the box: orders then wait until you tap Request payment.
+        </p>
+        <OrdersForm approveOrdersFirst={settings.approveOrdersFirst} />
       </section>
 
       <section aria-labelledby="emails-heading" className={sectionClass}>

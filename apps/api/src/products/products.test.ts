@@ -152,6 +152,8 @@ describe("Seller product endpoints over HTTP (integration)", () => {
     }
     sellerIds.push(seller.id);
     await addTestPayoutAccount(db, seller.id);
+    // This test controls when payment is requested, so the shop approves each order first.
+    await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, seller.id));
     return { authorization: `Bearer ${result.sessionToken}`, sellerId: seller.id };
   }
 

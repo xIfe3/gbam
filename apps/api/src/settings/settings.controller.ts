@@ -1,9 +1,11 @@
 import {
   deliverySettingsSchema,
   emailSettingsSchema,
+  orderSettingsSchema,
   shopSettingsSchema,
   type DeliverySettingsInput,
   type EmailSettingsInput,
+  type OrderSettingsInput,
   type ShopSettingsInput,
 } from "@gbam/shared";
 import {
@@ -111,6 +113,14 @@ export class SettingsController {
     @Body(new ZodPipe(emailSettingsSchema)) body: EmailSettingsInput,
   ) {
     return this.settings.updateEmails(sellerId, body);
+  }
+
+  @Patch("orders")
+  updateOrderSettings(
+    @CurrentSellerId() sellerId: string,
+    @Body(new ZodPipe(orderSettingsSchema)) body: OrderSettingsInput,
+  ) {
+    return this.settings.updateOrderSettings(sellerId, body);
   }
 
   @Get("delivery")

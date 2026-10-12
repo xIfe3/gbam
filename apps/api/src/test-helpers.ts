@@ -89,6 +89,9 @@ export async function createTestSeller(db: Db, prefix: string) {
       slug: `${prefix}-${randomUUID().slice(0, 8)}`,
       businessName: `Test seller (${prefix})`,
       whatsappPhone: phone,
+      // Test shops approve each order first, so a test decides when payment is requested.
+      // Real shops default to instant pay; the instant-pay tests turn this off.
+      approveOrdersFirst: true,
     })
     .returning();
 

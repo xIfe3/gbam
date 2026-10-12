@@ -229,6 +229,11 @@ export const sellers = pgTable("sellers", {
   suspendedReason: text("suspended_reason"),
   /** Email the owner when a new order comes in. Busy shops can turn it off in Settings. */
   newOrderEmails: boolean("new_order_emails").notNull().default(true),
+  /**
+   * false (the default): the customer can pay the moment they order. true: every order waits
+   * until the seller checks it and taps "Request payment" (for made-to-order shops).
+   */
+  approveOrdersFirst: boolean("approve_orders_first").notNull().default(false),
   /** Gbam's "news and tips" announcements. Off = unsubscribed (Settings or the email link). */
   newsEmails: boolean("news_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */

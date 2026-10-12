@@ -1,7 +1,7 @@
 import { orderEvents, orders } from "@gbam/db";
 import { InvalidOrderTransitionError } from "@gbam/shared";
 import { Injectable, Logger } from "@nestjs/common";
-import { and, eq, isNull, sql } from "drizzle-orm";
+import { and, eq, isNull, lt, sql } from "drizzle-orm";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { PlatformSettingsService } from "../infra/platform-settings.service.js";
 import { NotificationsQueue } from "../notifications/notifications.queue.js";
@@ -10,6 +10,8 @@ import { OrdersService } from "./orders.service.js";
 const HOUR_MS = 60 * 60 * 1000;
 /** At most this many orders per run, so one run never takes too long. The next run does the rest. */
 const BATCH_SIZE = 100;
+/** An order the seller hasn't approved ("pending") is cancelled after this long. */
+const UNAPPROVED_EXPIRY_HOURS = 24;
 
 /**
  * Tidies up orders a customer never paid for. A scheduled job in the worker calls both
@@ -94,6 +96,40 @@ export class OrderExpiryService {
       this.logger.log(`Sent ${reminded.length} payment reminder(s)`);
     }
     return reminded;
+  }
+
+  /**
+   * Cancels orders the seller never approved (still "pending" after UNAPPROVED_EXPIRY_HOURS).
+   * Only shops that approve each order first have pending orders; without this, the
+   * customer would wait forever. Returns their ids.
+   */
+  async expireUnapproved(now: Date): Promise<string[]> {
+    const cutoff = new Date(now.getTime() - UNAPPROVED_EXPIRY_HOURS * HOUR_MS);
+    const rows = await this.db
+      .select({ id: orders.id })
+      .from(orders)
+      .where(and(eq(orders.status, "pending"), lt(orders.createdAt, cutoff)))
+      .limit(BATCH_SIZE);
+
+    const cancelled: string[] = [];
+    for (const row of rows) {
+      try {
+        // The normal status change: it re-checks the status under a lock and sends the
+        // customer the usual "cancelled" WhatsApp message and email.
+        await this.orders.transition({ orderId: row.id, to: "cancelled", actor: "system" });
+        cancelled.push(row.id);
+      } catch (error) {
+        if (error instanceof InvalidOrderTransitionError) {
+          // The seller acted on it a moment ago, after we looked. Nothing to do.
+          continue;
+        }
+        this.logger.error(`Could not expire unapproved order ${row.id}`, error);
+      }
+    }
+    if (cancelled.length > 0) {
+      this.logger.log(`Cancelled ${cancelled.length} order(s) the seller never approved`);
+    }
+    return cancelled;
   }
 
   /** Cancels every order unpaid for too long. Returns their ids. */

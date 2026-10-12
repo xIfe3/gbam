@@ -214,6 +214,13 @@ export const emailSettingsSchema = z.object({
 });
 export type EmailSettingsInput = z.output<typeof emailSettingsSchema>;
 
+/** How new orders are handled. */
+export const orderSettingsSchema = z.object({
+  /** true = every order waits for the seller's "Request payment"; false = customers pay at once. */
+  approveOrdersFirst: z.boolean(),
+});
+export type OrderSettingsInput = z.output<typeof orderSettingsSchema>;
+
 /** The current password proves it's really the owner; the new one meets the signup policy. */
 export const changePasswordSchema = z.object({
   currentPassword: z.string().min(1, "Enter your current password").max(200),

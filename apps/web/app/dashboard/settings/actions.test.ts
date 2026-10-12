@@ -18,6 +18,7 @@ const { apiMock, FakeApiError, refresh, redirect, clearSessionCookie } = vi.hois
       changeSlug: vi.fn(),
       updateShopSettings: vi.fn(),
       updateEmailSettings: vi.fn(),
+      updateOrderSettings: vi.fn(),
       saveDeliverySettings: vi.fn(),
       changePassword: vi.fn(),
       closeAccount: vi.fn(),
@@ -51,6 +52,7 @@ import {
   closeAccountAction,
   saveDeliveryAction,
   updateEmailsAction,
+  updateOrderSettingsAction,
   updateShopAction,
 } from "./actions";
 
@@ -117,6 +119,22 @@ describe("saveDeliveryAction", () => {
       form({ zones: JSON.stringify(zones), pickupNote: "" }),
     );
     expect(state.fieldErrors?.zones).toBe("Each zone needs a different name");
+  });
+});
+
+describe("updateOrderSettingsAction", () => {
+  it("a ticked box makes every order wait for the seller first", async () => {
+    apiMock.updateOrderSettings.mockResolvedValue({});
+    const state = await updateOrderSettingsAction({}, form({ approveOrdersFirst: "on" }));
+    expect(apiMock.updateOrderSettings).toHaveBeenCalledWith({ approveOrdersFirst: true });
+    expect(state.notice).toContain("check each order");
+  });
+
+  it("an unticked box lets customers pay as soon as they order", async () => {
+    apiMock.updateOrderSettings.mockResolvedValue({});
+    const state = await updateOrderSettingsAction({}, form({}));
+    expect(apiMock.updateOrderSettings).toHaveBeenCalledWith({ approveOrdersFirst: false });
+    expect(state.notice).toContain("pay as soon as they order");
   });
 });
 

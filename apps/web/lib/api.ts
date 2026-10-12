@@ -632,6 +632,8 @@ export type ShopSettings = {
   newOrderEmails: boolean;
   /** Gbam's "news and tips" announcement emails. */
   newsEmails: boolean;
+  /** true = every order waits for the seller to tap "Request payment" first. */
+  approveOrdersFirst: boolean;
   /** When the shop link can next be changed; null = now. */
   nextSlugChangeAt: string | null;
   /** The shop's logo and banner; null = the default look. */
@@ -705,6 +707,14 @@ async function saveDeliverySettings(body: {
 
 async function updateEmailSettings(body: { newOrderEmails: boolean; newsEmails?: boolean }) {
   return request<ShopSettings>("/settings/emails", {
+    method: "PATCH",
+    body: JSON.stringify(body),
+    auth: "session",
+  });
+}
+
+async function updateOrderSettings(body: { approveOrdersFirst: boolean }) {
+  return request<ShopSettings>("/settings/orders", {
     method: "PATCH",
     body: JSON.stringify(body),
     auth: "session",
@@ -1063,6 +1073,7 @@ export const api = {
   shopSlugAvailable,
   changeSlug,
   updateEmailSettings,
+  updateOrderSettings,
   getDeliverySettings,
   saveDeliverySettings,
   changePassword,

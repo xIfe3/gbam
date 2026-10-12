@@ -6,6 +6,7 @@ import {
   deliverySettingsSchema,
   parseNairaInput,
   emailSettingsSchema,
+  orderSettingsSchema,
   shopSettingsSchema,
   slugSchema,
 } from "@gbam/shared";
@@ -68,6 +69,33 @@ export async function updateEmailsAction(_prev: FormState, formData: FormData): 
   let notice = "Saved. We won't email you about new orders.";
   if (input.data.newOrderEmails) {
     notice = "Saved. We'll email you when a new order comes in.";
+  }
+  return { notice };
+}
+
+/**
+ * Whether every order waits for the seller to check it before the customer can pay.
+ * An unticked checkbox sends nothing, so "not in the form" means off (customers pay at once).
+ */
+export async function updateOrderSettingsAction(
+  _prev: FormState,
+  formData: FormData,
+): Promise<FormState> {
+  const ticked = formData.get("approveOrdersFirst") === "on";
+  const input = orderSettingsSchema.safeParse({ approveOrdersFirst: ticked });
+  if (!input.success) {
+    return { error: "Something went wrong. Please try again." };
+  }
+
+  try {
+    await api.updateOrderSettings(input.data);
+  } catch (error) {
+    unstable_rethrow(error);
+    return { error: failureMessage(error, "update order settings") };
+  }
+  let notice = "Saved. Customers can pay as soon as they order.";
+  if (input.data.approveOrdersFirst) {
+    notice = "Saved. You'll check each order, then tap Request payment.";
   }
   return { notice };
 }

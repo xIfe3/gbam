@@ -3,6 +3,7 @@ import {
   RESERVED_SLUGS,
   slugSchema,
   type EmailSettingsInput,
+  type OrderSettingsInput,
   type ShopSettingsInput,
 } from "@gbam/shared";
 import {
@@ -27,6 +28,8 @@ export type ShopSettings = {
   newOrderEmails: boolean;
   /** Gbam's "news and tips" announcements. */
   newsEmails: boolean;
+  /** true = every order waits for the seller to tap "Request payment" first. */
+  approveOrdersFirst: boolean;
   /** When the shop link can next be changed (null = now). */
   nextSlugChangeAt: Date | null;
   /** The shop's logo and banner photos; null = the default look. */
@@ -87,6 +90,7 @@ export class SettingsService {
       payoutAccount,
       newOrderEmails: seller.newOrderEmails,
       newsEmails: seller.newsEmails,
+      approveOrdersFirst: seller.approveOrdersFirst,
       nextSlugChangeAt: nextSlugChange(seller.slugChangedAt, new Date()),
       logoUrl: shopImageUrl(this.storage, seller.logoKey),
       bannerUrl: shopImageUrl(this.storage, seller.bannerKey),
@@ -123,6 +127,15 @@ export class SettingsService {
       changes.newsEmails = input.newsEmails;
     }
     await this.db.update(sellers).set(changes).where(eq(sellers.id, sellerId));
+    return this.get(sellerId);
+  }
+
+  /** Turns "approve each order before the customer can pay" on or off. */
+  async updateOrderSettings(sellerId: string, input: OrderSettingsInput): Promise<ShopSettings> {
+    await this.db
+      .update(sellers)
+      .set({ approveOrdersFirst: input.approveOrdersFirst })
+      .where(eq(sellers.id, sellerId));
     return this.get(sellerId);
   }
 

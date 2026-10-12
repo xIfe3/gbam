@@ -119,6 +119,8 @@ describe("Order tracking over HTTP (integration)", () => {
     }
     await addTestPayoutAccount(db, seller.id);
     const { variant } = await createTestProduct(db, seller.id, { name: "Cake", priceKobo: 500000 });
+    // This test controls when payment is requested, so the shop approves each order first.
+    await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, seller.id));
     return {
       slug: seller.slug,
       sellerId: seller.id,

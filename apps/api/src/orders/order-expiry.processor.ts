@@ -4,7 +4,10 @@ import { ORDER_EXPIRY_QUEUE } from "./order-expiry.queue.js";
 import { OrderExpiryService } from "./order-expiry.service.js";
 import { reportJobFailure } from "../instrument.js";
 
-/** Runs in the WORKER process only, every 15 minutes: remind, then expire, unpaid orders. */
+/**
+ * Runs in the WORKER process only, every 15 minutes: remind, then expire, unpaid orders,
+ * and expire orders the seller never approved.
+ */
 @Processor(ORDER_EXPIRY_QUEUE)
 export class OrderExpiryProcessor extends WorkerHost {
   constructor(private readonly expiry: OrderExpiryService) {
@@ -21,6 +24,11 @@ export class OrderExpiryProcessor extends WorkerHost {
     const now = new Date();
     const reminded = await this.expiry.sendDueReminders(now);
     const cancelled = await this.expiry.expireOverdue(now);
-    return { reminded: reminded.length, cancelled: cancelled.length };
+    const unapproved = await this.expiry.expireUnapproved(now);
+    return {
+      reminded: reminded.length,
+      cancelled: cancelled.length,
+      unapproved: unapproved.length,
+    };
   }
 }

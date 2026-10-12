@@ -184,6 +184,13 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
 
   if (state.status === "success") {
     const trackingPath = `/track/${state.code}?k=${encodeURIComponent(state.trackingKey)}`;
+    const payPath = `/pay/${state.code}?k=${encodeURIComponent(state.trackingKey)}`;
+    // "Pay now" is the main button when there is one; otherwise "Track this order" is.
+    let trackClasses =
+      "bg-brand hover:bg-brand-hover focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2";
+    if (state.payNow) {
+      trackClasses = smallButtonClasses;
+    }
     return (
       <section className="bg-brand-tint rounded-2xl p-6 text-center">
         <p className="text-brand-hover text-sm font-bold">Order placed</p>
@@ -191,15 +198,27 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
         <p className="font-display text-ink my-1 text-5xl font-black tracking-wider">
           {state.code}
         </p>
-        <p className="text-ink-muted">
-          Total {formatNaira(state.totalKobo)}. The seller will message you on WhatsApp with payment
-          details.
-        </p>
+        {state.payNow && (
+          <>
+            <p className="text-ink-muted">
+              Total {formatNaira(state.totalKobo)}. Pay now by bank transfer, USSD or card.
+            </p>
+            <Link
+              href={payPath}
+              className="bg-brand hover:bg-brand-hover focus-visible:outline-brand mt-4 inline-flex min-h-12 items-center rounded-full px-7 text-base font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+            >
+              Pay {formatNaira(state.totalKobo)} now
+            </Link>
+          </>
+        )}
+        {!state.payNow && (
+          <p className="text-ink-muted">
+            Total {formatNaira(state.totalKobo)}. {businessName} will check your order, then send
+            you a payment link on WhatsApp.
+          </p>
+        )}
         <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <Link
-            href={trackingPath}
-            className="bg-brand hover:bg-brand-hover focus-visible:outline-brand inline-flex min-h-11 items-center rounded-full px-5 text-sm font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2"
-          >
+          <Link href={trackingPath} className={trackClasses}>
             Track this order
           </Link>
           <CopyLinkButton url={`${SITE_URL}${trackingPath}`} label="Copy tracking link" />
