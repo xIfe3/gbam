@@ -20,8 +20,12 @@ import {
   type RawBodyRequest,
 } from "@nestjs/common";
 import type { Request } from "express";
+import { RateLimiter } from "../common/rate-limiter.js";
 import { ENV, type Env } from "../env.js";
+import { NotificationsQueue } from "../notifications/notifications.queue.js";
 import { WhatsAppMessagesService } from "./whatsapp-messages.service.js";
+
+const ONE_DAY_SECONDS = 24 * 60 * 60;
 
 /**
  * Meta → us. Set in the Meta app: Use cases → Connect on WhatsApp → Production setup →
@@ -34,6 +38,8 @@ export class WhatsAppWebhookController {
   constructor(
     @Inject(ENV) private readonly env: Env,
     private readonly messages: WhatsAppMessagesService,
+    private readonly notifications: NotificationsQueue,
+    private readonly limiter: RateLimiter,
   ) {}
 
   /**
@@ -88,8 +94,20 @@ export class WhatsAppWebhookController {
       await this.messages.applyStatusUpdate(update);
     }
     for (const message of incomingMessages) {
-      // Customer replies. Not handled yet: logged so you can see them arrive.
-      this.logger.log(`Incoming WhatsApp from +${message.from}: ${message.text}`);
+      // Nobody reads gbam's number, so the customer gets an automatic reply pointing them
+      // to their shop: at most one a day each, so a chatty customer doesn't get a reply to
+      // every message (each one costs money). The message text is never logged: it's
+      // the customer's private words (NDPA).
+      const limit = await this.limiter.hit(`wa-auto-reply:${message.from}`, 1, ONE_DAY_SECONDS);
+      if (!limit.allowed) {
+        continue;
+      }
+      try {
+        await this.notifications.customerAutoReply(message.from);
+      } catch (error) {
+        // Still answer Meta 200: a lost auto-reply isn't worth Meta resending everything.
+        this.logger.error("Could not queue a WhatsApp auto-reply", error);
+      }
     }
 
     return { received: true };

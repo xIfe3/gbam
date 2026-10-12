@@ -119,10 +119,10 @@ describe("Placing storefront orders over HTTP: limits (integration)", () => {
 
   it("allows 30 orders per visitor IP an hour, then answers 429", async () => {
     const ip = randomIp();
-    for (let i = 0; i < 30; i++) {
-      expect(await placeOrder(randomPhone(), ip)).toBe(201);
-    }
-    expect(await placeOrder(randomPhone(), ip)).toBe(429);
+    // Pretend this visitor already placed 29 orders this hour (placing them all is slow).
+    await redis.set(`storefront-order:ip:${ip}`, "29", "EX", 3600);
+    expect(await placeOrder(randomPhone(), ip)).toBe(201); // the 30th is allowed
+    expect(await placeOrder(randomPhone(), ip)).toBe(429); // the 31st is not
   });
 
   it("allows 200 orders per shop an hour, then answers 429", async () => {

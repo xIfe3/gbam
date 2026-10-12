@@ -626,6 +626,31 @@ describe("Instant pay: customers can pay the moment they order (integration)", (
     expect(second.status).toBe("awaiting_payment");
   });
 
+  it("alerts the seller on WhatsApp about every new order", async () => {
+    const { variant } = await createTestProduct(db, sellerId, { name: "Zobo" });
+    const placed = await order(variant.id, 1);
+    const alert = await notifications.getJob(`seller-new-${placed.id}`);
+    expect(alert?.data).toMatchObject({ kind: "seller.new_order", orderId: placed.id });
+    // Instant-pay shops don't need a "still waiting for you" reminder.
+    expect(await notifications.getJob(`seller-waiting-${placed.id}`)).toBeUndefined();
+    await alert?.remove();
+  });
+
+  it("reminds a shop that approves orders first, 30 minutes later", async () => {
+    await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, sellerId));
+    try {
+      const { variant } = await createTestProduct(db, sellerId, { name: "Birthday cake" });
+      const placed = await order(variant.id, 1);
+      const reminder = await notifications.getJob(`seller-waiting-${placed.id}`);
+      expect(reminder?.data).toMatchObject({ kind: "seller.order_waiting", orderId: placed.id });
+      expect(reminder?.opts.delay).toBe(30 * 60 * 1000);
+      await reminder?.remove();
+      await (await notifications.getJob(`seller-new-${placed.id}`))?.remove();
+    } finally {
+      await db.update(sellers).set({ approveOrdersFirst: false }).where(eq(sellers.id, sellerId));
+    }
+  });
+
   it("a shop that approves orders first keeps new orders pending", async () => {
     await db.update(sellers).set({ approveOrdersFirst: true }).where(eq(sellers.id, sellerId));
     try {

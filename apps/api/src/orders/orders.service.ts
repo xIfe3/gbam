@@ -155,6 +155,22 @@ export class OrdersService {
     }
   }
 
+  /**
+   * Tells the seller about a new order on WhatsApp, which they check far more often than
+   * email. A shop that checks each order first also gets a reminder 30 minutes later, if the
+   * order is still waiting for them. A queue failure is logged: the order itself is fine.
+   */
+  private async alertSellerOnWhatsApp(orderId: string, approveOrdersFirst: boolean) {
+    try {
+      await this.notifications.sellerNewOrder(orderId);
+      if (approveOrdersFirst) {
+        await this.notifications.sellerOrderWaiting(orderId);
+      }
+    } catch (error) {
+      this.logger.error(`Could not queue the seller's WhatsApp alert for order ${orderId}`, error);
+    }
+  }
+
   /** Public: a customer places an order on a seller's storefront. */
   async createFromStorefront(slug: string, input: CreateOrderInput) {
     let attempt = 1;
@@ -181,6 +197,7 @@ export class OrdersService {
           await this.sendReceipt(order, input.customer.email);
         }
         await this.emailSellerNewOrder(order.id);
+        await this.alertSellerOnWhatsApp(order.id, created.approveOrdersFirst);
         return order;
       } catch (error) {
         const codeWasTaken = isUniqueViolation(error, "orders_seller_code_uq");
