@@ -181,7 +181,11 @@ describe("HttpPaystackClient.updateSubaccount", () => {
     stubFetch([{ status: 400, body: { status: false, message: `Account ${ACCOUNT} is invalid` } }]);
     const client = new HttpPaystackClient("sk_test_x", "https://paystack.test");
     const error = await errorFrom(
-      client.updateSubaccount("ACCT_x", { businessName: "S", bankCode: "044", accountNumber: ACCOUNT }),
+      client.updateSubaccount("ACCT_x", {
+        businessName: "S",
+        bankCode: "044",
+        accountNumber: ACCOUNT,
+      }),
     );
     expect(error).toBeInstanceOf(PaystackError);
     expect((error as PaystackError).status).toBe(400);

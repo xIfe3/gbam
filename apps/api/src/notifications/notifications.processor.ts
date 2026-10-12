@@ -8,10 +8,14 @@ import { desc, eq } from "drizzle-orm";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
 import { InjectWhatsApp, type WhatsAppClient } from "../integrations/integrations.module.js";
-import { payPageUrl } from "../payments/checkout-links.js";
 import { OrderNotAwaitingPaymentError, PaymentsService } from "../payments/payments.service.js";
 import { WhatsAppMessagesService } from "../whatsapp/whatsapp-messages.service.js";
-import { autoReplyText, customerMessage, shopChatLink } from "./customer-messages.js";
+import {
+  autoReplyText,
+  customerMessage,
+  shopChatLink,
+  type CustomerMessage,
+} from "./customer-messages.js";
 import { NOTIFICATIONS_QUEUE, type NotificationJob } from "./notifications.queue.js";
 import { reportJobFailure } from "../instrument.js";
 
@@ -58,7 +62,9 @@ export class NotificationsProcessor extends WorkerHost {
     if (data.kind === "seller.new_order" || data.kind === "seller.order_waiting") {
       return this.sendSellerAlert(data.kind, data.orderId);
     }
-    return this.sendCustomerMessage(job.id, data.orderId, data.to);
+    // A reminder (24 hours, or the seller's Resend) uses the reminder template.
+    const isReminder = data.kind === "order.payment_reminder";
+    return this.sendCustomerMessage(job.id, data.orderId, data.to, isReminder);
   }
 
   /** The order with its customer and shop, or null if it was deleted meanwhile. */
@@ -78,6 +84,7 @@ export class NotificationsProcessor extends WorkerHost {
     jobId: string | undefined,
     orderId: string,
     newStatus: OrderStatus,
+    isReminder: boolean,
   ) {
     const order = await this.loadOrder(orderId);
     if (order === null) {
@@ -101,35 +108,40 @@ export class NotificationsProcessor extends WorkerHost {
       }
     }
 
-    const message = customerMessage(newStatus, {
-      store: order.seller.businessName,
-      customerName: order.customer.name,
-      code: order.code,
-      total: formatNaira(order.totalKobo),
-      payLink: payPageUrl(this.env.WEB_URL, order.code, order.trackingKey),
-      shopChat: shopChatLink(order.seller.whatsappPhone),
-    });
+    const message = customerMessage(
+      newStatus,
+      {
+        store: order.seller.businessName,
+        customerName: order.customer.name,
+        code: order.code,
+        total: formatNaira(order.totalKobo),
+        trackingKey: order.trackingKey,
+      },
+      isReminder,
+    );
     if (message === null) {
       return { skipped: true };
     }
-    return this.sendToCustomer(orderId, order.customer.phone, message.template, message.params);
+    return this.sendToCustomer(orderId, order.customer.phone, message);
   }
 
   /** WhatsApp alerts to the SELLER: a new order, or one still waiting for them to check. */
-  private async sendSellerAlert(kind: "seller.new_order" | "seller.order_waiting", orderId: string) {
+  private async sendSellerAlert(
+    kind: "seller.new_order" | "seller.order_waiting",
+    orderId: string,
+  ) {
     const order = await this.loadOrder(orderId);
     if (order === null) {
       return { skipped: true };
     }
-    const orderPage = `${this.env.WEB_URL}/dashboard/orders/${order.id}`;
     const total = formatNaira(order.totalKobo);
 
     if (kind === "seller.new_order") {
-      return this.sendToSeller(order.seller.whatsappPhone, "gbam_seller_new_order", [
+      return this.sendToSeller(order.seller.whatsappPhone, "seller_new_order", [
+        order.seller.businessName,
         order.code,
         total,
         order.customer.name,
-        orderPage,
       ]);
     }
 
@@ -137,10 +149,10 @@ export class NotificationsProcessor extends WorkerHost {
     if (order.status !== "pending") {
       return { skipped: true };
     }
-    return this.sendToSeller(order.seller.whatsappPhone, "gbam_seller_order_waiting", [
+    return this.sendToSeller(order.seller.whatsappPhone, "seller_order_waiting", [
+      order.seller.businessName,
       order.code,
       total,
-      orderPage,
     ]);
   }
 
@@ -188,14 +200,15 @@ export class NotificationsProcessor extends WorkerHost {
   }
 
   /** Sends a template to a customer and records it, so the seller can see what was sent. */
-  private async sendToCustomer(
-    orderId: string,
-    to: string,
-    template: WhatsAppTemplateName,
-    params: string[],
-  ) {
+  private async sendToCustomer(orderId: string, to: string, message: CustomerMessage) {
+    const template = message.template;
     try {
-      const sent = await this.whatsapp.sendTemplate({ to, template, params });
+      const sent = await this.whatsapp.sendTemplate({
+        to,
+        template,
+        params: message.params,
+        buttonUrlSuffix: message.buttonUrlSuffix,
+      });
       // Record it so the WhatsApp webhook can later mark it delivered / read / failed.
       await this.recordSafely(() =>
         this.messages.recordAccepted({ orderId, wamid: sent.messageId, template, toPhone: to }),

@@ -32,16 +32,14 @@ describe("verifyPaystackSignature", () => {
 
 describe("WhatsApp templates", () => {
   it("renders params into the body", () => {
-    expect(
-      renderTemplate("gbam_order_cancelled", ["Mama Ngozi", "GB-7K3Q", "https://wa.me/234800"]),
-    ).toBe(
-      "Order update from Mama Ngozi: your order GB-7K3Q has been cancelled. " +
-        "Chat with the shop at https://wa.me/234800 if you have questions.",
+    expect(renderTemplate("order_cancelled", ["Ada", "GB-7K3Q", "Mama Ngozi"])).toBe(
+      "Hi *Ada*, order *GB-7K3Q* from *Mama Ngozi* has been cancelled. " +
+        "If you have already paid, please contact the seller about your payment.",
     );
   });
 
   it("throws when a param is missing, instead of sending {{2}} to a customer", () => {
-    expect(() => renderTemplate("gbam_order_cancelled", ["Mama Ngozi"])).toThrow("{{2}}");
+    expect(() => renderTemplate("order_cancelled", ["Ada"])).toThrow("{{2}}");
   });
 
   it("every body starts and ends with words: Meta rejects a {{n}} at either end", () => {
@@ -52,16 +50,9 @@ describe("WhatsApp templates", () => {
   });
 
   it("has a new-order alert for sellers", () => {
-    expect(
-      renderTemplate("gbam_seller_new_order", [
-        "GB-7K3Q",
-        "₦9,000",
-        "Ada",
-        "https://gbam.app/dashboard/orders/1",
-      ]),
-    ).toBe(
-      "New Gbam order GB-7K3Q: ₦9,000 from Ada. " +
-        "See it at https://gbam.app/dashboard/orders/1 on your Gbam dashboard.",
+    expect(renderTemplate("seller_new_order", ["Mama Ngozi", "GB-7K3Q", "₦9,000", "Ada"])).toBe(
+      "Hi *Mama Ngozi*, you have a new order *GB-7K3Q* for *₦9,000* from *Ada*. " +
+        "Open your Gbam dashboard to confirm it.",
     );
   });
 
@@ -94,15 +85,39 @@ describe("HttpWhatsAppClient", () => {
     const client = new HttpWhatsAppClient(config);
     const sent = await client.sendTemplate({
       to: "2348031234567",
-      template: "gbam_order_cancelled",
-      params: ["Mama Ngozi", "GB-7K3Q", "https://wa.me/234800"],
+      template: "order_cancelled",
+      params: ["Ada", "GB-7K3Q", "Mama Ngozi"],
     });
     expect(sent.messageId).toBe("wamid.1");
     expect(calls[0]?.url).toBe("https://graph.facebook.com/v25.0/123/messages");
     expect(calls[0]?.body).toMatchObject({
       to: "2348031234567",
       type: "template",
-      template: { name: "gbam_order_cancelled", language: { code: "en" } },
+      template: { name: "order_cancelled", language: { code: "en" } },
+    });
+  });
+
+  it("fills in the end of the pay button's address", async () => {
+    const calls = fakeFetch();
+    const client = new HttpWhatsAppClient(config);
+    await client.sendTemplate({
+      to: "2348031234567",
+      template: "order_payment_request",
+      params: ["Ada", "GB-7K3Q", "Mama Ngozi", "₦9,000"],
+      buttonUrlSuffix: "GB-7K3Q?k=abc",
+    });
+    expect(calls[0]?.body).toMatchObject({
+      template: {
+        components: [
+          { type: "body" },
+          {
+            type: "button",
+            sub_type: "url",
+            index: "0",
+            parameters: [{ type: "text", text: "GB-7K3Q?k=abc" }],
+          },
+        ],
+      },
     });
   });
 

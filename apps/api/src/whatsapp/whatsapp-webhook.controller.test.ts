@@ -28,7 +28,9 @@ describe("WhatsApp webhook: customer messages (integration)", () => {
   const phones: string[] = [];
 
   beforeAll(async () => {
-    moduleRef = await Test.createTestingModule({ imports: [InfraModule, WhatsAppModule] }).compile();
+    moduleRef = await Test.createTestingModule({
+      imports: [InfraModule, WhatsAppModule],
+    }).compile();
     // rawBody: the signature is checked against the exact bytes received, as in main.ts.
     app = moduleRef.createNestApplication({ rawBody: true });
     await app.listen(0, "127.0.0.1");
@@ -65,7 +67,12 @@ describe("WhatsApp webhook: customer messages (integration)", () => {
               field: "messages",
               value: {
                 messages: [
-                  { from: phone, id: `wamid.${randomInt(1_000_000)}`, type: "text", text: { body: text } },
+                  {
+                    from: phone,
+                    id: `wamid.${randomInt(1_000_000)}`,
+                    type: "text",
+                    text: { body: text },
+                  },
                 ],
               },
             },

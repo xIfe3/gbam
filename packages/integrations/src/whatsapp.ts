@@ -20,49 +20,67 @@ export type SendTemplateInput = {
   template: WhatsAppTemplateName;
   /** Values for {{1}}, {{2}}, … in order. */
   params: string[];
+  /**
+   * For a template with a dynamic URL button: the end of the button's address, e.g.
+   * "GB-7K3Q?k=abc" for https://gbam.zephra.dev/pay/{{1}}.
+   */
+  buttonUrlSuffix?: string;
   languageCode?: string;
 };
 
 /**
- * Every template the app sends. Create each one in Meta Business Manager
- * (WhatsApp Manager → Message templates) with category "Utility", language "English",
- * and exactly this name and body. Meta must approve them before real sends work.
+ * Every template the app sends. Each must exist in Meta (WhatsApp Manager → Message
+ * templates) with category "Utility", language "English", and exactly this name and body,
+ * and Meta must approve it before real sends work. Meta rejects a template that starts or
+ * ends with a {{n}}, so each one starts and ends with words.
  *
- * Customer messages say which shop they're from first, and end with a link to chat with
- * the shop itself: replies to gbam's number aren't read (see autoReplyText). Meta rejects
- * a template that starts or ends with a {{n}}, so each one starts and ends with words.
+ * order_payment_request and payment_reminder also have a "Visit website" button whose URL in
+ * Meta is dynamic: https://gbam.zephra.dev/pay/{{1}}. We send the end of that address
+ * (see TEMPLATES_WITH_PAY_BUTTON and SendTemplateInput.buttonUrlSuffix).
  */
 export const WHATSAPP_TEMPLATES = {
-  // Only for shops that check each order first; other shops send the payment request at once.
-  gbam_order_received:
-    "Order update from {{1}}: hi {{2}}, we've received your order {{3}} ({{4}}). " +
-    "The shop will check it and send your payment link here. " +
-    "Chat with the shop at {{5}} if you have questions.",
-  gbam_payment_request:
-    "Order update from {{1}}: hi {{2}}, please pay {{3}} for order {{4}} here: {{5}} . " +
-    "Chat with the shop at {{6}} if you have questions.",
-  gbam_order_paid:
-    "Order update from {{1}}: payment of {{2}} received for order {{3}}. " +
-    "Thank you! Chat with the shop at {{4}} if you have questions.",
-  // Also covers "delivered": no separate delivered message is sent (each one costs money).
-  gbam_order_fulfilled:
-    "Order update from {{1}}: good news, your order {{2}} is ready or on its way. " +
-    "Chat with the shop at {{3}} if you have questions.",
-  gbam_order_cancelled:
-    "Order update from {{1}}: your order {{2}} has been cancelled. " +
-    "Chat with the shop at {{3}} if you have questions.",
+  // ---- To customers (approved in Meta) ----
+  order_payment_request:
+    "Hi {{1}}, your order {{2}} from {{3}} is ready for payment. Total: {{4}}. " +
+    "Tap the button below to pay securely with Paystack.",
+  payment_reminder:
+    "Hi *{{1}}*, order *{{2}}* from *{{3}}* for *{{4}}* is still waiting for payment. " +
+    "Tap the button below to complete it. Please ignore this if you have already paid.",
+  payment_received:
+    "Hi {{1}}, we have received your payment of {{2}} for order {{3}} from {{4}}. " +
+    "The seller has been notified and will prepare your order.",
+  order_out_for_delivery:
+    "Hi {{1}}, your order {{2}} from {{3}} is on the way. Estimated delivery: {{4}}. Thank you",
+  order_cancelled:
+    "Hi *{{1}}*, order *{{2}}* from *{{3}}* has been cancelled. " +
+    "If you have already paid, please contact the seller about your payment.",
+
+  // ---- To customers (still to submit to Meta) ----
+  // Only for shops that check each order first; other shops ask for payment straight away.
+  order_received:
+    "Hi *{{1}}*, *{{2}}* has received your order *{{3}}* for *{{4}}*. " +
+    "The seller will check it and send your payment link here shortly.",
   // "Refunded" is a status the seller sets; gbam doesn't move the money, so it doesn't claim to.
-  gbam_order_refunded:
-    "Order update from {{1}}: the shop has marked your order {{2}} as refunded. " +
-    "If the money hasn't reached you, chat with the shop at {{3}} about it.",
-  // To the SELLER: a new order came in.
-  gbam_seller_new_order:
-    "New Gbam order {{1}}: {{2}} from {{3}}. See it at {{4}} on your Gbam dashboard.",
-  // To the SELLER: an order they need to check (shops that approve orders first) is waiting.
-  gbam_seller_order_waiting:
-    "Order {{1}} ({{2}}) is still waiting for you. " +
-    "Open {{3}} and tap Request payment so the customer can pay.",
+  order_refunded:
+    "Hi *{{1}}*, *{{2}}* has marked your order *{{3}}* as refunded. " +
+    "If the money hasn't reached you, please contact the seller.",
+
+  // ---- To sellers ----
+  // Approved in Meta.
+  seller_new_order:
+    "Hi *{{1}}*, you have a new order *{{2}}* for *{{3}}* from *{{4}}*. " +
+    "Open your Gbam dashboard to confirm it.",
+  // Still to submit: the 30-minute reminder for shops that check each order first.
+  seller_order_waiting:
+    "Hi *{{1}}*, order *{{2}}* for *{{3}}* is still waiting for you. " +
+    "Open your Gbam dashboard and tap Request payment so the customer can pay.",
 } as const;
+
+/** Templates with the dynamic "pay" button: they need SendTemplateInput.buttonUrlSuffix. */
+export const TEMPLATES_WITH_PAY_BUTTON: readonly WhatsAppTemplateName[] = [
+  "order_payment_request",
+  "payment_reminder",
+];
 
 export type WhatsAppTemplateName = keyof typeof WHATSAPP_TEMPLATES;
 
@@ -104,8 +122,22 @@ export class HttpWhatsAppClient implements WhatsAppClient {
       name: input.template,
       language: { code: languageCode },
     };
+    // "components" are the parts of the template we fill in: the body's {{n}} values, and
+    // the end of the button's address when the template has a dynamic URL button.
+    const components: Record<string, unknown>[] = [];
     if (parameters.length > 0) {
-      template.components = [{ type: "body", parameters }];
+      components.push({ type: "body", parameters });
+    }
+    if (input.buttonUrlSuffix !== undefined) {
+      components.push({
+        type: "button",
+        sub_type: "url",
+        index: "0",
+        parameters: [{ type: "text", text: input.buttonUrlSuffix }],
+      });
+    }
+    if (components.length > 0) {
+      template.components = components;
     }
 
     return this.send({
@@ -166,8 +198,12 @@ async function readJson(res: Response): Promise<unknown> {
 export class FakeWhatsAppClient implements WhatsAppClient {
   constructor(private readonly log: (message: string) => void = console.log) {}
 
-  async sendTemplate({ to, template, params }: SendTemplateInput) {
-    this.log(`[fake whatsapp] → +${to}: ${renderTemplate(template, params)}`);
+  async sendTemplate({ to, template, params, buttonUrlSuffix }: SendTemplateInput) {
+    let button = "";
+    if (buttonUrlSuffix !== undefined) {
+      button = ` [Pay button → /pay/${buttonUrlSuffix}]`;
+    }
+    this.log(`[fake whatsapp] → +${to}: ${renderTemplate(template, params)}${button}`);
     return { messageId: `fake-${Date.now()}` };
   }
 

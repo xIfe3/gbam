@@ -4,6 +4,14 @@ type Message = OrderDetail["whatsappMessages"][number];
 
 /** Friendly names for our templates (see WHATSAPP_TEMPLATES in packages/integrations). */
 const TEMPLATE_LABEL: Record<string, string> = {
+  order_received: "Order received",
+  order_payment_request: "Payment link",
+  payment_reminder: "Payment reminder",
+  payment_received: "Payment confirmed",
+  order_out_for_delivery: "On the way",
+  order_cancelled: "Cancelled",
+  order_refunded: "Refunded",
+  // Older names, for messages sent before the templates were renamed.
   gbam_order_received: "Order received",
   gbam_payment_request: "Payment link",
   gbam_order_paid: "Payment confirmed",

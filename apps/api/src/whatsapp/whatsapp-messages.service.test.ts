@@ -36,7 +36,7 @@ describe("WhatsAppMessagesService (integration)", () => {
     const wamid = `${prefix}-${randomUUID()}`;
     await db.insert(whatsappMessages).values({
       wamid,
-      template: "gbam_order_received",
+      template: "order_received",
       toPhone: "2348000000000",
       status: "accepted",
     });

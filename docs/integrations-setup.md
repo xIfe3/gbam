@@ -75,27 +75,31 @@ Rules live in `packages/shared/src/fees.ts`. Edit `PLATFORM_FEE` there to change
    Meta must approve each one before sends succeed. Until then sends fail with error
    132001, and the job stops retrying instead of looping.
 
-To customers (every one names the shop first and ends with a link to chat with the shop,
-because nobody reads replies to gbam's number; gbam replies automatically instead):
+Already approved in Meta (don't change these):
 
-| Name | Body |
-| --- | --- |
-| `gbam_order_received` | Order update from {{1}}: hi {{2}}, we've received your order {{3}} ({{4}}). The shop will check it and send your payment link here. Chat with the shop at {{5}} if you have questions. |
-| `gbam_payment_request` | Order update from {{1}}: hi {{2}}, please pay {{3}} for order {{4}} here: {{5}} . Chat with the shop at {{6}} if you have questions. |
-| `gbam_order_paid` | Order update from {{1}}: payment of {{2}} received for order {{3}}. Thank you! Chat with the shop at {{4}} if you have questions. |
-| `gbam_order_fulfilled` | Order update from {{1}}: good news, your order {{2}} is ready or on its way. Chat with the shop at {{3}} if you have questions. |
-| `gbam_order_cancelled` | Order update from {{1}}: your order {{2}} has been cancelled. Chat with the shop at {{3}} if you have questions. |
-| `gbam_order_refunded` | Order update from {{1}}: the shop has marked your order {{2}} as refunded. If the money hasn't reached you, chat with the shop at {{3}} about it. |
+| Name                     | Used for                                                       |
+| ------------------------ | -------------------------------------------------------------- |
+| `order_payment_request`  | asking for payment (with the pay button)                       |
+| `payment_reminder`       | 24-hour reminder and the seller's Resend (with the pay button) |
+| `payment_received`       | paid                                                           |
+| `order_out_for_delivery` | ready / on its way ({{4}} = "as agreed with the seller")       |
+| `order_cancelled`        | cancelled                                                      |
+| `seller_new_order`       | new-order alert to the seller                                  |
 
-To sellers:
+Both payment templates have a **Visit website** button with a **dynamic** URL:
+`https://gbam.zephra.dev/pay/{{1}}`. The code fills `{{1}}` with `GB-XXXX?k=<key>`. When the
+domain moves, edit the button URL in Meta and `WEB_URL` together.
 
-| Name | Body |
-| --- | --- |
-| `gbam_seller_new_order` | New Gbam order {{1}}: {{2}} from {{3}}. See it at {{4}} on your Gbam dashboard. |
-| `gbam_seller_order_waiting` | Order {{1}} ({{2}}) is still waiting for you. Open {{3}} and tap Request payment so the customer can pay. |
+Still to submit (Utility, English):
 
-`gbam_order_delivered` is no longer used: "ready or on its way" covers it. If you already
-submitted it to Meta, you can delete it there.
+| Name                   | Body                                                                                                                                            |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `order_received`       | Hi \*{{1}}\*, \*{{2}}\* has received your order \*{{3}}\* for \*{{4}}\*. The seller will check it and send your payment link here shortly.      |
+| `order_refunded`       | Hi \*{{1}}\*, \*{{2}}\* has marked your order \*{{3}}\* as refunded. If the money hasn't reached you, please contact the seller.                |
+| `seller_order_waiting` | Hi \*{{1}}\*, order \*{{2}}\* for \*{{3}}\* is still waiting for you. Open your Gbam dashboard and tap Request payment so the customer can pay. |
+
+Not used: `order_delivered` (it promises replies are passed to the seller, but nobody reads
+gbam's number). Leave it or delete it.
 
 The source of truth is `WHATSAPP_TEMPLATES` in
 `packages/integrations/src/whatsapp.ts`. If you change a body there, change it in Meta too.

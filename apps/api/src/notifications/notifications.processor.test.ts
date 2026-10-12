@@ -111,13 +111,13 @@ describe("NotificationsProcessor (integration)", () => {
     expect(whatsapp.templates).toHaveLength(1);
     expect(whatsapp.templates[0]).toMatchObject({
       to: seller.whatsappPhone,
-      template: "gbam_seller_new_order",
+      template: "seller_new_order",
     });
     expect(whatsapp.templates[0]?.params).toEqual([
+      seller.businessName,
       order.code,
       formatNaira(order.totalKobo),
       "Ada",
-      `${env.WEB_URL}/dashboard/orders/${order.id}`,
     ]);
   });
 
@@ -126,7 +126,7 @@ describe("NotificationsProcessor (integration)", () => {
     await run({ kind: "seller.order_waiting", orderId: waiting.id });
     expect(whatsapp.templates[0]).toMatchObject({
       to: seller.whatsappPhone,
-      template: "gbam_seller_order_waiting",
+      template: "seller_order_waiting",
     });
 
     whatsapp.templates = [];
@@ -138,18 +138,23 @@ describe("NotificationsProcessor (integration)", () => {
 
   it("sends the customer no separate message when an order is marked delivered", async () => {
     const order = await placeOrder("2348011112225");
-    await run({ kind: "order.status_changed", orderId: order.id, from: "fulfilled", to: "delivered" });
+    await run({
+      kind: "order.status_changed",
+      orderId: order.id,
+      from: "fulfilled",
+      to: "delivered",
+    });
     expect(whatsapp.templates).toHaveLength(0);
   });
 
-  it("customer messages link to the shop's own WhatsApp", async () => {
+  it("tells the customer when their order is cancelled", async () => {
     const order = await placeOrder("2348011112226");
     await run({ kind: "order.status_changed", orderId: order.id, from: null, to: "cancelled" });
     expect(whatsapp.templates[0]).toMatchObject({
       to: "2348011112226",
-      template: "gbam_order_cancelled",
+      template: "order_cancelled",
+      params: ["Ada", order.code, seller.businessName],
     });
-    expect(whatsapp.templates[0]?.params).toContain(`https://wa.me/${seller.whatsappPhone}`);
   });
 
   it("auto-replies to a customer who messages gbam, pointing to their shop", async () => {
