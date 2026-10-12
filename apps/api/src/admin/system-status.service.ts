@@ -2,13 +2,9 @@ import { Inject, Injectable } from "@nestjs/common";
 import { sql } from "drizzle-orm";
 import type { Redis } from "ioredis";
 import { InjectDb, REDIS, type Db } from "../infra/infra.module.js";
-import { HEARTBEAT_KEY } from "../platform/worker-heartbeat.js";
-
-/** The worker beats every 30 seconds; after 2 minutes without one, something is wrong. */
-const WORKER_LATE_MS = 2 * 60 * 1000;
+import { readWorkerState, type WorkerState } from "../platform/worker-heartbeat.js";
 
 export type Check = { ok: boolean; ms: number };
-export type WorkerState = { state: "ok" | "late" | "missing"; lastBeatAt: string | null };
 export type SystemStatus = { database: Check; redis: Check; worker: WorkerState };
 
 /** Times one check: did it answer, and how long did it take. */
@@ -33,26 +29,7 @@ export class SystemStatusService {
   async status(): Promise<SystemStatus> {
     const database = await timed(() => this.db.execute(sql`select 1`));
     const redis = await timed(() => this.redis.ping());
-    const worker = await this.worker();
+    const worker = await readWorkerState(this.redis);
     return { database, redis, worker };
-  }
-
-  private async worker(): Promise<WorkerState> {
-    let saved: string | null = null;
-    try {
-      saved = await this.redis.get(HEARTBEAT_KEY);
-    } catch {
-      // Redis is down: the Redis check already says so; the worker can't be judged.
-      saved = null;
-    }
-    if (saved === null) {
-      return { state: "missing", lastBeatAt: null };
-    }
-    const lastBeat = Number(saved);
-    const lastBeatAt = new Date(lastBeat).toISOString();
-    if (Date.now() - lastBeat > WORKER_LATE_MS) {
-      return { state: "late", lastBeatAt };
-    }
-    return { state: "ok", lastBeatAt };
   }
 }

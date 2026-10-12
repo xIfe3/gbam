@@ -162,4 +162,35 @@ describe("proxy", () => {
     expect(res.headers.get("location")).toBeNull();
     expect(res.headers.get("x-middleware-rewrite")).toBeNull();
   });
+
+  describe("remembering where a visitor came from", () => {
+    it("saves ?ref= in the gbam_ref cookie for 30 days", async () => {
+      const res = await proxy(new NextRequest("http://localhost:3000/?ref=shop-mama-ngozi"));
+      const cookie = res.cookies.get("gbam_ref");
+      expect(cookie?.value).toBe("shop-mama-ngozi");
+      expect(cookie?.maxAge).toBe(30 * 24 * 60 * 60);
+      expect(cookie?.httpOnly).toBe(true);
+    });
+
+    it("saves ?utm_source= when there's no ?ref=", async () => {
+      const res = await proxy(new NextRequest("http://localhost:3000/pricing?utm_source=tiktok"));
+      expect(res.cookies.get("gbam_ref")?.value).toBe("tiktok");
+    });
+
+    it("keeps the first source: a later link doesn't replace it", async () => {
+      const res = await proxy(
+        new NextRequest("http://localhost:3000/?ref=instagram", {
+          headers: { cookie: "gbam_ref=shop-mama-ngozi" },
+        }),
+      );
+      expect(res.cookies.get("gbam_ref")).toBeUndefined();
+    });
+
+    it("cleans what it saves, and saves nothing for nothing usable", async () => {
+      const dirty = await proxy(new NextRequest("http://localhost:3000/?ref=%3Cb%3EHi%3C%2Fb%3E"));
+      expect(dirty.cookies.get("gbam_ref")?.value).toBe("bhib");
+      const empty = await proxy(new NextRequest("http://localhost:3000/?ref=%21%21"));
+      expect(empty.cookies.get("gbam_ref")).toBeUndefined();
+    });
+  });
 });

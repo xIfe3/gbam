@@ -15,7 +15,8 @@
     "test": "vitest run",
     "simulate:payment": "node --env-file-if-exists=../../.env dist/scripts/simulate-payment.js",
     "admin:create-superadmin": "node --env-file-if-exists=../../.env dist/scripts/create-superadmin.js",
-    "admin:reset-totp": "node --env-file-if-exists=../../.env dist/scripts/reset-admin-totp.js"
+    "admin:reset-totp": "node --env-file-if-exists=../../.env dist/scripts/reset-admin-totp.js",
+    "pilot:report": "node --env-file-if-exists=../../.env dist/scripts/pilot-report.js"
   },
   "dependencies": {
     "@gbam/db": "workspace:*",

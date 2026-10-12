@@ -13,6 +13,33 @@ export const HEARTBEAT_KEY = "worker:heartbeat";
 export const HEARTBEAT_EVERY_MS = 30_000;
 /** If the worker stops for good, the key disappears after this and it shows as "missing". */
 const HEARTBEAT_TTL_SECONDS = 10 * 60;
+/** The worker beats every 30 seconds; after 2 minutes without one, something is wrong. */
+const WORKER_LATE_MS = 2 * 60 * 1000;
+
+export type WorkerState = { state: "ok" | "late" | "missing"; lastBeatAt: string | null };
+
+/**
+ * Is the worker alive? Read from its last heartbeat. Used by the admin System page and by
+ * GET /health/worker (which UptimeRobot watches).
+ */
+export async function readWorkerState(redis: Redis): Promise<WorkerState> {
+  let saved: string | null = null;
+  try {
+    saved = await redis.get(HEARTBEAT_KEY);
+  } catch {
+    // Redis is down: the worker can't be judged, and can't run jobs either.
+    saved = null;
+  }
+  if (saved === null) {
+    return { state: "missing", lastBeatAt: null };
+  }
+  const lastBeat = Number(saved);
+  const lastBeatAt = new Date(lastBeat).toISOString();
+  if (Date.now() - lastBeat > WORKER_LATE_MS) {
+    return { state: "late", lastBeatAt };
+  }
+  return { state: "ok", lastBeatAt };
+}
 
 /**
  * Runs only in the worker process. Every 30 seconds it writes the time to Redis, so the admin

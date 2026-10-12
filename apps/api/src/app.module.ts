@@ -9,6 +9,7 @@ import { HousekeepingModule } from "./housekeeping/housekeeping.module.js";
 import { MessagingModule } from "./messaging/messaging.module.js";
 import { ContentModule } from "./content/content.module.js";
 import { HealthController } from "./health/health.controller.js";
+import { WorkerHealthController } from "./health/worker-health.controller.js";
 import { InfraModule } from "./infra/infra.module.js";
 import { IntegrationsModule } from "./integrations/integrations.module.js";
 import { NotificationsModule } from "./notifications/notifications.module.js";
@@ -48,7 +49,7 @@ import { TrackingModule } from "./tracking/tracking.module.js";
     TrackingModule,
     WhatsAppModule,
   ],
-  controllers: [HealthController],
+  controllers: [HealthController, WorkerHealthController],
   providers: [
     // Reports unexpected errors (500s) to Sentry, then answers as Nest normally would.
     // Expected ones (404, 400, 409...) are not reported: they're the app working correctly.

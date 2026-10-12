@@ -11,5 +11,6 @@ export * from "./platform-settings";
 export * from "./products";
 export * from "./schemas";
 export * from "./scrub";
+export * from "./signup-source";
 export * from "./tickets";
 export * from "./tours";

@@ -234,6 +234,11 @@ export const sellers = pgTable("sellers", {
    * until the seller checks it and taps "Request payment" (for made-to-order shops).
    */
   approveOrdersFirst: boolean("approve_orders_first").notNull().default(false),
+  /**
+   * Where the seller first came from, e.g. "shop-mama-ngozi" (the "Powered by Gbam" link on
+   * that shop) or a ?utm_source=. null = unknown. Tells us which channels bring sellers.
+   */
+  signupSource: text("signup_source"),
   /** Gbam's "news and tips" announcements. Off = unsubscribed (Settings or the email link). */
   newsEmails: boolean("news_emails").notNull().default(true),
   /** Shown to customers who pick a pickup zone, e.g. "Shop 12, Balogun Market, after 10am". */

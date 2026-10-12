@@ -190,6 +190,13 @@
       "when": 1791810739065,
       "tag": "0026_instant_pay",
       "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1791823043307,
+      "tag": "0027_signup_source",
+      "breakpoints": true
     }
   ]
 }

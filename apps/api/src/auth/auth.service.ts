@@ -6,7 +6,7 @@ import {
   type DbTransaction,
   users,
 } from "@gbam/db";
-import { RESERVED_SLUGS, slugSchema, type SignupInput } from "@gbam/shared";
+import { cleanSignupSource, RESERVED_SLUGS, slugSchema, type SignupInput } from "@gbam/shared";
 import {
   BadRequestException,
   ConflictException,
@@ -202,6 +202,8 @@ export class AuthService implements OnModuleInit {
             slug: input.slug,
             businessName: input.businessName,
             whatsappPhone: input.phone,
+            // Where they came from: anyone can type anything into a ?ref= link, so clean it.
+            signupSource: cleanSignupSource(input.source),
           })
           .returning();
         if (!seller) {

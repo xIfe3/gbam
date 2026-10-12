@@ -43,6 +43,18 @@ describe("storefront page", () => {
     expect(screen.queryByRole("heading", { name: "This shop is still setting up" })).toBeNull();
   });
 
+  it("'Powered by Gbam' links to Gbam, tagged with this shop, so sellers who click can be counted", async () => {
+    vi.mocked(api.storefront).mockResolvedValue({
+      store: { slug: "mama-ngozi", businessName: "Mama Ngozi Styles" },
+      products: [],
+    } as never);
+    render(await StorefrontPage(props()));
+    expect(screen.getByRole("link", { name: "Gbam." })).toHaveAttribute(
+      "href",
+      "/?ref=shop-mama-ngozi",
+    );
+  });
+
   it("a shop with no bank account yet shows its products and says it can't take orders", async () => {
     vi.mocked(api.storefront).mockResolvedValue({
       store: {

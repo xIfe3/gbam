@@ -7,6 +7,7 @@ import { redirectIfShopMoved } from "@/lib/shop-moved";
 import { ShopHeader } from "../shop-header";
 import { BasketView } from "./basket-view";
 import { Beacon } from "@/components/beacon";
+import { PoweredByGbam } from "../powered-by";
 
 async function loadStore(slug: string) {
   if (RESERVED_SLUGS.has(slug)) notFound();
@@ -55,8 +56,7 @@ export default async function OrderPage(props: PageProps<"/[slug]/order">) {
           delivery={store.delivery}
         />
         <footer className="text-ink-muted mt-10 text-sm">
-          Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-          Paystack.{" "}
+          <PoweredByGbam shopSlug={store.slug} /> Payments by Paystack.{" "}
           <Link href="/track" className="underline">
             Track an order
           </Link>

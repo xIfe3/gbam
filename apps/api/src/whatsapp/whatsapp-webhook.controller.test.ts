@@ -12,7 +12,7 @@ import type { Redis } from "ioredis";
 import { randomInt } from "node:crypto";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { InfraModule, REDIS } from "../infra/infra.module.js";
-import { NOTIFICATIONS_QUEUE } from "../notifications/notifications.queue.js";
+import { autoReplyJobId, NOTIFICATIONS_QUEUE } from "../notifications/notifications.queue.js";
 import { WhatsAppModule } from "./whatsapp.module.js";
 
 process.loadEnvFile?.("../../.env");
@@ -84,31 +84,17 @@ describe("WhatsApp webhook: customer messages (integration)", () => {
     return res.status;
   }
 
-  /** The auto-reply jobs queued for this phone. */
-  async function autoReplies(phone: string) {
-    const jobs = await queue.getJobs(["waiting", "delayed", "active", "completed", "failed"]);
-    const mine = [];
-    for (const job of jobs) {
-      if (job.id && job.id.startsWith(`auto-reply-${phone}-`)) {
-        mine.push(job);
-      }
-    }
-    return mine;
-  }
-
   it("answers a customer's message once a day, pointing them to their shop", async () => {
     const phone = randomPhone();
     expect(await customerWrites(phone, "Hello, where is my order?")).toBe(200);
-    const first = await autoReplies(phone);
-    expect(first).toHaveLength(1);
-    expect(first[0]?.data).toEqual({ kind: "customer.auto_reply", phone });
+    const job = await queue.getJob(autoReplyJobId(phone, new Date()));
+    expect(job?.data).toEqual({ kind: "customer.auto_reply", phone });
 
-    // A second message the same day gets no second reply.
+    // A second message the same day gets no second reply: the same single job is still there.
     expect(await customerWrites(phone, "Hello??")).toBe(200);
-    expect(await autoReplies(phone)).toHaveLength(1);
+    const after = await queue.getJob(autoReplyJobId(phone, new Date()));
+    expect(after?.timestamp).toBe(job?.timestamp);
 
-    for (const job of await autoReplies(phone)) {
-      await job.remove();
-    }
+    await job?.remove();
   });
 });

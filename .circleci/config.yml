@@ -1,0 +1,71 @@
+# CircleCI: on every push, build, typecheck, lint and test the whole monorepo, the same
+# command as `pnpm turbo run build typecheck lint test` on your machine. A red run here
+# should stop Railway deploying (see docs/deploy-railway.md, "CI before deploy").
+version: 2.1
+
+jobs:
+  check:
+    # The first image is where the commands run; the others are "service containers" that
+    # run alongside it and are reachable on localhost (like `pnpm db:up` does locally).
+    docker:
+      - image: cimg/node:22.14
+      - image: postgres:17-alpine
+        environment:
+          POSTGRES_USER: gbam
+          POSTGRES_PASSWORD: gbam
+          POSTGRES_DB: gbam
+      - image: redis:7-alpine
+    # The test suite runs Nest apps, Postgres and Redis at once; the default size runs out
+    # of memory on the web build.
+    resource_class: large
+    environment:
+      # Set here so they win over .env (Node's .env loader never overrides a variable that's
+      # already set). Postgres listens on 5432 in CI, not 5433 as on your machine.
+      DATABASE_URL: postgres://gbam:gbam@localhost:5432/gbam
+      REDIS_URL: redis://localhost:6379
+      # Stops Turbo sending anonymous usage stats from CI.
+      TURBO_TELEMETRY_DISABLED: "1"
+    steps:
+      - checkout
+
+      - run:
+          name: Use the pnpm version from package.json
+          command: |
+            sudo corepack enable
+            corepack prepare pnpm@10.32.1 --activate
+            pnpm --version
+
+      # Reuse downloaded packages between runs when pnpm-lock.yaml hasn't changed.
+      - restore_cache:
+          keys:
+            - pnpm-store-v1-{{ checksum "pnpm-lock.yaml" }}
+      - run:
+          name: Install packages
+          command: pnpm install --frozen-lockfile
+      - save_cache:
+          key: pnpm-store-v1-{{ checksum "pnpm-lock.yaml" }}
+          paths:
+            - ~/.local/share/pnpm/store
+
+      - run:
+          name: Create .env from the example (every integration in fake mode)
+          # The tests read ../../.env and fail if it's missing. The example has no real keys,
+          # so Paystack, WhatsApp, email and photos all use their fakes.
+          command: cp .env.example .env
+
+      - run:
+          name: Wait for Postgres and Redis to start
+          command: dockerize -wait tcp://localhost:5432 -wait tcp://localhost:6379 -timeout 1m
+
+      - run:
+          name: Create the database tables
+          command: pnpm db:migrate
+
+      - run:
+          name: Build, typecheck, lint and test
+          command: pnpm turbo run build typecheck lint test
+
+workflows:
+  check:
+    jobs:
+      - check

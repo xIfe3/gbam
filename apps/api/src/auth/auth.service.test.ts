@@ -160,6 +160,20 @@ describe("AuthService signup and verification (integration)", () => {
     expect(await service.sessionUser("not-a-token")).toBeNull();
   });
 
+  it("remembers where the seller came from, cleaned up", async () => {
+    const input = newInput({ source: "Shop-Mama-Ngozi" });
+    const result = await service.signup(input, meta);
+    const sellerId = result.user.seller?.id;
+    if (!sellerId) {
+      throw new Error("Expected a seller");
+    }
+    const rows = await db
+      .select({ signupSource: sellers.signupSource })
+      .from(sellers)
+      .where(eq(sellers.id, sellerId));
+    expect(rows[0]?.signupSource).toBe("shop-mama-ngozi");
+  });
+
   it("trims and lowercases the email", async () => {
     const input = newInput();
     const result = await service.signup(

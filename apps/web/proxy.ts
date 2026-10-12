@@ -1,3 +1,4 @@
+import { cleanSignupSource, SIGNUP_SOURCE_COOKIE } from "@gbam/shared";
 import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_COOKIE } from "./lib/admin-session-cookie";
 import { maintenanceRewrites } from "./lib/maintenance-paths";
@@ -17,6 +18,36 @@ function needsSellerSession(pathname: string): boolean {
     pathname.startsWith("/dashboard/") ||
     pathname === "/signup/get-paid"
   );
+}
+
+/** How long a ?ref= is remembered: a seller may look around for a while before signing up. */
+const SOURCE_COOKIE_DAYS = 30;
+
+/**
+ * Remembers where a visitor first came from (?ref=shop-mama-ngozi from a "Powered by Gbam"
+ * link, or ?utm_source=tiktok), so their signup can record it. The first source wins: a later
+ * link doesn't replace it. Only a short cleaned tag is kept, never anything personal.
+ */
+function rememberSource(request: NextRequest, response: NextResponse): NextResponse {
+  if (request.cookies.get(SIGNUP_SOURCE_COOKIE)) {
+    return response;
+  }
+  let raw = request.nextUrl.searchParams.get("ref");
+  if (raw === null) {
+    raw = request.nextUrl.searchParams.get("utm_source");
+  }
+  const source = cleanSignupSource(raw);
+  if (source === null) {
+    return response;
+  }
+  response.cookies.set(SIGNUP_SOURCE_COOKIE, source, {
+    maxAge: SOURCE_COOKIE_DAYS * 24 * 60 * 60,
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+  });
+  return response;
 }
 
 // Next 16 calls this "proxy" (it was "middleware"). It runs before every page and:
@@ -45,9 +76,9 @@ export async function proxy(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Every other public page: nothing more to check.
+  // Every other public page: nothing more to check, apart from noting where they came from.
   if (!needsSellerSession(pathname)) {
-    return NextResponse.next();
+    return rememberSource(request, NextResponse.next());
   }
 
   // 2b. The seller dashboard (and sign-up step 3, so a logged-out visitor comes back to it).

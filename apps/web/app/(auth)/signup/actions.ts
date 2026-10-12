@@ -1,6 +1,7 @@
 "use server";
 
-import { codeSchema, signupSchema, slugSchema } from "@gbam/shared";
+import { codeSchema, SIGNUP_SOURCE_COOKIE, signupSchema, slugSchema } from "@gbam/shared";
+import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { api, ApiError } from "@/lib/api";
 import { setSessionCookie } from "@/lib/session";
@@ -25,7 +26,15 @@ export async function signupAction(_prev: FormState, formData: FormData): Promis
     email: text(formData, "email"),
   };
 
-  const input = signupSchema.safeParse({ ...values, password: text(formData, "password") });
+  // Where they first came from, if a ?ref= link brought them (saved by proxy.ts).
+  const cookieStore = await cookies();
+  const source = cookieStore.get(SIGNUP_SOURCE_COOKIE)?.value;
+
+  const input = signupSchema.safeParse({
+    ...values,
+    password: text(formData, "password"),
+    source,
+  });
   if (!input.success) {
     return { fieldErrors: fieldErrorsFrom(input.error), values };
   }

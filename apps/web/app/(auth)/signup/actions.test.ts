@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("server-only", () => ({}));
 
-const { redirect, setSessionCookie, apiMock, FakeApiError } = vi.hoisted(() => {
+const { redirect, setSessionCookie, apiMock, FakeApiError, savedCookies } = vi.hoisted(() => {
   class FakeApiError extends Error {
     constructor(
       readonly status: number,
@@ -23,8 +23,21 @@ const { redirect, setSessionCookie, apiMock, FakeApiError } = vi.hoisted(() => {
       resendCode: vi.fn(),
     },
     FakeApiError,
+    /** The visitor's cookies, as next/headers would give them. */
+    savedCookies: new Map<string, string>(),
   };
 });
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => {
+      const value = savedCookies.get(name);
+      if (value === undefined) {
+        return undefined;
+      }
+      return { name, value };
+    },
+  }),
+}));
 // Like Next's real unstable_rethrow: redirect errors must pass through, others are ignored.
 vi.mock("next/navigation", () => ({
   redirect,
@@ -57,6 +70,7 @@ const goodSignup = {
 
 beforeEach(() => {
   vi.clearAllMocks();
+  savedCookies.clear();
 });
 
 describe("signupAction", () => {
@@ -66,6 +80,19 @@ describe("signupAction", () => {
       "NEXT_REDIRECT:/signup/verify",
     );
     expect(setSessionCookie).toHaveBeenCalledWith("tok");
+  });
+
+  it("sends where the seller came from (the gbam_ref cookie) with the signup", async () => {
+    savedCookies.set("gbam_ref", "shop-mama-ngozi");
+    apiMock.signup.mockResolvedValue({ sessionToken: "tok", user: {} });
+    await expect(signupAction({}, form(goodSignup))).rejects.toThrow("NEXT_REDIRECT");
+    expect(apiMock.signup.mock.calls[0]?.[0]).toMatchObject({ source: "shop-mama-ngozi" });
+  });
+
+  it("sends no source when we don't know where they came from", async () => {
+    apiMock.signup.mockResolvedValue({ sessionToken: "tok", user: {} });
+    await expect(signupAction({}, form(goodSignup))).rejects.toThrow("NEXT_REDIRECT");
+    expect(apiMock.signup.mock.calls[0]?.[0].source).toBeUndefined();
   });
 
   it("puts a 409 on the field the API names", async () => {

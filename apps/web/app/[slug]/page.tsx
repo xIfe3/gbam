@@ -7,6 +7,7 @@ import { ShopCover } from "@/components/shop/shop-cover";
 import { api, ApiError } from "@/lib/api";
 import { redirectIfShopMoved } from "@/lib/shop-moved";
 import { BasketBar } from "./basket-bar";
+import { PoweredByGbam } from "./powered-by";
 import { Beacon } from "@/components/beacon";
 
 async function loadStore(slug: string) {
@@ -137,8 +138,7 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
           </ul>
         ))}
       <footer className="text-ink-muted mt-10 pb-20 text-sm">
-        Powered by <span className="font-display text-brand font-black">Gbam.</span> Payments by
-        Paystack.{" "}
+        <PoweredByGbam shopSlug={store.slug} /> Payments by Paystack.{" "}
         <Link href="/track" className="underline">
           Track an order
         </Link>

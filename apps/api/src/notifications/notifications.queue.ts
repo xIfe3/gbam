@@ -2,6 +2,7 @@ import type { OrderStatus } from "@gbam/shared";
 import { InjectQueue } from "@nestjs/bullmq";
 import { Injectable } from "@nestjs/common";
 import type { Queue } from "bullmq";
+import { lagosDay } from "../platform/visits.service.js";
 
 export const NOTIFICATIONS_QUEUE = "notifications";
 
@@ -113,12 +114,20 @@ export class NotificationsQueue {
     );
   }
 
-  /** Answers a customer who wrote to gbam's number (the webhook limits how often). */
+  /**
+   * Answers a customer who wrote to gbam's number. The job id is the phone and today's date,
+   * so even if the webhook's daily limit failed, they'd get at most one reply a day.
+   */
   async customerAutoReply(phone: string) {
     await this.queue.add(
       "customer.auto_reply",
       { kind: "customer.auto_reply", phone },
-      { ...JOB_OPTIONS, jobId: `auto-reply-${phone}-${Date.now()}` },
+      { ...JOB_OPTIONS, jobId: autoReplyJobId(phone, new Date()) },
     );
   }
+}
+
+/** The auto-reply job's id: one per phone per day (Lagos time). */
+export function autoReplyJobId(phone: string, now: Date): string {
+  return `auto-reply-${phone}-${lagosDay(now)}`;
 }

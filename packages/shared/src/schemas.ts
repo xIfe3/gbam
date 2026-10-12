@@ -179,6 +179,8 @@ export const signupSchema = z.object({
   phone: nigerianPhoneSchema,
   email: emailSchema,
   password: passwordSchema,
+  /** Where they came from (the gbam_ref cookie). The API cleans it with cleanSignupSource. */
+  source: z.string().max(200).optional(),
 });
 export type SignupInput = z.output<typeof signupSchema>;
 

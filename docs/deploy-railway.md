@@ -159,6 +159,34 @@ read it from there. Check it once after the first deploy:
 If it shows a Railway address, every visitor would share one limit. Tell Claude what the
 logs show and the setting will be adjusted.
 
+## Step 8: CI before deploy (CircleCI)
+
+Every push runs `.circleci/config.yml` on CircleCI: install, migrate a fresh database, then
+`pnpm turbo run build typecheck lint test`, exactly as on your machine.
+
+1. Sign in at [circleci.com](https://circleci.com) with GitHub → **Projects** → `xIfe3/gbam`
+   → **Set Up Project** → "use the `.circleci/config.yml` in my repo" → branch `main`.
+2. Push any commit and watch the first run go green. No environment variables are needed:
+   CI uses `.env.example`, so every integration runs in fake mode and no real key is used.
+3. In Railway, for **each** of api, worker and web: **Settings → Deploy → Wait for CI**.
+   Railway then waits for the checks GitHub shows on the commit (CircleCI reports there)
+   and skips the deploy if one fails. Check this once: push a commit, and the Railway
+   deployment should say it's waiting for CI before it builds.
+
+## Step 9: An alarm for the worker
+
+`GET https://api.gbam.app/health/worker` answers 503 when the worker hasn't checked in for 2
+minutes (payments wouldn't be confirmed and no WhatsApp would go out, though the site looks
+fine). In UptimeRobot add an **HTTP(s)** monitor on that address, every 5 minutes, with an
+alert to your phone. Keep a separate monitor on `/health` for the API itself.
+
+## The pilot numbers
+
+`pnpm pilot:report 2026-10-27` (locally, against a database) or
+`node dist/scripts/pilot-report.js 2026-10-27` (in a Railway shell for the api service)
+prints each shop's visits, orders, paid %, minutes to pay, repeat buyers and gbam fee, and
+how many shops have 2+ paid orders. Read-only.
+
 ## Good to know
 
 - **Each push to `main` rebuilds all three services.** To rebuild only what changed, set

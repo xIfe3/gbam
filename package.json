@@ -20,7 +20,8 @@
     "db:studio": "pnpm --filter @gbam/db db:studio",
     "db:seed": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:seed",
     "db:sync-content": "turbo run build --filter=@gbam/db^... && pnpm --filter @gbam/db db:sync-content",
-    "simulate:payment": "pnpm --filter @gbam/api simulate:payment"
+    "simulate:payment": "pnpm --filter @gbam/api simulate:payment",
+    "pilot:report": "turbo run build --filter=@gbam/api && pnpm --filter @gbam/api pilot:report"
   },
   "devDependencies": {
     "@gbam/config": "workspace:*",
