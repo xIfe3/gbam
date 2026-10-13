@@ -43,13 +43,24 @@ export function ShopLogo({
   );
 }
 
-/** The wide banner, or gbam's default pattern when the shop hasn't added one. */
+/** At most this many product photos in the strip, so each stays big enough on a phone. */
+const MAX_BANNER_PHOTOS = 3;
+
+/**
+ * The wide banner at the top of a shop. In order of preference:
+ * 1. the seller's own banner photo;
+ * 2. a strip of the shop's own product photos (real food or clothes beat any pattern);
+ * 3. gbam green saying paying here is safe: the thing a new customer worries about most.
+ */
 export function ShopBanner({
   businessName,
   bannerUrl,
+  photoUrls = [],
 }: {
   businessName: string;
   bannerUrl: string | null;
+  /** The shop's product photos, used when there's no banner. */
+  photoUrls?: string[];
 }) {
   if (bannerUrl) {
     return (
@@ -60,16 +71,40 @@ export function ShopBanner({
       />
     );
   }
+
+  const photos = photoUrls.slice(0, MAX_BANNER_PHOTOS);
+  if (photos.length > 0) {
+    return (
+      <div
+        data-testid="photo-banner"
+        aria-hidden="true"
+        className="bg-blush flex aspect-[3/1] w-full gap-1 overflow-hidden rounded-2xl"
+      >
+        {photos.map((url) => (
+          <img key={url} src={url} alt="" className="h-full min-w-0 flex-1 object-cover" />
+        ))}
+      </div>
+    );
+  }
+
   return (
     <div
       data-testid="default-banner"
-      aria-hidden="true"
-      className="bg-brand relative aspect-[3/1] w-full overflow-hidden rounded-2xl"
+      className="bg-brand relative flex aspect-[3/1] w-full flex-col items-center justify-center overflow-hidden rounded-2xl px-4 text-center text-white"
     >
-      {/* Soft gbam-coloured circles: a calm default until the seller adds their own. */}
-      <span className="bg-brand-hover absolute -top-10 -left-10 size-48 rounded-full opacity-60" />
-      <span className="bg-coral absolute -right-8 -bottom-16 size-56 rounded-full opacity-40" />
-      <span className="bg-brand-tint absolute top-1/3 left-1/2 size-24 rounded-full opacity-20" />
+      {/* Soft gbam-coloured circles behind the words. */}
+      <span
+        aria-hidden="true"
+        className="bg-brand-hover absolute -top-10 -left-10 size-48 rounded-full opacity-60"
+      />
+      <span
+        aria-hidden="true"
+        className="bg-coral absolute -right-8 -bottom-16 size-56 rounded-full opacity-40"
+      />
+      <p className="font-display relative text-lg font-black sm:text-2xl">
+        Order here, pay safely
+      </p>
+      <p className="relative mt-1 text-xs text-white/85 sm:text-sm">Secured by Paystack</p>
     </div>
   );
 }
@@ -82,17 +117,20 @@ export function ShopCover({
   businessName,
   logoUrl,
   bannerUrl,
+  photoUrls = [],
   children,
 }: {
   businessName: string;
   logoUrl: string | null;
   bannerUrl: string | null;
+  /** The shop's product photos: the banner shows them when the seller hasn't added one. */
+  photoUrls?: string[];
   /** A line or two under the name. */
   children?: React.ReactNode;
 }) {
   return (
     <header className="mb-6">
-      <ShopBanner businessName={businessName} bannerUrl={bannerUrl} />
+      <ShopBanner businessName={businessName} bannerUrl={bannerUrl} photoUrls={photoUrls} />
       {/* relative z-10: the default banner is positioned (for its circles), which would
           otherwise paint over the logo where the two overlap. */}
       <div className="relative z-10 -mt-10 flex items-end gap-4 px-4 sm:-mt-12">
