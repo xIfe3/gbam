@@ -55,6 +55,23 @@ describe("storefront page", () => {
     );
   });
 
+  it("a brand-new shop (no products, no bank yet) shows only 'still setting up'", async () => {
+    vi.mocked(api.storefront).mockResolvedValue({
+      store: {
+        slug: "hedgeon",
+        businessName: "Hedgeon Finance",
+        suspended: false,
+        acceptingOrders: false,
+      },
+      products: [],
+    } as never);
+    render(await StorefrontPage(props()));
+    expect(
+      screen.getByRole("heading", { name: "This shop is still setting up" }),
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "This shop isn't taking orders yet" })).toBeNull();
+  });
+
   it("a shop with no bank account yet shows its products and says it can't take orders", async () => {
     vi.mocked(api.storefront).mockResolvedValue({
       store: {

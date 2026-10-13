@@ -93,7 +93,9 @@ export function ShopCover({
   return (
     <header className="mb-6">
       <ShopBanner businessName={businessName} bannerUrl={bannerUrl} />
-      <div className="-mt-10 flex items-end gap-4 px-4 sm:-mt-12">
+      {/* relative z-10: the default banner is positioned (for its circles), which would
+          otherwise paint over the logo where the two overlap. */}
+      <div className="relative z-10 -mt-10 flex items-end gap-4 px-4 sm:-mt-12">
         <ShopLogo
           businessName={businessName}
           logoUrl={logoUrl}

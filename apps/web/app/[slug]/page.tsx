@@ -75,7 +75,8 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         />
       )}
       {/* No bank account yet: products are shown, but checkout would be refused. */}
-      {store.suspended !== true && store.acceptingOrders === false && (
+      {/* Only with products: an empty new shop already says "still setting up" below. */}
+      {store.suspended !== true && store.acceptingOrders === false && products.length > 0 && (
         <EmptyState
           art={
             <span aria-hidden="true" className="text-4xl">
