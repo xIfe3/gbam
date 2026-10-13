@@ -19,11 +19,45 @@ describe("ShopCover", () => {
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Ada Bakes");
   });
 
-  it("without them: the gbam pattern and the shop's initials", () => {
+  it("without a banner or photos: a gbam banner that reassures about paying", () => {
     render(<ShopCover businessName="Ada Bakes" logoUrl={null} bannerUrl={null} />);
     expect(screen.queryByRole("img", { name: /banner/ })).toBeNull();
-    expect(screen.getByTestId("default-banner")).toBeInTheDocument();
+    expect(screen.getByTestId("default-banner")).toHaveTextContent("Order here, pay safely");
+    expect(screen.getByTestId("default-banner")).toHaveTextContent("Secured by Paystack");
     expect(screen.getByText("AB")).toBeInTheDocument();
+  });
+
+  it("without a banner but with product photos: a strip of the shop's own photos", () => {
+    render(
+      <ShopCover
+        businessName="Ada Bakes"
+        logoUrl={null}
+        bannerUrl={null}
+        photoUrls={[
+          "https://photos.test/p1.webp",
+          "https://photos.test/p2.webp",
+          "https://photos.test/p3.webp",
+          "https://photos.test/p4.webp",
+        ]}
+      />,
+    );
+    const strip = screen.getByTestId("photo-banner");
+    // At most 3, so each photo stays big enough to see on a phone.
+    expect(strip.querySelectorAll("img")).toHaveLength(3);
+    expect(screen.queryByTestId("default-banner")).toBeNull();
+  });
+
+  it("the seller's own banner always wins over product photos", () => {
+    render(
+      <ShopCover
+        businessName="Ada Bakes"
+        logoUrl={null}
+        bannerUrl="https://photos.test/banner.webp"
+        photoUrls={["https://photos.test/p1.webp"]}
+      />,
+    );
+    expect(screen.getByRole("img", { name: "Ada Bakes banner" })).toBeInTheDocument();
+    expect(screen.queryByTestId("photo-banner")).toBeNull();
   });
 
   it("draws the logo above the default banner, so the initials aren't hidden behind it", () => {

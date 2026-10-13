@@ -37,6 +37,14 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
   const searchParams = await props.searchParams;
   const { store, products } = await loadStore(slug);
 
+  // The shop's own product photos, for the banner when the seller hasn't added one.
+  const photoUrls: string[] = [];
+  for (const product of products) {
+    if (product.photoUrl) {
+      photoUrls.push(product.photoUrl);
+    }
+  }
+
   // ?paid=GB-XXXX is added by Paystack when it sends the customer back here.
   // It only shows a thank-you banner; the Paystack webhook is what actually marks the
   // order paid, so faking this URL achieves nothing.
@@ -58,9 +66,14 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
         businessName={store.businessName}
         logoUrl={store.logoUrl ?? null}
         bannerUrl={store.bannerUrl ?? null}
+        photoUrls={photoUrls}
       >
         <p className="text-ink-muted mt-2">
           Pick something you like. You&apos;ll get updates on WhatsApp.
+        </p>
+        {/* Paying a shop you found on WhatsApp is the scary part: say how it's done. */}
+        <p className="text-ink-muted mt-1 text-sm">
+          Pay by bank transfer, USSD or card · Secured by Paystack
         </p>
       </ShopCover>
       {store.suspended === true && (

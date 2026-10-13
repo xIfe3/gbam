@@ -97,4 +97,32 @@ describe("storefront page", () => {
     ).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Ankara dress" })).toBeInTheDocument();
   });
+
+  it("says how customers can pay, and uses product photos when there's no banner", async () => {
+    vi.mocked(api.storefront).mockResolvedValue({
+      store: { slug: "ada", businessName: "Ada Bakes", acceptingOrders: true, bannerUrl: null },
+      products: [
+        {
+          slug: "cake",
+          name: "Cake",
+          minPriceKobo: 500_000,
+          maxPriceKobo: 500_000,
+          photoUrl: "https://photos.test/cake.webp",
+          soldOut: false,
+        },
+        {
+          slug: "puff",
+          name: "Puff puff",
+          minPriceKobo: 100_000,
+          maxPriceKobo: 100_000,
+          photoUrl: null,
+          soldOut: false,
+        },
+      ],
+    } as never);
+    render(await StorefrontPage(props()));
+    expect(screen.getByText(/Pay by bank transfer, USSD or card/)).toBeInTheDocument();
+    const strip = screen.getByTestId("photo-banner");
+    expect(strip.querySelectorAll("img")).toHaveLength(1);
+  });
 });

@@ -2,6 +2,7 @@ import { formatNaira, orderStatusSchema, type OrderStatus } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
+import { BannerPhotoTip } from "./banner-photo-tip";
 import { DeliveryBanner } from "./delivery-banner";
 import { EmptyState, OrdersArt } from "@/components/brand/empty-state";
 import { api } from "@/lib/api";
@@ -69,10 +70,23 @@ export default async function OrdersPage(props: PageProps<"/dashboard">) {
     console.error("delivery settings could not be loaded for the zones banner");
   }
 
+  // Once delivery is set up, suggest a banner photo if there isn't one (one nudge at a time).
+  let needsBannerPhoto = false;
+  if (!needsDeliveryZones) {
+    try {
+      const settings = await api.getSettings();
+      needsBannerPhoto = settings.bannerUrl === null;
+    } catch (error) {
+      unstable_rethrow(error);
+      console.error("shop settings could not be loaded for the banner tip");
+    }
+  }
+
   return (
     <main>
       <PageTour tour="dashboard" />
       {needsDeliveryZones && <DeliveryBanner />}
+      {needsBannerPhoto && <BannerPhotoTip />}
       {shopSlug !== null && (
         <section
           aria-label="Your shop link"

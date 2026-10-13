@@ -2,7 +2,12 @@ import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/api", () => ({
-  api: { listOrders: vi.fn(), currentUser: vi.fn(), getDeliverySettings: vi.fn() },
+  api: {
+    listOrders: vi.fn(),
+    currentUser: vi.fn(),
+    getDeliverySettings: vi.fn(),
+    getSettings: vi.fn(),
+  },
 }));
 
 import { api } from "@/lib/api";
@@ -22,6 +27,8 @@ describe("orders page empty states", () => {
     vi.mocked(api.currentUser).mockReset();
     vi.mocked(api.getDeliverySettings).mockReset();
     vi.mocked(api.getDeliverySettings).mockResolvedValue({ zones: [], pickupNote: null });
+    vi.mocked(api.getSettings).mockReset();
+    vi.mocked(api.getSettings).mockResolvedValue({ bannerUrl: null } as never);
     vi.mocked(api.currentUser).mockResolvedValue({
       seller: { slug: "mama-ngozi" },
     } as never);
@@ -85,5 +92,41 @@ describe("orders page empty states", () => {
     vi.mocked(api.getDeliverySettings).mockRejectedValue(new Error("API is older"));
     render(await OrdersPage(props()));
     expect(screen.queryByRole("link", { name: "Add delivery zones" })).not.toBeInTheDocument();
+  });
+
+  describe("banner photo tip", () => {
+    const ZONE = { id: "z1", name: "Lekki", feeKobo: 200_000, isPickup: false };
+
+    it("suggests a banner photo once delivery zones are set", async () => {
+      vi.mocked(api.listOrders).mockResolvedValue([]);
+      vi.mocked(api.getDeliverySettings).mockResolvedValue({
+        zones: [ZONE],
+        pickupNote: null,
+      } as never);
+      render(await OrdersPage(props()));
+      expect(screen.getByRole("link", { name: "Add a banner photo" })).toHaveAttribute(
+        "href",
+        "/dashboard/settings#look",
+      );
+    });
+
+    it("doesn't nag twice: while delivery zones are missing, only that nudge shows", async () => {
+      vi.mocked(api.listOrders).mockResolvedValue([]);
+      render(await OrdersPage(props()));
+      expect(screen.queryByRole("link", { name: "Add a banner photo" })).toBeNull();
+    });
+
+    it("goes away once the shop has a banner", async () => {
+      vi.mocked(api.listOrders).mockResolvedValue([]);
+      vi.mocked(api.getDeliverySettings).mockResolvedValue({
+        zones: [ZONE],
+        pickupNote: null,
+      } as never);
+      vi.mocked(api.getSettings).mockResolvedValue({
+        bannerUrl: "https://photos.test/b.webp",
+      } as never);
+      render(await OrdersPage(props()));
+      expect(screen.queryByRole("link", { name: "Add a banner photo" })).toBeNull();
+    });
   });
 });

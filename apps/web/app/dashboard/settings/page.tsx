@@ -59,7 +59,7 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
         <ShopForm businessName={settings.businessName} phone={settings.phone} />
       </section>
 
-      <section aria-labelledby="look-heading" className={sectionClass}>
+      <section id="look" aria-labelledby="look-heading" className={sectionClass}>
         <h2 id="look-heading" className="mb-1 font-semibold">
           Logo and banner
         </h2>
