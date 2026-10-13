@@ -172,6 +172,23 @@ describe("proxy", () => {
       expect(cookie?.httpOnly).toBe(true);
     });
 
+    it("ignores link prefetches: only a real visit counts", async () => {
+      // Next fetches linked pages in the background (e.g. "Powered by Gbam" in a shop's
+      // footer); that isn't the customer choosing to visit Gbam.
+      for (const header of ["next-router-prefetch", "purpose", "sec-purpose"]) {
+        let value = "prefetch";
+        if (header === "next-router-prefetch") {
+          value = "1";
+        }
+        const res = await proxy(
+          new NextRequest("http://localhost:3000/?ref=shop-mama-ngozi", {
+            headers: { [header]: value },
+          }),
+        );
+        expect(res.cookies.get("gbam_ref")).toBeUndefined();
+      }
+    });
+
     it("saves ?utm_source= when there's no ?ref=", async () => {
       const res = await proxy(new NextRequest("http://localhost:3000/pricing?utm_source=tiktok"));
       expect(res.cookies.get("gbam_ref")?.value).toBe("tiktok");

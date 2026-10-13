@@ -56,6 +56,8 @@ describe("pilot report (integration)", () => {
     const adaFirst = await place("Ada", "2348011110001");
     const adaSecond = await place("Ada", "2348011110001");
     await place("Bisi", "2348011110002");
+    // The seller trying their own shop: not a real customer, so the report leaves it out.
+    await place("Me testing", seller.whatsappPhone);
 
     for (const order of [adaFirst, adaSecond]) {
       await db.insert(payments).values({

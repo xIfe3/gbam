@@ -13,7 +13,7 @@ import {
   type OrderStatus,
 } from "@gbam/shared";
 import { Inject, Injectable, Logger } from "@nestjs/common";
-import { and, asc, desc, eq, gt, isNotNull, lt, max, ne } from "drizzle-orm";
+import { and, desc, eq, gt, isNotNull, lt, max, ne, sql } from "drizzle-orm";
 import { randomBytes } from "node:crypto";
 import { ENV, type Env } from "../env.js";
 import { InjectDb, type Db } from "../infra/infra.module.js";
@@ -503,7 +503,7 @@ export class PaymentsService {
    * Payments younger than RECHECK_AFTER_MINUTES are skipped: their webhook is usually on
    * its way. Ones older than RECHECK_FOR_HOURS are left alone: by then the order has expired.
    */
-  async recheckPending(now: Date): Promise<string[]> {
+  async recheckPending(now: Date, batchSize: number = RECHECK_BATCH_SIZE): Promise<string[]> {
     const newest = new Date(now.getTime() - RECHECK_AFTER_MINUTES * MINUTE_MS);
     const oldest = new Date(now.getTime() - RECHECK_FOR_HOURS * HOUR_MS);
     const rows = await this.db
@@ -516,8 +516,11 @@ export class PaymentsService {
           gt(payments.createdAt, oldest),
         ),
       )
-      .orderBy(asc(payments.createdAt))
-      .limit(RECHECK_BATCH_SIZE);
+      // A random pick, not the oldest first: a payment the customer abandoned stays
+      // "pending" for 48 hours, and always picking the oldest would let such payments fill
+      // every batch while a newer one that really went through waits forever.
+      .orderBy(sql`random()`)
+      .limit(batchSize);
 
     const references: string[] = [];
     for (const row of rows) {

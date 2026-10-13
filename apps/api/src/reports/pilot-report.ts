@@ -1,5 +1,5 @@
 import { customers, dailyVisits, orderEvents, orders, payments, sellers, type Db } from "@gbam/db";
-import { and, eq, gte, inArray, isNull, sql } from "drizzle-orm";
+import { and, eq, gte, inArray, isNull, ne, sql } from "drizzle-orm";
 
 /** One shop's pilot numbers. */
 export type PilotShopRow = {
@@ -59,7 +59,12 @@ function median(values: number[]): number | null {
  */
 export async function pilotReport(db: Db, since: Date): Promise<PilotReport> {
   const shopRows = await db
-    .select({ id: sellers.id, slug: sellers.slug, signupSource: sellers.signupSource })
+    .select({
+      id: sellers.id,
+      slug: sellers.slug,
+      signupSource: sellers.signupSource,
+      whatsappPhone: sellers.whatsappPhone,
+    })
     .from(sellers)
     .where(isNull(sellers.closedAt))
     .orderBy(sellers.createdAt);
@@ -84,7 +89,14 @@ export async function pilotReport(db: Db, since: Date): Promise<PilotReport> {
       .select({ id: orders.id, createdAt: orders.createdAt, phone: customers.phone })
       .from(orders)
       .innerJoin(customers, eq(customers.id, orders.customerId))
-      .where(and(eq(orders.sellerId, shop.id), gte(orders.createdAt, since)));
+      .where(
+        and(
+          eq(orders.sellerId, shop.id),
+          gte(orders.createdAt, since),
+          // Orders from the seller's own number are them testing their shop, not customers.
+          ne(customers.phone, shop.whatsappPhone),
+        ),
+      );
 
     // Skip shops with no activity at all, so the report stays readable.
     if (orderRows.length === 0 && shopVisits === 0) {

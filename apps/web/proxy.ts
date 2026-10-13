@@ -20,6 +20,24 @@ function needsSellerSession(pathname: string): boolean {
   );
 }
 
+/**
+ * True when the browser is only fetching a page in the background, ahead of a possible
+ * click (Next does this for links on screen, like "Powered by Gbam"). That isn't a visit.
+ */
+function isPrefetch(request: NextRequest): boolean {
+  if (request.headers.get("next-router-prefetch") !== null) {
+    return true;
+  }
+  if (request.headers.get("purpose") === "prefetch") {
+    return true;
+  }
+  const secPurpose = request.headers.get("sec-purpose");
+  if (secPurpose !== null && secPurpose.includes("prefetch")) {
+    return true;
+  }
+  return false;
+}
+
 /** How long a ?ref= is remembered: a seller may look around for a while before signing up. */
 const SOURCE_COOKIE_DAYS = 30;
 
@@ -30,6 +48,9 @@ const SOURCE_COOKIE_DAYS = 30;
  */
 function rememberSource(request: NextRequest, response: NextResponse): NextResponse {
   if (request.cookies.get(SIGNUP_SOURCE_COOKIE)) {
+    return response;
+  }
+  if (isPrefetch(request)) {
     return response;
   }
   let raw = request.nextUrl.searchParams.get("ref");

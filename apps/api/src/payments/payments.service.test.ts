@@ -307,6 +307,33 @@ describe("PaymentsService (integration)", () => {
       expect(await statusOf(fresh.order.id)).toBe("awaiting_payment");
     });
 
+    it("an abandoned payment can't hog the re-check: the others still get their turn", async () => {
+      // An older payment the customer walked away from: Paystack keeps saying "abandoned".
+      const abandoned = await orderAwaitingPayment();
+      await startedMinutesAgo(abandoned.link.reference, 10);
+      // A newer one that really went through, but whose webhook never came.
+      const missed = await orderAwaitingPayment();
+      await startedMinutesAgo(missed.link.reference, 5);
+
+      paystack.verifyResult = (reference) => {
+        if (reference === abandoned.link.reference) {
+          return { status: "abandoned" };
+        }
+        return {};
+      };
+      try {
+        // Pretend each run can only check ONE payment. Always picking the oldest would
+        // check the abandoned one forever and never find the paid one.
+        for (let run = 0; run < 30; run++) {
+          await service.recheckPending(new Date(), 1);
+        }
+      } finally {
+        paystack.verifyResult = () => ({});
+      }
+      expect(await statusOf(missed.order.id)).toBe("paid");
+      expect(await statusOf(abandoned.order.id)).toBe("awaiting_payment");
+    });
+
     it("re-checks one order on demand (the admin's button), however new its payments", async () => {
       const { order } = await orderAwaitingPayment();
       const result = await service.recheckOrder(order.id);
