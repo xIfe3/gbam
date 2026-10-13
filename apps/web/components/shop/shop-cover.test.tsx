@@ -25,4 +25,14 @@ describe("ShopCover", () => {
     expect(screen.getByTestId("default-banner")).toBeInTheDocument();
     expect(screen.getByText("AB")).toBeInTheDocument();
   });
+
+  it("draws the logo above the default banner, so the initials aren't hidden behind it", () => {
+    render(<ShopCover businessName="Hedgeon Finance" logoUrl={null} bannerUrl={null} />);
+    // The default banner is "relative" (for its circles), which paints it over anything
+    // after it that isn't positioned too. The logo's row must be lifted above it.
+    const initials = screen.getByText("HF");
+    const logoRow = initials.parentElement;
+    expect(logoRow?.className).toContain("relative");
+    expect(logoRow?.className).toContain("z-10");
+  });
 });
