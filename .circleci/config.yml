@@ -61,9 +61,17 @@ jobs:
           name: Create the database tables
           command: pnpm db:migrate
 
+      # Two steps, so a failure says which part broke. --continue = keep going after a
+      # failure, so one run shows every failure instead of stopping at the first.
       - run:
-          name: Build, typecheck, lint and test
-          command: pnpm turbo run build typecheck lint test
+          name: Build, typecheck and lint
+          command: pnpm turbo run build typecheck lint --continue
+
+      # --concurrency=1 = one package's tests at a time. The web and API suites each use
+      # every CPU; running both at once made tests time out on CircleCI.
+      - run:
+          name: Test
+          command: pnpm turbo run test --continue --concurrency=1
 
 workflows:
   check:
