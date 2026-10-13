@@ -626,13 +626,17 @@ describe("Instant pay: customers can pay the moment they order (integration)", (
     expect(second.status).toBe("awaiting_payment");
   });
 
-  it("alerts the seller on WhatsApp about every new order", async () => {
+  it("alerts an instant-pay seller on WhatsApp when the order is PAID, not when it's placed", async () => {
     const { variant } = await createTestProduct(db, sellerId, { name: "Zobo" });
     const placed = await order(variant.id, 1);
+    // Placed but unpaid: no alert yet, so the seller never starts on an unpaid order.
+    expect(await notifications.getJob(`seller-new-${placed.id}`)).toBeUndefined();
+    // Instant-pay shops don't need a "still waiting for you" reminder either.
+    expect(await notifications.getJob(`seller-waiting-${placed.id}`)).toBeUndefined();
+
+    await service.transition({ orderId: placed.id, to: "paid", actor: "system" });
     const alert = await notifications.getJob(`seller-new-${placed.id}`);
     expect(alert?.data).toMatchObject({ kind: "seller.new_order", orderId: placed.id });
-    // Instant-pay shops don't need a "still waiting for you" reminder.
-    expect(await notifications.getJob(`seller-waiting-${placed.id}`)).toBeUndefined();
     await alert?.remove();
   });
 

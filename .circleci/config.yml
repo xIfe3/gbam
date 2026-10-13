@@ -50,8 +50,18 @@ jobs:
       - run:
           name: Create .env from the example (every integration in fake mode)
           # The tests read ../../.env and fail if it's missing. The example has no real keys,
-          # so Paystack, WhatsApp, email and photos all use their fakes.
-          command: cp .env.example .env
+          # so Paystack, WhatsApp, email and photos all use their fakes. Its database port is
+          # your machine's (5433); CI's Postgres is on 5432, so that's swapped in. (The
+          # environment variables above don't reach the tests: Turbo only passes variables
+          # it's told about to each task, so the .env file is what the tests actually read.)
+          command: |
+            cp .env.example .env
+            sed -i 's#localhost:5433#localhost:5432#' .env
+            # The admin sign-in tests need an encryption key; a fresh random one each run
+            # (only for this throwaway test database, never a real one).
+            sed -i "s#^ADMIN_TOTP_KEY=\$#ADMIN_TOTP_KEY=$(openssl rand -base64 32)#" .env
+            grep DATABASE_URL .env
+            grep -c '^ADMIN_TOTP_KEY=.\+' .env
 
       - run:
           name: Wait for Postgres and Redis to start
@@ -61,9 +71,17 @@ jobs:
           name: Create the database tables
           command: pnpm db:migrate
 
+      # Two steps, so a failure says which part broke. --continue = keep going after a
+      # failure, so one run shows every failure instead of stopping at the first.
       - run:
-          name: Build, typecheck, lint and test
-          command: pnpm turbo run build typecheck lint test
+          name: Build, typecheck and lint
+          command: pnpm turbo run build typecheck lint --continue
+
+      # --concurrency=1 = one package's tests at a time. The web and API suites each use
+      # every CPU; running both at once made tests time out on CircleCI.
+      - run:
+          name: Test
+          command: pnpm turbo run test --continue --concurrency=1
 
 workflows:
   check:

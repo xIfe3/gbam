@@ -157,17 +157,41 @@ export class OrdersService {
 
   /**
    * Tells the seller about a new order on WhatsApp, which they check far more often than
-   * email. A shop that checks each order first also gets a reminder 30 minutes later, if the
-   * order is still waiting for them. A queue failure is logged: the order itself is fine.
+   * email. When it happens depends on the shop:
+   * - instant pay (most shops): when the order is PAID (see alertSellerOrderPaid), so the
+   *   seller never starts cooking an order nobody has paid for;
+   * - shops that check each order first: as soon as it's placed (they have to act on it),
+   *   plus a reminder 30 minutes later if it's still waiting for them.
+   * A queue failure is logged: the order itself is fine.
    */
   private async alertSellerOnWhatsApp(orderId: string, approveOrdersFirst: boolean) {
+    if (!approveOrdersFirst) {
+      return;
+    }
     try {
       await this.notifications.sellerNewOrder(orderId);
-      if (approveOrdersFirst) {
-        await this.notifications.sellerOrderWaiting(orderId);
-      }
+      await this.notifications.sellerOrderWaiting(orderId);
     } catch (error) {
       this.logger.error(`Could not queue the seller's WhatsApp alert for order ${orderId}`, error);
+    }
+  }
+
+  /** An instant-pay shop's order was just paid: now tell the seller on WhatsApp. */
+  private async alertSellerOrderPaid(orderId: string) {
+    try {
+      const rows = await this.db
+        .select({ approveOrdersFirst: sellers.approveOrdersFirst })
+        .from(orders)
+        .innerJoin(sellers, eq(sellers.id, orders.sellerId))
+        .where(eq(orders.id, orderId));
+      const shop = rows[0];
+      // Shops that check orders first were already alerted when the order was placed.
+      if (!shop || shop.approveOrdersFirst) {
+        return;
+      }
+      await this.notifications.sellerNewOrder(orderId);
+    } catch (error) {
+      this.logger.error(`Could not queue the seller's paid-order alert for ${orderId}`, error);
     }
   }
 
@@ -462,6 +486,9 @@ export class OrdersService {
 
     // Only after the transaction has committed: queue the WhatsApp message and emails.
     await this.notify(result.eventId, { orderId, from: result.from, to });
+    if (to === "paid") {
+      await this.alertSellerOrderPaid(orderId);
+    }
     await this.emailAfterStatusChange(orderId, to, result.eventId);
     return result.order;
   }

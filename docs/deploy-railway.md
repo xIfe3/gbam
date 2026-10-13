@@ -173,6 +173,17 @@ Every push runs `.circleci/config.yml` on CircleCI: install, migrate a fresh dat
    and skips the deploy if one fails. Check this once: push a commit, and the Railway
    deployment should say it's waiting for CI before it builds.
 
+**Working on branches.** Push changes to a branch (e.g. `fix/...`), open a pull request to
+`main`, and let CircleCI run on it. In GitHub → Settings → Branches → add a rule for `main`:
+**Require status checks to pass** (pick the CircleCI check) and **Require a pull request**.
+Then a red run can't be merged, and only `main` deploys to Railway.
+
+**Behind Cloudflare.** If gbam.zephra.dev goes through Cloudflare's proxy (orange cloud),
+set `TRUSTED_PROXY_HOPS=2` on the **web** service: Cloudflare and Railway each add an entry
+to X-Forwarded-For, and with the default of 1 every visitor looks like a Cloudflare address
+(so they all share one rate limit). Check it after a deploy: sign in once, then in the
+database `select ip from sessions order by created_at desc limit 1;` should be your own IP.
+
 ## Step 9: An alarm for the worker
 
 `GET https://api.gbam.app/health/worker` answers 503 when the worker hasn't checked in for 2

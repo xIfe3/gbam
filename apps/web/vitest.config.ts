@@ -9,6 +9,9 @@ export default defineConfig({
     alias: { "@": fileURLToPath(new URL("./", import.meta.url)) },
   },
   test: {
+    // 15 seconds per test (the default is 5): on a busy machine, like CI running everything
+    // at once, rendering a big page can take longer than 5 seconds without anything wrong.
+    testTimeout: 15_000,
     // Two "projects" (groups of test files with their own settings), run together.
     // `extends: true` means each also gets the plugins and alias above.
     projects: [
