@@ -97,7 +97,10 @@ describe("product page", () => {
     render(await ProductPage(props));
     const header = screen.getByRole("banner");
     expect(header).toHaveTextContent("Ada Bakes");
-    expect(header).toHaveTextContent("Orders via WhatsApp");
+    // Short enough to fit on a phone without being cut off.
+    expect(header).toHaveTextContent("Secured by Paystack");
+    // Same two-letter initials as the shop page's logo.
+    expect(header).toHaveTextContent("AB");
     expect(screen.getByRole("link", { name: "Ada Bakes" })).toHaveAttribute("href", "/ada");
     expect(screen.getByRole("link", { name: /Your order/ })).toHaveAttribute("href", "/ada/order");
   });

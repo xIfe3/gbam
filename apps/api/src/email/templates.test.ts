@@ -120,6 +120,60 @@ describe("renderEmail", () => {
     expect(email.text).toContain("Turn them off");
   });
 
+  it("the new-order email has everything the seller needs to act on it", () => {
+    const email = renderEmail({
+      kind: "new_order",
+      to: "owner@example.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      customerName: "Ada",
+      customerPhone: "2348031234567",
+      items: [
+        { name: "Jollof Rice (large)", quantity: 2, lineTotalKobo: 700_000 },
+        { name: "Chapman", quantity: 1, lineTotalKobo: 200_000 },
+      ],
+      deliveryAddress: "12 Admiralty Way",
+      deliveryLandmark: "Opposite the bank",
+      note: "No pepper please",
+      waitingFor: "payment",
+      subtotalKobo: 900_000,
+      deliveryFeeKobo: 150_000,
+      deliveryLabel: "Lekki",
+      totalKobo: 1_050_000,
+      orderUrl: "https://gbam.app/dashboard/orders/1",
+      settingsUrl: "https://gbam.app/dashboard/settings",
+    });
+    for (const part of [email.text, email.html]) {
+      expect(part).toContain("2 × Jollof Rice (large)");
+      expect(part).toContain("₦7,000");
+      expect(part).toContain("1 × Chapman");
+      expect(part).toContain("+2348031234567");
+      expect(part).toContain("12 Admiralty Way");
+      expect(part).toContain("Opposite the bank");
+      expect(part).toContain("No pepper please");
+      // So the seller doesn't start on an order nobody has paid for yet.
+      expect(part).toContain("Waiting for Ada to pay");
+    }
+  });
+
+  it("a shop that checks orders first is told to check, then request payment", () => {
+    const email = renderEmail({
+      kind: "new_order",
+      to: "owner@example.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      customerName: "Ada",
+      waitingFor: "seller",
+      subtotalKobo: 500_000,
+      deliveryFeeKobo: 0,
+      deliveryLabel: null,
+      totalKobo: 500_000,
+      orderUrl: "https://gbam.app/dashboard/orders/1",
+      settingsUrl: "https://gbam.app/dashboard/settings",
+    });
+    expect(email.text).toContain("Check the order, then tap Request payment");
+  });
+
   it("receipt shows delivery line", () => {
     const email = renderEmail({
       kind: "order_receipt",
