@@ -50,11 +50,23 @@ export function SlugField({ value, onChange, error, check = checkSlugAction }: S
     };
   }, [value, check]);
 
+  // The line's colour: green = free, red = can't use it, grey = still checking (or the
+  // check itself failed). Colour alone isn't enough for everyone, so ✓ / ✗ go with it.
   let message = "Checking…";
-  let isGood = false;
+  let tone: "good" | "bad" | "neutral" = "neutral";
   if (checked !== null && checked.slug === value) {
     message = MESSAGES[checked.status];
-    isGood = checked.status === "available";
+    if (checked.status === "available") {
+      tone = "good";
+    } else if (checked.status !== "error") {
+      tone = "bad";
+    }
+  }
+  let colour = "text-ink-muted";
+  if (tone === "good") {
+    colour = "text-brand-hover";
+  } else if (tone === "bad") {
+    colour = "text-coral-deep";
   }
 
   return (
@@ -72,13 +84,11 @@ export function SlugField({ value, onChange, error, check = checkSlugAction }: S
         error={error}
       />
       {/* Always rendered so screen readers hear changes (role=status is polite). */}
-      <p
-        role="status"
-        className={`text-sm font-medium ${isGood ? "text-brand-hover" : "text-ink-muted"}`}
-      >
+      <p role="status" className={`text-sm font-medium ${colour}`}>
         {value.length > 0 && !error && (
           <>
-            {isGood && <span aria-hidden="true">✓ </span>}
+            {tone === "good" && <span aria-hidden="true">✓ </span>}
+            {tone === "bad" && <span aria-hidden="true">✗ </span>}
             {SITE_HOST}/{value}
             {message && ` · ${message}`}
           </>
