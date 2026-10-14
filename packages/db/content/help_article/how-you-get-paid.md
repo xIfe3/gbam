@@ -18,7 +18,7 @@ You receive what is left. Your order page shows the fees for each payment.
 
 ## When the money arrives
 
-Payout timing follows Paystack's settlement schedule for your account, not Gbam. If a payout looks late, email support@gbam.app with the order code and we will help you check.
+Paystack, not Gbam, pays you out: your share reaches your bank account the next working day after the customer pays (a payment on Friday evening or the weekend arrives on Monday). While Paystack is still verifying an account, it can hold payouts until that's done. If a payout looks late, email support@gbam.app with the order code and we will help you check.
 
 ## Changing your bank account
 

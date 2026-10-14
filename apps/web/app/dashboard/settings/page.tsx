@@ -1,3 +1,4 @@
+import { PAYOUT_TIMING } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { unstable_rethrow } from "next/navigation";
@@ -103,7 +104,7 @@ export default async function SettingsPage(props: PageProps<"/dashboard/settings
             <p className="text-sm text-zinc-600">
               Payments go to <strong>{settings.payoutAccount.bankAccountName}</strong>,{" "}
               {settings.payoutAccount.bankName}, account ending{" "}
-              {settings.payoutAccount.accountLast4}.
+              {settings.payoutAccount.accountLast4}. {PAYOUT_TIMING}
             </p>
             {/* <details>: a built-in show/hide, so the form stays out of the way until needed. */}
             <details className="rounded-lg border border-zinc-200 p-4">

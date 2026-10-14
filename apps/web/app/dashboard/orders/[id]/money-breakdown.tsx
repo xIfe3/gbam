@@ -1,4 +1,4 @@
-import { estimatePaystackFee, formatNaira } from "@gbam/shared";
+import { estimatePaystackFee, formatNaira, PAYOUT_TIMING } from "@gbam/shared";
 import type { OrderDetail } from "@/lib/api";
 
 /**
@@ -55,6 +55,8 @@ export function MoneyBreakdown({ payments }: { payments: OrderDetail["payments"]
           <dd className="tabular-nums">{formatNaira(sellerReceives)}</dd>
         </div>
       </dl>
+      {/* So a seller who sees "Paid" but nothing in their bank yet knows it's on its way. */}
+      {isPaid && <p className="mt-2 text-xs text-zinc-500">{PAYOUT_TIMING}</p>}
     </section>
   );
 }

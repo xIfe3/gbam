@@ -1,3 +1,4 @@
+import { PAYOUT_TIMING } from "@gbam/shared";
 import type { Metadata } from "next";
 import { redirect, unstable_rethrow } from "next/navigation";
 import { Button } from "@/components/brand/button";
@@ -44,7 +45,7 @@ export default async function GetPaidPage() {
     <SignupFrame
       step={4}
       title="Get paid"
-      subtitle="Where should we send your money? Customers pay through Paystack, and your share goes straight to this account."
+      subtitle={`Where should we send your money? Customers pay through Paystack, and your share goes straight to this account. ${PAYOUT_TIMING}`}
     >
       {banks === null && (
         <div className="flex flex-col items-start gap-4">

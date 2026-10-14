@@ -55,3 +55,11 @@ export function estimatePaystackFee(totalKobo: number): number {
   }
   return fee;
 }
+
+/**
+ * When a seller's money reaches their bank. Paystack, not gbam, pays sellers out, on its own
+ * schedule (for Nigerian accounts: the next working day). Shown wherever a seller sees a
+ * payment, so "paid" never looks like "missing money".
+ */
+export const PAYOUT_TIMING =
+  "Paystack sends your share to your bank account the next working day after the customer pays.";
