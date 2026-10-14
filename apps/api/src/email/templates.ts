@@ -1,4 +1,4 @@
-import { formatNaira } from "@gbam/shared";
+import { formatNaira, PAYOUT_TIMING } from "@gbam/shared";
 import type { SendEmailInput } from "@gbam/integrations";
 import { renderBody } from "./announcement-body.js";
 
@@ -639,7 +639,7 @@ function paymentReceivedEmail(
   const text = [
     `${job.customerName} paid ${total} for order ${job.code}.`,
     ``,
-    `Paystack sends the money to your bank account. Time to get the order ready.`,
+    `${PAYOUT_TIMING} Time to get the order ready.`,
     ``,
     `Open the order: ${job.orderUrl}`,
   ].join("\n");
@@ -648,7 +648,7 @@ function paymentReceivedEmail(
       `${strong(escapeHtml(job.customerName))} paid ${strong(escapeHtml(total))} for order:`,
     ),
     codeBox(job.code),
-    paragraph(`Paystack sends the money to your bank account. Time to get the order ready.`),
+    paragraph(`${PAYOUT_TIMING} Time to get the order ready.`),
     button(job.orderUrl, "Open the order"),
   ].join("\n");
   return {

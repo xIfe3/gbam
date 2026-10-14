@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { renderEmail } from "./templates.js";
+import { PAYOUT_TIMING } from "@gbam/shared";
 
 describe("renderEmail", () => {
   it("renders the verification email", () => {
@@ -53,6 +54,20 @@ describe("renderEmail", () => {
     expect(email.subject).toContain("NEEDS REFUND");
     expect(email.text).toContain("gbam_GB-7K2Q_abcd");
     expect(email.html).toContain("Ada&#39;s Kitchen");
+  });
+
+  it("tells the seller when the money reaches their bank", () => {
+    const email = renderEmail({
+      kind: "payment_received",
+      to: "owner@example.com",
+      shopName: "Shop",
+      code: "GB-7K2Q",
+      customerName: "Ada",
+      totalKobo: 500_000,
+      orderUrl: "https://gbam.app/dashboard/orders/1",
+    });
+    expect(email.text).toContain(PAYOUT_TIMING);
+    expect(email.html).toContain(PAYOUT_TIMING);
   });
 
   it("escapes the customer's name in the seller's payment email", () => {
