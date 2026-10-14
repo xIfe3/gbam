@@ -2,6 +2,7 @@
 /* eslint-disable @next/next/no-img-element -- shop logos and banners are small WebP files from our own storage */
 
 import Link from "next/link";
+import { shopInitials } from "@/components/shop/shop-cover";
 import { basketTotals, useBasket } from "@/lib/basket";
 
 /**
@@ -19,10 +20,6 @@ export function ShopHeader({
 }) {
   const basket = useBasket(shopSlug);
   const { itemCount } = basketTotals(basket.lines);
-  let initial = "?";
-  if (businessName.trim() !== "") {
-    initial = businessName.trim().charAt(0).toUpperCase();
-  }
 
   return (
     <header className="bg-brand-tint">
@@ -37,9 +34,9 @@ export function ShopHeader({
         {!logoUrl && (
           <span
             aria-hidden="true"
-            className="bg-brand font-display flex size-10 shrink-0 items-center justify-center rounded-full text-lg font-black text-white"
+            className="bg-brand font-display flex size-10 shrink-0 items-center justify-center rounded-full text-sm font-black text-white"
           >
-            {initial}
+            {shopInitials(businessName)}
           </span>
         )}
         <div className="min-w-0 flex-1">
@@ -49,14 +46,15 @@ export function ShopHeader({
           >
             {businessName}
           </Link>
-          <p className="text-ink-muted truncate text-xs">Orders via WhatsApp · Pay with Paystack</p>
+          <p className="text-ink-muted truncate text-xs">Secured by Paystack</p>
         </div>
         <Link
           href={`/${shopSlug}/order`}
           className="border-brand text-ink hover:bg-white focus-visible:outline-brand inline-flex min-h-11 shrink-0 items-center gap-1.5 rounded-full border-2 bg-white/70 px-4 text-sm font-bold focus-visible:outline-2 focus-visible:outline-offset-2"
         >
           <span aria-hidden="true">🧺</span>
-          Your order ({itemCount})
+          {/* On a phone just the count shows; the words stay for screen readers. */}
+          <span className="sr-only sm:not-sr-only">Your order</span> ({itemCount})
         </Link>
       </div>
     </header>

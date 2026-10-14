@@ -220,7 +220,7 @@ export class OrdersService {
         if (input.customer.email) {
           await this.sendReceipt(order, input.customer.email);
         }
-        await this.emailSellerNewOrder(order.id);
+        await this.emailSellerNewOrder(order.id, created.approveOrdersFirst);
         await this.alertSellerOnWhatsApp(order.id, created.approveOrdersFirst);
         return order;
       } catch (error) {
@@ -517,6 +517,10 @@ export class OrdersService {
         trackingKey: orders.trackingKey,
         customerEmail: orders.customerEmail,
         customerName: customers.name,
+        customerPhone: customers.phone,
+        deliveryAddress: orders.deliveryAddress,
+        deliveryLandmark: orders.deliveryLandmark,
+        note: orders.note,
         shopName: sellers.businessName,
         slug: sellers.slug,
         newOrderEmails: sellers.newOrderEmails,
@@ -553,6 +557,28 @@ export class OrdersService {
     return { label: paymentMethodLabel(payment.method, payment.raw), reference: payment.reference };
   }
 
+  /** The order's lines for an email: "Jollof Rice – Large" × 2 and their total. */
+  private async emailItems(orderId: string) {
+    const rows = await this.db
+      .select({
+        productName: orderItems.productName,
+        variantTitle: orderItems.variantTitle,
+        unitPriceKobo: orderItems.unitPriceKobo,
+        quantity: orderItems.quantity,
+      })
+      .from(orderItems)
+      .where(eq(orderItems.orderId, orderId));
+    const items: { name: string; quantity: number; lineTotalKobo: number }[] = [];
+    for (const row of rows) {
+      items.push({
+        name: variantDisplayName(row.productName, row.variantTitle),
+        quantity: row.quantity,
+        lineTotalKobo: row.unitPriceKobo * row.quantity,
+      });
+    }
+    return items;
+  }
+
   /** Queues one email; logs instead of throwing if the queue can't take it. */
   private async queueEmail(jobId: string, job: EmailJob) {
     try {
@@ -567,11 +593,17 @@ export class OrdersService {
   }
 
   /** "New order" to the seller, unless they turned these off in Settings. */
-  private async emailSellerNewOrder(orderId: string) {
+  private async emailSellerNewOrder(orderId: string, approveOrdersFirst: boolean) {
     try {
       const details = await this.loadEmailDetails(orderId);
       if (!details || !details.ownerEmail || !details.newOrderEmails) {
         return;
+      }
+      // Who acts next: shops that check orders first must tap Request payment; for everyone
+      // else the customer was already asked to pay.
+      let waitingFor: "payment" | "seller" = "payment";
+      if (approveOrdersFirst) {
+        waitingFor = "seller";
       }
       await this.queueEmail(`new-order-${orderId}`, {
         kind: "new_order",
@@ -579,6 +611,12 @@ export class OrdersService {
         shopName: details.shopName,
         code: details.code,
         customerName: details.customerName,
+        customerPhone: details.customerPhone,
+        items: await this.emailItems(orderId),
+        deliveryAddress: details.deliveryAddress,
+        deliveryLandmark: details.deliveryLandmark,
+        note: details.note,
+        waitingFor,
         subtotalKobo: details.subtotalKobo,
         deliveryFeeKobo: details.deliveryFeeKobo,
         deliveryLabel: details.deliveryZoneName,

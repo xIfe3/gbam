@@ -460,6 +460,15 @@ describe("OrdersService emails (integration)", () => {
 
     const job = await emailQueue.getJob(`new-order-${order.id}`);
     expect(job?.data).toMatchObject({ kind: "new_order", to: ownerEmail, code: order.code });
+    // Everything the seller needs to act without opening the dashboard.
+    expect(job?.data).toMatchObject({
+      customerPhone: "2348011112222",
+      deliveryAddress: TEST_DELIVERY.address,
+      // Test shops check each order first (see createTestSeller).
+      waitingFor: "seller",
+    });
+    expect(job?.data.items).toHaveLength(1);
+    expect(job?.data.items[0]).toMatchObject({ quantity: 1 });
   });
 
   it("sends no new-order email when the owner turned them off", async () => {

@@ -113,7 +113,7 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
             description="Check back soon, or message the seller on WhatsApp."
           />
         ) : (
-          <ul className="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4">
+          <ul className="grid grid-cols-2 gap-3 sm:gap-4 md:grid-cols-3 lg:grid-cols-4">
             {products.map((product) => {
               let price = formatNaira(product.minPriceKobo);
               if (product.minPriceKobo !== product.maxPriceKobo) {
@@ -123,9 +123,9 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
                 <li key={product.slug}>
                   <Link
                     href={`/${store.slug}/${product.slug}`}
-                    className="focus-visible:outline-brand block rounded-2xl focus-visible:outline-2 focus-visible:outline-offset-2"
+                    className="border-brand-tint hover:border-brand focus-visible:outline-brand block h-full overflow-hidden rounded-2xl border-2 bg-white transition-colors focus-visible:outline-2 focus-visible:outline-offset-2"
                   >
-                    <div className="bg-blush relative aspect-square overflow-hidden rounded-2xl">
+                    <div className="bg-blush relative aspect-square">
                       {product.photoUrl && (
                         // eslint-disable-next-line @next/next/no-img-element
                         <img
@@ -137,14 +137,27 @@ export default async function StorefrontPage(props: PageProps<"/[slug]">) {
                           className="size-full object-cover"
                         />
                       )}
+                      {!product.photoUrl && (
+                        // No photo yet: a soft placeholder instead of an empty box.
+                        <span
+                          aria-hidden="true"
+                          className="flex size-full items-center justify-center text-4xl"
+                        >
+                          🛍️
+                        </span>
+                      )}
                       {product.soldOut && (
                         <span className="text-ink absolute top-2 left-2 rounded-full bg-white px-3 py-1 text-xs font-bold">
                           Sold out
                         </span>
                       )}
                     </div>
-                    <h2 className="text-ink mt-2 font-bold">{product.name}</h2>
-                    <p className="text-ink-muted">{price}</p>
+                    <div className="p-3">
+                      <h2 className="text-ink line-clamp-2 leading-snug font-bold">
+                        {product.name}
+                      </h2>
+                      <p className="text-brand-hover mt-1 font-bold">{price}</p>
+                    </div>
                   </Link>
                 </li>
               );

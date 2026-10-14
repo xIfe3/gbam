@@ -162,6 +162,16 @@ export type EmailJob =
       shopName: string;
       code: string;
       customerName: string;
+      /** The fields below are optional so jobs queued before they existed still send. */
+      customerPhone?: string;
+      /** What was ordered: "Jollof Rice (large)" × 2 = ₦7,000. */
+      items?: { name: string; quantity: number; lineTotalKobo: number }[];
+      deliveryAddress?: string | null;
+      deliveryLandmark?: string | null;
+      /** The customer's note to the shop. */
+      note?: string | null;
+      /** Who acts next: the customer pays (instant pay), or the seller checks it first. */
+      waitingFor?: "payment" | "seller";
       subtotalKobo: number;
       deliveryFeeKobo: number;
       /** Zone name, "Pickup", or null when the shop had no delivery zones. */
@@ -834,37 +844,89 @@ function contactAutoReplyEmail(
 /** To the seller: a new order came in (they can turn these off in Settings). */
 function newOrderEmail(job: Extract<EmailJob, { kind: "new_order" }>): SendEmailInput {
   const total = formatNaira(job.totalKobo);
-  const breakdownText: string[] = [];
-  const breakdownHtml: string[] = [];
-  const amounts = amountsLine(job);
-  if (amounts !== null) {
-    breakdownText.push(amounts);
-    breakdownHtml.push(paragraph(escapeHtml(amounts)));
+
+  // What happens next, so the seller never starts on an order nobody has paid for.
+  let nextStep: string | null = null;
+  if (job.waitingFor === "payment") {
+    nextStep = `Waiting for ${job.customerName} to pay. You'll get another email (and a WhatsApp message) when they do, so wait for that before you start.`;
+  } else if (job.waitingFor === "seller") {
+    nextStep = `Check the order, then tap Request payment so ${job.customerName} can pay.`;
   }
-  const text = [
-    `New order from ${job.customerName}: ${total}.`,
-    ``,
-    `Order code: ${job.code}`,
-    ...breakdownText,
+
+  // One line per item: "2 × Jollof Rice (large) · ₦7,000".
+  const itemLines: string[] = [];
+  for (const item of job.items ?? []) {
+    itemLines.push(`${item.quantity} × ${item.name} · ${formatNaira(item.lineTotalKobo)}`);
+  }
+
+  // Who and where: everything needed to deliver, without opening the dashboard.
+  const customerLines: string[] = [`Customer: ${job.customerName}`];
+  if (job.customerPhone) {
+    customerLines.push(`WhatsApp: +${job.customerPhone}`);
+  }
+  if (job.deliveryAddress) {
+    customerLines.push(`Address: ${job.deliveryAddress}`);
+  }
+  if (job.deliveryLandmark) {
+    customerLines.push(`Landmark: ${job.deliveryLandmark}`);
+  }
+  if (job.note) {
+    customerLines.push(`Note: ${job.note}`);
+  }
+
+  const amounts = amountsLine(job);
+
+  const text: string[] = [`New order from ${job.customerName}: ${total}.`, ``];
+  if (nextStep !== null) {
+    text.push(nextStep, ``);
+  }
+  text.push(`Order code: ${job.code}`);
+  if (itemLines.length > 0) {
+    text.push(``, ...itemLines);
+  }
+  if (amounts !== null) {
+    text.push(amounts);
+  }
+  text.push(``, ...customerLines);
+  text.push(
     ``,
     `Open the order: ${job.orderUrl}`,
     ``,
     `Don't want these emails? Turn them off in Settings: ${job.settingsUrl}`,
-  ].join("\n");
+  );
+
   const settingsLink = `<a href="${escapeHtml(job.settingsUrl)}" style="color: ${INK_SUBTLE}">Settings</a>`;
   const customer = strong(escapeHtml(job.customerName));
-  const content = [
+  const content: string[] = [
     paragraph(`New order from ${customer}: ${strong(escapeHtml(total))}.`),
-    codeBox(job.code),
-    ...breakdownHtml,
-    button(job.orderUrl, "Open the order"),
-    smallPrint(`Don't want these emails? Turn them off in ${settingsLink}.`),
-  ].join("\n");
+  ];
+  if (nextStep !== null) {
+    content.push(paragraph(strong(escapeHtml(nextStep))));
+  }
+  content.push(codeBox(job.code));
+  if (itemLines.length > 0) {
+    const escaped: string[] = [];
+    for (const line of itemLines) {
+      escaped.push(escapeHtml(line));
+    }
+    content.push(paragraph(escaped.join("<br>")));
+  }
+  if (amounts !== null) {
+    content.push(smallPrint(escapeHtml(amounts)));
+  }
+  const escapedCustomer: string[] = [];
+  for (const line of customerLines) {
+    escapedCustomer.push(escapeHtml(line));
+  }
+  content.push(paragraph(escapedCustomer.join("<br>")));
+  content.push(button(job.orderUrl, "Open the order"));
+  content.push(smallPrint(`Don't want these emails? Turn them off in ${settingsLink}.`));
+
   return {
     to: job.to,
     subject: `New order ${job.code} (${total})`,
-    text,
-    html: emailLayout(content),
+    text: text.join("\n"),
+    html: emailLayout(content.join("\n")),
   };
 }
 

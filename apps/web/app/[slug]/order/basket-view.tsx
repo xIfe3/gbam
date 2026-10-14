@@ -192,43 +192,48 @@ export function BasketView({ shopSlug, businessName, delivery }: Props) {
       trackClasses = smallButtonClasses;
     }
     return (
-      <section className="bg-brand-tint rounded-2xl p-6 text-center">
-        <p className="text-brand-hover text-sm font-bold">Order placed</p>
-        <p className="text-ink-muted mt-2 text-sm">Your order code</p>
-        <p className="font-display text-ink my-1 text-5xl font-black tracking-wider">
+      <section className="border-brand-tint rounded-2xl border-2 bg-white p-5 text-center sm:p-8">
+        <p className="text-brand-hover text-sm font-bold">✓ Order placed</p>
+        <p className="text-ink-muted mt-3 text-xs tracking-wide uppercase">Your order code</p>
+        <p className="font-display text-ink mt-1 text-4xl font-black tracking-wider sm:text-5xl">
           {state.code}
         </p>
+
         {state.payNow && (
-          <>
-            <p className="text-ink-muted">
-              Total {formatNaira(state.totalKobo)}. Pay now by bank transfer, USSD or card.
-            </p>
+          <div className="mt-5">
             <Link
               href={payPath}
-              className="bg-brand hover:bg-brand-hover focus-visible:outline-brand mt-4 inline-flex min-h-12 items-center rounded-full px-7 text-base font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="bg-brand hover:bg-brand-hover focus-visible:outline-brand inline-flex min-h-14 w-full items-center justify-center rounded-full px-7 text-lg font-bold text-white focus-visible:outline-2 focus-visible:outline-offset-2 sm:w-auto"
             >
               Pay {formatNaira(state.totalKobo)} now
             </Link>
-          </>
+            <p className="text-ink-muted mt-2 text-xs">
+              Bank transfer, USSD or card · Secured by Paystack
+            </p>
+          </div>
         )}
         {!state.payNow && (
-          <p className="text-ink-muted">
+          <p className="text-ink-muted mt-4">
             Total {formatNaira(state.totalKobo)}. {businessName} will check your order, then send
             you a payment link on WhatsApp.
           </p>
         )}
-        <div className="mt-5 flex flex-wrap items-center justify-center gap-2">
-          <Link href={trackingPath} className={trackClasses}>
-            Track this order
-          </Link>
-          <CopyLinkButton url={`${SITE_URL}${trackingPath}`} label="Copy tracking link" />
+
+        {/* The quieter part: ways back to this order later. */}
+        <div className="border-brand-tint mt-6 border-t pt-4">
+          <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
+            <Link href={trackingPath} className={trackClasses}>
+              Track this order
+            </Link>
+            <CopyLinkButton url={`${SITE_URL}${trackingPath}`} label="Copy tracking link" />
+          </div>
+          <p className="text-ink-muted mt-3 text-xs">
+            📸 Take a screenshot of this code to keep it. You can always find this order at{" "}
+            <strong>{SITE_HOST}/track</strong> on this phone.
+          </p>
         </div>
-        <p className="text-ink-muted mt-4 text-sm">
-          📸 Take a screenshot of this code to keep it. You can always find this order at{" "}
-          <strong>{SITE_HOST}/track</strong> on this phone.
-        </p>
-        <Link href={`/${shopSlug}`} className={`${smallButtonClasses} mt-4`}>
-          Back to {businessName}
+        <Link href={`/${shopSlug}`} className={`${smallButtonClasses} mt-2 text-sm`}>
+          ← Back to {businessName}
         </Link>
       </section>
     );
