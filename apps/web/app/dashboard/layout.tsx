@@ -5,8 +5,10 @@ import { redirect, unstable_rethrow } from "next/navigation";
 import { logoutAction } from "@/app/(auth)/actions";
 import { PendingButton } from "@/components/brand/form-bits";
 import { Logo } from "@/components/brand/logo";
+import { NoticeBanners } from "@/components/dashboard/notice-banners";
+import { NoticeModal } from "@/components/dashboard/notice-modal";
 import { NotificationBell } from "@/components/dashboard/notification-bell";
-import { api, type BellData, type TourStates } from "@/lib/api";
+import { api, type BellData, type Notices, type TourStates } from "@/lib/api";
 import { DashboardNav } from "./dashboard-nav";
 import { PayoutBanner } from "./payout-banner";
 import { SuspendedBanner } from "./suspended-banner";
@@ -46,6 +48,25 @@ export default async function DashboardLayout({ children }: { children: React.Re
   } catch (error) {
     unstable_rethrow(error);
     console.error("loading notifications failed");
+  }
+
+  // Gbam's banners and modals. If they can't load, the dashboard works without them this time.
+  let notices: Notices | null = null;
+  try {
+    notices = await api.notices();
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("loading notices failed");
+  }
+  // One modal at a time, the oldest first. The next shows after this one is acknowledged.
+  let modal = null;
+  let banners: Notices["banners"] = [];
+  if (notices) {
+    const firstModal = notices.modals[0];
+    if (firstModal) {
+      modal = firstModal;
+    }
+    banners = notices.banners;
   }
 
   let shopName = user.email;
@@ -94,7 +115,10 @@ export default async function DashboardLayout({ children }: { children: React.Re
         <DashboardNav />
         {suspended && <SuspendedBanner />}
         {needsPayoutAccount && <PayoutBanner />}
+        <NoticeBanners banners={banners} />
         {children}
+        {/* key: a new modal (the next one) starts fresh instead of reusing the last one's state. */}
+        {modal && <NoticeModal key={modal.id} notice={modal} />}
       </div>
     </ToursProvider>
   );

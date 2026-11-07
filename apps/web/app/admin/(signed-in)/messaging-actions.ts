@@ -209,6 +209,8 @@ export async function sendNotificationAction(
   }
   const input = notificationSchema.safeParse({
     type: text(formData, "type"),
+    // Empty means "not chosen": the schema then uses its default, bell only.
+    display: optionalText(formData, "display"),
     title: text(formData, "title"),
     body: text(formData, "body"),
     link: optionalText(formData, "link"),

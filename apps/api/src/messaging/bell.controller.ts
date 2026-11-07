@@ -55,6 +55,12 @@ export class BellController {
     return this.notifications.page(sellerId, query);
   }
 
+  /** The banners and modals the dashboard shows right now. */
+  @Get("notices")
+  notices(@CurrentSellerId() sellerId: string) {
+    return this.notifications.noticesFor(sellerId);
+  }
+
   @Post("read-all")
   @HttpCode(200)
   readAll(@CurrentSellerId() sellerId: string) {
@@ -85,6 +91,20 @@ export class BellController {
   @HttpCode(200)
   read(@CurrentSellerId() sellerId: string, @Param("id", ParseUUIDPipe) id: string) {
     return this.notifications.markRead(sellerId, id);
+  }
+
+  /** "Got it" on a banner, "I understand" on a modal: it never shows again. */
+  @Post(":id/acknowledge")
+  @HttpCode(200)
+  acknowledge(@CurrentSellerId() sellerId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.notifications.acknowledge(sellerId, id);
+  }
+
+  /** "Hide" on a banner: back the next day. */
+  @Post(":id/hide")
+  @HttpCode(200)
+  hide(@CurrentSellerId() sellerId: string, @Param("id", ParseUUIDPipe) id: string) {
+    return this.notifications.hideBanner(sellerId, id);
   }
 
   @Post(":id/unread")

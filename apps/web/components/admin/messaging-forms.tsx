@@ -1,6 +1,13 @@
 "use client";
 
-import { NOTIFICATION_TYPE_LABELS, NOTIFICATION_TYPES, type Audience } from "@gbam/shared";
+import {
+  NOTIFICATION_DISPLAY_LABELS,
+  NOTIFICATION_DISPLAYS,
+  NOTIFICATION_TYPE_LABELS,
+  NOTIFICATION_TYPES,
+  type Audience,
+  type NotificationDisplay,
+} from "@gbam/shared";
 import { useActionState, useId } from "react";
 import type { FormState } from "@/app/(auth)/action-helpers";
 import { FormError, FormNotice } from "@/components/brand/form-bits";
@@ -282,6 +289,15 @@ export function SendAnnouncementForm({
 }
 
 /** A notification for sellers' dashboard bells. */
+/** One line under each "Show as" choice. Every notification is in the bell too. */
+const DISPLAY_HELP: Record<NotificationDisplay, string> = {
+  bell: "Only in the bell.",
+  banner:
+    "Also a strip at the top of the dashboard. \"Hide\" brings it back the next day; \"Got it\" hides it for good.",
+  modal:
+    "Also a box over the dashboard that can't be closed until the seller taps \"I understand\". For important things only.",
+};
+
 export function NotificationForm({
   action,
   countAction,
@@ -320,6 +336,25 @@ export function NotificationForm({
           ))}
         </select>
       </label>
+      <fieldset className="flex flex-col gap-2">
+        <legend className="mb-1 text-sm font-bold">Show as</legend>
+        {NOTIFICATION_DISPLAYS.map((display) => (
+          <label key={display} className="flex items-start gap-2 text-sm">
+            <input
+              type="radio"
+              name="display"
+              value={display}
+              defaultChecked={display === "bell"}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-bold">{NOTIFICATION_DISPLAY_LABELS[display]}</span>
+              <span className="text-ink-muted block">{DISPLAY_HELP[display]}</span>
+            </span>
+          </label>
+        ))}
+        <FieldError message={fieldErrors.display} />
+      </fieldset>
       <div className="flex flex-col gap-1">
         <label htmlFor={titleId} className="text-sm font-bold">
           Title

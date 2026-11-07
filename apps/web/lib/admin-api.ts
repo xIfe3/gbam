@@ -13,6 +13,7 @@ import type {
   Audience,
   ContentDraft,
   ContentStatus,
+  NotificationDisplay,
   NotificationType,
 } from "@gbam/shared";
 import { redirect } from "next/navigation";
@@ -449,16 +450,20 @@ export type AnnouncementBody = {
 export type NotificationCampaign = {
   id: string;
   type: NotificationType;
+  display: NotificationDisplay;
   title: string;
   body: string;
   link: string | null;
   endsAt: string | null;
   recipientCount: number;
   readCount: number;
+  /** How many tapped "Got it" / "I understand" (banners and modals). */
+  acknowledgedCount: number;
   createdAt: string;
 };
 export type NotificationBody = {
   type: NotificationType;
+  display: NotificationDisplay;
   title: string;
   body: string;
   link?: string;

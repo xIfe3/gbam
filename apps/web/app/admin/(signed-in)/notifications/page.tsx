@@ -1,4 +1,4 @@
-import { NOTIFICATION_TYPE_LABELS } from "@gbam/shared";
+import { NOTIFICATION_DISPLAY_LABELS, NOTIFICATION_TYPE_LABELS } from "@gbam/shared";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ActionButton } from "@/components/admin/action-forms";
@@ -45,7 +45,8 @@ export default async function NotificationsPage(props: { searchParams: SearchPar
         <section className="rounded-xl border border-zinc-200 bg-white p-5">
           <h2 className="mb-1 font-bold">New notification</h2>
           <p className="text-ink-muted mb-4 text-sm">
-            Shows in the bell of each seller&apos;s dashboard. It isn&apos;t emailed.
+            Shows in the bell of each seller&apos;s dashboard, and as a banner or modal if you
+            choose. It isn&apos;t emailed.
           </p>
           <NotificationForm action={sendNotificationAction} countAction={countNotificationAction} />
         </section>
@@ -57,6 +58,7 @@ export default async function NotificationsPage(props: { searchParams: SearchPar
             <tr>
               <th className="p-3">Notification</th>
               <th className="p-3">Type</th>
+              <th className="p-3">Shown as</th>
               <th className="p-3">Read</th>
               <th className="p-3">Sent</th>
               <th className="p-3">
@@ -73,6 +75,14 @@ export default async function NotificationsPage(props: { searchParams: SearchPar
                 </td>
                 <td data-label="Type" className="p-3">
                   {NOTIFICATION_TYPE_LABELS[campaign.type]}
+                </td>
+                <td data-label="Shown as" className="p-3">
+                  {NOTIFICATION_DISPLAY_LABELS[campaign.display]}
+                  {campaign.display !== "bell" && (
+                    <span className="text-ink-muted block">
+                      {campaign.acknowledgedCount} of {campaign.recipientCount} acknowledged
+                    </span>
+                  )}
                 </td>
                 <td data-label="Read" className="p-3">
                   {campaign.readCount} of {campaign.recipientCount}

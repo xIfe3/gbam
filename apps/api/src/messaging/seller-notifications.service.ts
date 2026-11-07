@@ -1,8 +1,9 @@
 import { notificationCampaigns, sellerNotifications, type DbTransaction } from "@gbam/db";
-import type { NotificationType } from "@gbam/shared";
+import { BANNER_HIDE_MS, type NotificationType } from "@gbam/shared";
 import { ConflictException, Injectable, NotFoundException } from "@nestjs/common";
 import {
   and,
+  asc,
   count,
   desc,
   eq,
@@ -11,6 +12,8 @@ import {
   inArray,
   isNotNull,
   isNull,
+  lte,
+  ne,
   or,
   type SQL,
 } from "drizzle-orm";
@@ -214,7 +217,9 @@ export class SellerNotificationsService {
         title: sellerNotifications.title,
         body: sellerNotifications.body,
         link: sellerNotifications.link,
+        display: sellerNotifications.display,
         readAt: sellerNotifications.readAt,
+        acknowledgedAt: sellerNotifications.acknowledgedAt,
         deletedAt: sellerNotifications.deletedAt,
         createdAt: sellerNotifications.createdAt,
       })
@@ -226,6 +231,87 @@ export class SellerNotificationsService {
       throw new NotFoundException("No such notification");
     }
     return row;
+  }
+
+  /**
+   * The banners and modals to show on the dashboard right now, oldest first: not
+   * acknowledged, not ended, not from a binned campaign, and (banners) not hidden for the day.
+   * The seller's own trash doesn't count here: only "Got it" / "I understand" ends a notice,
+   * so a modal can't be skipped by trashing it from the bell.
+   */
+  async noticesFor(sellerId: string) {
+    const conditions = this.stillShown(sellerId);
+    conditions.push(ne(sellerNotifications.display, "bell"));
+    conditions.push(isNull(sellerNotifications.acknowledgedAt));
+    const notHidden = or(
+      isNull(sellerNotifications.hiddenUntil),
+      lte(sellerNotifications.hiddenUntil, new Date()),
+    );
+    if (notHidden) {
+      conditions.push(notHidden);
+    }
+    const rows = await this.db
+      .select({
+        id: sellerNotifications.id,
+        type: sellerNotifications.type,
+        display: sellerNotifications.display,
+        title: sellerNotifications.title,
+        body: sellerNotifications.body,
+        link: sellerNotifications.link,
+        createdAt: sellerNotifications.createdAt,
+      })
+      .from(sellerNotifications)
+      .leftJoin(notificationCampaigns, eq(notificationCampaigns.id, sellerNotifications.campaignId))
+      .where(and(...conditions))
+      .orderBy(asc(sellerNotifications.createdAt));
+
+    const modals = [];
+    const banners = [];
+    for (const row of rows) {
+      if (row.display === "modal") {
+        modals.push(row);
+      } else {
+        banners.push(row);
+      }
+    }
+    return { modals, banners };
+  }
+
+  /**
+   * "Got it" / "I understand": the banner or modal never shows again. It counts as read too.
+   * Doing it twice is fine (the first time is kept).
+   */
+  async acknowledge(sellerId: string, notificationId: string) {
+    // one() is "not found" for another shop's notification, so nobody can touch it.
+    const row = await this.one(sellerId, notificationId);
+    const now = new Date();
+    let acknowledgedAt = now;
+    if (row.acknowledgedAt) {
+      acknowledgedAt = row.acknowledgedAt;
+    }
+    let readAt = now;
+    if (row.readAt) {
+      readAt = row.readAt;
+    }
+    await this.db
+      .update(sellerNotifications)
+      .set({ acknowledgedAt, readAt })
+      .where(eq(sellerNotifications.id, row.id));
+    return { ok: true };
+  }
+
+  /** "Hide" on a banner: it comes back a day later. A modal can't be hidden, only acknowledged. */
+  async hideBanner(sellerId: string, notificationId: string) {
+    const row = await this.one(sellerId, notificationId);
+    if (row.display !== "banner") {
+      throw new ConflictException("Only a banner can be hidden");
+    }
+    const hiddenUntil = new Date(Date.now() + BANNER_HIDE_MS);
+    await this.db
+      .update(sellerNotifications)
+      .set({ hiddenUntil })
+      .where(eq(sellerNotifications.id, row.id));
+    return { ok: true, hiddenUntil };
   }
 
   async markUnread(sellerId: string, notificationId: string) {

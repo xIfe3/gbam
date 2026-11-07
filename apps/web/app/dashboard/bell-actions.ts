@@ -15,6 +15,33 @@ export async function markNotificationReadAction(id: string): Promise<void> {
   refresh();
 }
 
+/**
+ * "Got it" on a banner / "I understand" on a modal. Returns false if it didn't save, so the
+ * modal can stay open and say so (it must not vanish without being recorded).
+ */
+export async function acknowledgeNoticeAction(id: string): Promise<boolean> {
+  try {
+    await api.acknowledgeNotice(id);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("acknowledging a notice failed");
+    return false;
+  }
+  refresh();
+  return true;
+}
+
+/** "Hide" on a banner: back the next day. A failure just means it shows again next time. */
+export async function hideBannerAction(id: string): Promise<void> {
+  try {
+    await api.hideBanner(id);
+  } catch (error) {
+    unstable_rethrow(error);
+    console.error("hiding a banner failed");
+  }
+  refresh();
+}
+
 export async function markAllNotificationsReadAction(): Promise<void> {
   try {
     await api.markAllNotificationsRead();
