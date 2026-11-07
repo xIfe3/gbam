@@ -1,5 +1,6 @@
 import {
   ANNOUNCEMENT_STATUSES,
+  NOTIFICATION_DISPLAYS,
   NOTIFICATION_TYPES,
   ORDER_STATUSES,
   TICKET_PRIORITIES,
@@ -898,6 +899,8 @@ export const ticketMessages = pgTable(
 export const announcementStatusEnum = pgEnum("announcement_status", ANNOUNCEMENT_STATUSES);
 export const recipientStatusEnum = pgEnum("recipient_status", ["queued", "sent", "failed"]);
 export const notificationTypeEnum = pgEnum("notification_type", NOTIFICATION_TYPES);
+/** Bell only, or also a banner or a modal in the dashboard (see NOTIFICATION_DISPLAYS). */
+export const notificationDisplayEnum = pgEnum("notification_display", NOTIFICATION_DISPLAYS);
 
 /** An email to sellers ("news and tips"), written by an admin. */
 export const announcements = pgTable("announcements", {
@@ -949,6 +952,7 @@ export const announcementRecipients = pgTable(
 export const notificationCampaigns = pgTable("notification_campaigns", {
   id: id(),
   type: notificationTypeEnum("type").notNull(),
+  display: notificationDisplayEnum("display").notNull().default("bell"),
   title: text("title").notNull(),
   body: text("body").notNull(),
   link: text("link"),
@@ -974,11 +978,16 @@ export const sellerNotifications = pgTable(
       onDelete: "cascade",
     }),
     type: notificationTypeEnum("type").notNull(),
+    display: notificationDisplayEnum("display").notNull().default("bell"),
     title: text("title").notNull(),
     body: text("body").notNull(),
     link: text("link"),
     endsAt: timestamp("ends_at", { withTimezone: true }),
     readAt: timestamp("read_at", { withTimezone: true }),
+    /** The seller tapped "Got it" / "I understand": no banner or modal again. */
+    acknowledgedAt: timestamp("acknowledged_at", { withTimezone: true }),
+    /** The seller tapped "Hide" on the banner: it stays away until this time (a day later). */
+    hiddenUntil: timestamp("hidden_until", { withTimezone: true }),
     /** In the seller's trash: out of the bell, restorable, deleted for good after 30 days. */
     deletedAt: timestamp("deleted_at", { withTimezone: true }),
     createdAt: createdAt(),

@@ -26,16 +26,20 @@ export class NotificationsAdminService {
     }
     // A "subquery" counting how many sellers have opened (read) each one.
     const readCount = sql<number>`(select count(*)::int from ${sellerNotifications} where ${sellerNotifications.campaignId} = ${notificationCampaigns.id} and ${sellerNotifications.readAt} is not null)`;
+    // The same for "Got it" / "I understand" on a banner or modal.
+    const acknowledgedCount = sql<number>`(select count(*)::int from ${sellerNotifications} where ${sellerNotifications.campaignId} = ${notificationCampaigns.id} and ${sellerNotifications.acknowledgedAt} is not null)`;
     return this.db
       .select({
         id: notificationCampaigns.id,
         type: notificationCampaigns.type,
+        display: notificationCampaigns.display,
         title: notificationCampaigns.title,
         body: notificationCampaigns.body,
         link: notificationCampaigns.link,
         endsAt: notificationCampaigns.endsAt,
         recipientCount: notificationCampaigns.recipientCount,
         readCount,
+        acknowledgedCount,
         createdAt: notificationCampaigns.createdAt,
       })
       .from(notificationCampaigns)
@@ -78,6 +82,7 @@ export class NotificationsAdminService {
         .insert(notificationCampaigns)
         .values({
           type: input.type,
+          display: input.display,
           title: input.title,
           body: input.body,
           link,
@@ -99,6 +104,7 @@ export class NotificationsAdminService {
             sellerId: member.sellerId,
             campaignId: campaign.id,
             type: input.type,
+            display: input.display,
             title: input.title,
             body: input.body,
             link,
@@ -113,7 +119,7 @@ export class NotificationsAdminService {
           action: "notification.send",
           targetType: "notification",
           targetId: campaign.id,
-          after: { title: input.title, recipients: members.length },
+          after: { title: input.title, display: input.display, recipients: members.length },
           ip,
         },
         tx,

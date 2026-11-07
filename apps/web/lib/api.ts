@@ -958,6 +958,40 @@ async function markAllNotificationsRead() {
   return request<{ ok: true }>("/bell/read-all", { method: "POST", auth: "session" });
 }
 
+/** One banner or modal the dashboard shows until the seller acknowledges it. */
+export type Notice = {
+  id: string;
+  type: "info" | "warning" | "action";
+  display: "banner" | "modal";
+  title: string;
+  body: string;
+  link: string | null;
+  createdAt: string;
+};
+
+/** The banners and modals to show right now, oldest first. */
+export type Notices = { modals: Notice[]; banners: Notice[] };
+
+async function notices() {
+  return request<Notices>("/bell/notices", { auth: "session" });
+}
+
+/** "Got it" / "I understand": never shown as a banner or modal again. */
+async function acknowledgeNotice(id: string) {
+  return request<{ ok: true }>(`/bell/${encodeURIComponent(id)}/acknowledge`, {
+    method: "POST",
+    auth: "session",
+  });
+}
+
+/** "Hide" on a banner: it comes back the next day. */
+async function hideBanner(id: string) {
+  return request<{ ok: true }>(`/bell/${encodeURIComponent(id)}/hide`, {
+    method: "POST",
+    auth: "session",
+  });
+}
+
 /** One notification on the notifications page; `deletedAt` is set while it's in the trash. */
 export type SellerNotification = BellData["items"][number] & { deletedAt: string | null };
 
@@ -1038,6 +1072,9 @@ export const api = {
   bell,
   markNotificationRead,
   markAllNotificationsRead,
+  notices,
+  acknowledgeNotice,
+  hideBanner,
   notificationsPage,
   notification,
   changeNotification,

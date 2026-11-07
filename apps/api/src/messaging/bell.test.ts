@@ -306,4 +306,144 @@ describe("Notification bell over HTTP (integration)", () => {
     expect(result.json).toEqual({ changed: 0 });
     expect(((await call("GET", "/bell/all", other.authorization)).json as Page).total).toBe(1);
   });
+
+  // Banners and modals: notices shown on the dashboard until the seller acknowledges them.
+  type Notices = {
+    modals: { id: string; title: string }[];
+    banners: { id: string; title: string }[];
+  };
+
+  /** Saves one notification straight into the table, as an admin campaign would. */
+  async function addNotice(
+    sellerId: string,
+    display: "bell" | "banner" | "modal",
+    title: string,
+    extra: { endsAt?: Date; hiddenUntil?: Date; createdAt?: Date } = {},
+  ): Promise<string> {
+    const rows = await db
+      .insert(sellerNotifications)
+      .values({ sellerId, type: "info", display, title, body: "x", ...extra })
+      .returning({ id: sellerNotifications.id });
+    const row = rows[0];
+    if (!row) {
+      throw new Error("notification not saved");
+    }
+    return row.id;
+  }
+
+  async function notices(authorization: string): Promise<Notices> {
+    return (await call("GET", "/bell/notices", authorization)).json as Notices;
+  }
+
+  it("notices: banners and modals to show now, oldest first", async () => {
+    const me = await seller();
+    const other = await seller();
+    await addNotice(me.sellerId, "bell", "Bell only");
+    await addNotice(me.sellerId, "modal", "Second modal", { createdAt: new Date(Date.now() - 1000) });
+    await addNotice(me.sellerId, "modal", "First modal", { createdAt: new Date(Date.now() - 5000) });
+    await addNotice(me.sellerId, "banner", "Banner");
+    await addNotice(me.sellerId, "banner", "Ended", { endsAt: new Date(Date.now() - 60_000) });
+    await addNotice(me.sellerId, "banner", "Hidden today", {
+      hiddenUntil: new Date(Date.now() + 60_000),
+    });
+    await addNotice(me.sellerId, "banner", "Hidden yesterday", {
+      hiddenUntil: new Date(Date.now() - 60_000),
+    });
+    await addNotice(other.sellerId, "modal", "Not mine");
+
+    const result = await notices(me.authorization);
+    expect(result.modals.map((item) => item.title)).toEqual(["First modal", "Second modal"]);
+    expect(result.banners.map((item) => item.title).sort()).toEqual(["Banner", "Hidden yesterday"]);
+    expect((await call("GET", "/bell/notices", "Bearer nope")).status).toBe(401);
+  });
+
+  it("acknowledge: gone for good and marked read; trashing doesn't skip a modal", async () => {
+    const me = await seller();
+    const modalId = await addNotice(me.sellerId, "modal", "Read this");
+    // Trashing it from the bell is not the same as acknowledging it.
+    await call("POST", `/bell/${modalId}/trash`, me.authorization);
+    expect((await notices(me.authorization)).modals).toHaveLength(1);
+
+    expect((await call("POST", `/bell/${modalId}/acknowledge`, me.authorization)).status).toBe(200);
+    expect((await notices(me.authorization)).modals).toEqual([]);
+    const rows = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.id, modalId));
+    const saved = rows[0];
+    if (!saved) {
+      throw new Error("notification missing");
+    }
+    expect(saved.acknowledgedAt).not.toBeNull();
+    expect(saved.readAt).not.toBeNull();
+    // A second tap is fine.
+    expect((await call("POST", `/bell/${modalId}/acknowledge`, me.authorization)).status).toBe(200);
+  });
+
+  it("hide: a banner comes back a day later; a modal can't be hidden", async () => {
+    const me = await seller();
+    const bannerId = await addNotice(me.sellerId, "banner", "Tip");
+    const modalId = await addNotice(me.sellerId, "modal", "Important");
+
+    const hidden = await call("POST", `/bell/${bannerId}/hide`, me.authorization);
+    expect(hidden.status).toBe(200);
+    expect((await notices(me.authorization)).banners).toEqual([]);
+    const rows = await db
+      .select()
+      .from(sellerNotifications)
+      .where(eq(sellerNotifications.id, bannerId));
+    const hiddenUntil = rows[0]?.hiddenUntil;
+    if (!hiddenUntil) {
+      throw new Error("hiddenUntil not set");
+    }
+    const hoursAway = (hiddenUntil.getTime() - Date.now()) / (60 * 60 * 1000);
+    expect(hoursAway).toBeGreaterThan(23.9);
+    expect(hoursAway).toBeLessThanOrEqual(24);
+
+    // A day later (moved back in time here) it shows again.
+    await db
+      .update(sellerNotifications)
+      .set({ hiddenUntil: new Date(Date.now() - 1000) })
+      .where(eq(sellerNotifications.id, bannerId));
+    expect((await notices(me.authorization)).banners).toHaveLength(1);
+
+    expect((await call("POST", `/bell/${modalId}/hide`, me.authorization)).status).toBe(409);
+    expect((await notices(me.authorization)).modals).toHaveLength(1);
+  });
+
+  it("another seller's notice can't be acknowledged or hidden", async () => {
+    const me = await seller();
+    const other = await seller();
+    const theirs = await addNotice(other.sellerId, "banner", "Theirs");
+    expect((await call("POST", `/bell/${theirs}/acknowledge`, me.authorization)).status).toBe(404);
+    expect((await call("POST", `/bell/${theirs}/hide`, me.authorization)).status).toBe(404);
+    expect((await notices(other.authorization)).banners).toHaveLength(1);
+  });
+
+  it("a binned campaign's modal disappears", async () => {
+    const me = await seller();
+    const campaigns = await db
+      .insert(notificationCampaigns)
+      .values({ type: "info", display: "modal", title: "Campaign", body: "x", audience: {} })
+      .returning({ id: notificationCampaigns.id });
+    const campaign = campaigns[0];
+    if (!campaign) {
+      throw new Error("campaign not created");
+    }
+    await db.insert(sellerNotifications).values({
+      sellerId: me.sellerId,
+      campaignId: campaign.id,
+      type: "info",
+      display: "modal",
+      title: "Campaign",
+      body: "x",
+    });
+    expect((await notices(me.authorization)).modals).toHaveLength(1);
+    await db
+      .update(notificationCampaigns)
+      .set({ deletedAt: new Date() })
+      .where(eq(notificationCampaigns.id, campaign.id));
+    expect((await notices(me.authorization)).modals).toEqual([]);
+    await db.delete(notificationCampaigns).where(eq(notificationCampaigns.id, campaign.id));
+  });
 });

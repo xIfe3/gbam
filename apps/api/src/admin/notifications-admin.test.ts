@@ -71,6 +71,7 @@ describe("Admin notifications API (integration)", () => {
 
   const input = (confirmCount: number) => ({
     type: "action",
+    display: "modal",
     title: "Add your bank account",
     body: "Customers can't pay you until you add one.",
     link: "/dashboard/settings",
@@ -108,6 +109,7 @@ describe("Admin notifications API (integration)", () => {
     expect(rows[0]).toMatchObject({
       sellerId: shopId,
       type: "action",
+      display: "modal",
       title: "Add your bank account",
       link: "/dashboard/settings",
     });
@@ -115,8 +117,14 @@ describe("Admin notifications API (integration)", () => {
       id: string;
       recipientCount: number;
       readCount: number;
+      acknowledgedCount: number;
     }[];
-    expect(list.find((row) => row.id === id)).toMatchObject({ recipientCount: 1, readCount: 0 });
+    expect(list.find((row) => row.id === id)).toMatchObject({
+      display: "modal",
+      recipientCount: 1,
+      readCount: 0,
+      acknowledgedCount: 0,
+    });
     const audit = await db.select().from(adminAuditLog).where(eq(adminAuditLog.targetId, id));
     expect(audit.map((entry) => entry.action)).toEqual(["notification.send"]);
   });

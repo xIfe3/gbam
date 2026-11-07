@@ -173,6 +173,7 @@ describe("notification actions", () => {
     );
     expect(adminApiMock.sendNotification).toHaveBeenCalledWith({
       type: "action",
+      display: "bell",
       title: "Add your bank",
       body: "Customers can't pay you yet.",
       link: "/dashboard/settings",
@@ -180,5 +181,28 @@ describe("notification actions", () => {
       confirmCount: 3,
     });
     expect(state.notice).toContain("3 sellers");
+  });
+
+  it("sends the 'Show as' choice (bell when none is picked)", async () => {
+    adminApiMock.sendNotification.mockResolvedValue({ id: "c2" });
+    await sendNotificationAction(
+      {},
+      form({
+        type: "warning",
+        display: "modal",
+        title: "New payout rules",
+        body: "Read this.",
+        endsAt: "",
+        confirmCount: "3",
+      }),
+    );
+    expect(adminApiMock.sendNotification).toHaveBeenCalledWith(
+      expect.objectContaining({ display: "modal" }),
+    );
+    const wrong = await sendNotificationAction(
+      {},
+      form({ type: "info", display: "popup", title: "x", body: "y", endsAt: "", confirmCount: "1" }),
+    );
+    expect(wrong.fieldErrors?.display).toBeDefined();
   });
 });

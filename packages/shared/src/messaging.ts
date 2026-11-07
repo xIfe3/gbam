@@ -20,6 +20,26 @@ export const NOTIFICATION_TYPE_LABELS: Record<NotificationType, string> = {
 };
 
 /**
+ * How a notification shows in the seller dashboard. All of them are in the bell too.
+ * - bell: only in the bell.
+ * - banner: also a strip at the top of the dashboard. "Hide" brings it back the next day;
+ *   "Got it" hides it for good.
+ * - modal: also a box over the dashboard that can't be closed until the seller taps
+ *   "I understand".
+ */
+export const NOTIFICATION_DISPLAYS = ["bell", "banner", "modal"] as const;
+export type NotificationDisplay = (typeof NOTIFICATION_DISPLAYS)[number];
+
+export const NOTIFICATION_DISPLAY_LABELS: Record<NotificationDisplay, string> = {
+  bell: "Bell only",
+  banner: "Banner",
+  modal: "Modal",
+};
+
+/** How long a banner stays away after the seller taps "Hide": one day. */
+export const BANNER_HIDE_MS = 24 * 60 * 60 * 1000;
+
+/**
  * Which sellers a message goes to. Every field narrows it; none at all means every seller.
  * Suspended and closed shops are always left out (that's done where it's resolved).
  */
@@ -65,6 +85,8 @@ export type SendAnnouncementInput = z.output<typeof sendAnnouncementSchema>;
 /** An in-app notification for the bell in the seller dashboard. */
 export const notificationSchema = z.object({
   type: z.enum(NOTIFICATION_TYPES),
+  /** Bell only (the default), or also a banner or a modal. */
+  display: z.enum(NOTIFICATION_DISPLAYS).default("bell"),
   title: z.string().trim().min(1, "Write a title").max(80, "Keep the title under 80 characters"),
   body: z.string().trim().min(1, "Write the text").max(300, "Keep it under 300 characters"),
   /** Optional: a dashboard page it opens, like /dashboard/settings. */
